@@ -325,6 +325,13 @@ namespace AbyssDefense
                 c.Fill(Circle(m, m, r * 0.46f), col);
                 c.Fill(Box(m + r * 0.55f, m, r * 0.4f, 2.5f, 1), lite);
                 c.Fill(Circle(m, m, r * 0.2f), lite);
+                if (u.drain > 0)
+                {
+                    // 체력을 빨아들이는 유닛: 탄 색의 심지와 앞으로 뻗은 두 송곳니
+                    c.Fill(Circle(m, m, r * 0.2f), C(u.bullet.color));
+                    c.Fill(Box(m + r * 0.5f, m + r * 0.22f, r * 0.3f, 2f, 1), lite);
+                    c.Fill(Box(m + r * 0.5f, m - r * 0.22f, r * 0.3f, 2f, 1), lite);
+                }
             }
             else if (shape == "drone" || shape == "transport")
             {

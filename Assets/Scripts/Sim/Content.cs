@@ -70,6 +70,7 @@ namespace AbyssDefense.Sim
         public string shape;             // 그림 종류: mech, air, support, drone, bug, legs, boat, carrier, commander
         public float buildingMul = 1;    // 적 건물에 주는 피해 배수
         public bool suicide;             // 붙어서 터진다 (bullet 의 피해·범위를 쓴다)
+        public float drain;              // 탄이 맞혀서 준 피해의 이 비율만큼 자기 체력을 되찾는다
         public float heal, healRange;    // 둘레의 아군 유닛·건물을 초당 heal 만큼 고친다
         public float shieldRange, shieldMul = 1;   // 둘레 아군이 받는 피해에 곱한다
         public int capacity;             // (수송기) 실을 수 있는 유닛의 한도 합
@@ -257,6 +258,14 @@ namespace AbyssDefense.Sim
             bullet = new BulletDef { speed = 0.24f, damage = 20, lifeTicks = 20, color = 0xFFE066, size = 0.17f },
             cost = new[] { new ItemStack(Steel, 40), new ItemStack(Circuit, 25) }, buildTicks = 18 * 60, supply = 2,
         };
+        public static readonly UnitDef Leech = new UnitDef
+        {
+            key = "leech", name = "흡수 로봇", desc = "벽을 타 넘는 3단계 다리 로봇. 가까이서 쏘아 준 피해의 40% 만큼 스스로를 고친다.",
+            tier = 3, legs = true, shape = "legs", health = 1000, armor = 9, speed = 0.022f, radius = 0.46f, range = 3.2f, reloadTicks = 14, color = 0xD9480F, tech = Research.Tier3,
+            drain = 0.4f,
+            bullet = new BulletDef { speed = 0.40f, damage = 18, lifeTicks = 10, color = 0xDA77F2, size = 0.16f },
+            cost = new[] { new ItemStack(Steel, 50), new ItemStack(Circuit, 40), new ItemStack(Alloy, 25) }, buildTicks = 35 * 60, supply = 3,
+        };
 
         // 조선소 (해상): 호수 안에서만 움직이지만 사거리가 길다
         public static readonly UnitDef Patrol = new UnitDef
@@ -294,7 +303,7 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef[] Units =
         {
             Scout, Assault, Heavy, Siege, Titan, Recon, Bomber, Striker, Warship, Carrier,
-            Mechanic, Guardian, RepairDrone, Transport, Bug, Climber, Patrol, Gunboat, Destroyer, Commander,
+            Mechanic, Guardian, RepairDrone, Transport, Bug, Climber, Leech, Patrol, Gunboat, Destroyer, Commander,
         };
 
         // ───────── 건물 ─────────
@@ -372,10 +381,10 @@ namespace AbyssDefense.Sim
 
         public static readonly BlockDef LegShop = new BlockDef
         {
-            key = "legshop", name = "다리 공방", desc = "자폭 벌레와 벽을 넘는 등반 로봇을 만든다.",
+            key = "legshop", name = "다리 공방", desc = "자폭 벌레와 벽을 넘는 등반·흡수 로봇을 만든다.",
             kind = BlockKind.Factory, size = 2, health = 450, color = 0xF08C00, tech = Research.Legs,
             cost = new[] { new ItemStack(Iron, 100), new ItemStack(Steel, 30), new ItemStack(Powder, 30) },
-            units = new[] { Bug, Climber },
+            units = new[] { Bug, Climber, Leech },
         };
 
         public static readonly BlockDef Shipyard = new BlockDef

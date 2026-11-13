@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 20 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
+        Check(Content.Units.Length == 21 && Content.LegShop.units.Length == 3 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -609,6 +609,26 @@ static class Program
         for (int i = 0; i < 600 && !bug.dead; i++) s2.Tick();
         s2.Tick();
         Check(bug.dead && s2.kills == 3 && s2.units.Count == 0 && s2.unitsLost == 0, $"자폭 벌레가 붙어서 터져 둘레의 적을 함께 잡는다 (처치 {s2.kills})");
+
+        // 흡수 로봇: 준 피해의 일부만큼 체력을 되찾고, 벽을 타 넘는다
+        var s2b = EmptySim(Full, all);
+        s2b.DisableCommander();
+        s2b.Place(Content.LegShop, 3, 20);
+        Finish(s2b);
+        var shop2 = (FactoryBuilding)s2b.world.BuildAt(3, 20);
+        shop2.product = -1; shop2.making = null;   // 공장이 만들던 자폭 벌레가 끼어들지 않게
+        Check(s2b.IsUnlocked(Content.Leech) && !EmptySim(Full, Mods(Research.Legs, 1)).IsUnlocked(Content.Leech) && Content.Leech.legs, "흡수 로봇은 기체 개량 II 를 연구해야 한다");
+        s2b.SpawnUnit(Content.Leech, shop2);
+        var leech = s2b.units[0];
+        leech.health = 300;
+        var prey = new Enemy { def = Content.Walker, x = shop2.rallyX + 2, y = shop2.rallyY, health = 5000, maxHealth = 5000 };
+        s2b.enemies.Add(prey);
+        for (int i = 0; i < 60 * 60 && prey.health > 4500; i++) { s2b.Tick(); prey.cooldown = 99; }
+        float dealt = 5000 - prey.health, gained = leech.health - 300;
+        Check(dealt > 400 && Math.Abs(gained - dealt * Content.Leech.drain) < 1f, $"흡수 로봇은 준 피해의 40% 를 되찾는다 (피해 {dealt:0}, 회복 {gained:0})");
+        leech.health = leech.maxHealth - 1;
+        for (int i = 0; i < 120; i++) { s2b.Tick(); prey.cooldown = 99; }
+        Check(leech.health == leech.maxHealth, "흡수 로봇의 체력은 최대치를 넘지 않는다");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

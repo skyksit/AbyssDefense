@@ -351,7 +351,9 @@ namespace AbyssDefense.Sim
                     {
                         u.reload = d.reloadTicks;
                         float lead = dist / d.bullet.speed;
-                        FireFrom(u.x, u.y, t.x + t.vx * lead, t.y + t.vy * lead, d.bullet, d.bullet.damage * world.mods.unitMul, d.radius).fromUnit = true;
+                        var bl = FireFrom(u.x, u.y, t.x + t.vx * lead, t.y + t.vy * lead, d.bullet, d.bullet.damage * world.mods.unitMul, d.radius);
+                        bl.fromUnit = true;
+                        if (d.drain > 0) bl.owner = u;
                     }
                 }
                 return;
@@ -377,6 +379,7 @@ namespace AbyssDefense.Sim
                         u.reload = d.reloadTicks;
                         var bl = FireFrom(u.x, u.y, tb.Cx, tb.Cy, d.bullet, d.bullet.damage * world.mods.unitMul * d.buildingMul, d.radius);
                         bl.build = tb; bl.fromUnit = true;
+                        if (d.drain > 0) bl.owner = u;
                         if (!d.bullet.artillery) bl.life = Math.Max(bl.life, (int)((dist + tb.def.size) / d.bullet.speed) + 2);
                     }
                 }

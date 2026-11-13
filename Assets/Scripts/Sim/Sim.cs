@@ -24,6 +24,7 @@ namespace AbyssDefense.Sim
         public bool dead;
         public Building build;       // 유닛이 적 건물을 겨눠 쏜 탄
         public bool fromUnit;
+        public Unit owner;           // 쏜 유닛 (준 피해로 체력을 되찾는 유닛만)
         public List<Enemy> hit;      // 관통탄이 이미 맞힌 적
     }
 
@@ -454,6 +455,7 @@ namespace AbyssDefense.Sim
                 float dx = e.x - b.x, dy = e.y - b.y, lim = e.def.radius + 0.12f;
                 if (dx * dx + dy * dy > lim * lim) continue;
                 if (b.hit != null) { if (b.hit.Contains(e)) continue; b.hit.Add(e); }
+                Drain(b, Math.Min(e.health, Armored(b.damage, e.armor)));
                 Damage(e, b.damage);
                 fx.Add(new Fx { kind = FxKind.Hit, x = b.x, y = b.y, r = 0.25f, color = d.color });
                 if (d.splash > 0) Splash(b.x, b.y, d.splash, b.damage * 0.5f, true);
@@ -462,6 +464,7 @@ namespace AbyssDefense.Sim
             // 유닛이 적 건물을 겨눠 쏜 탄은 그 건물에 닿으면 맞는다
             if (b.build != null && !b.build.dead && b.build.DistTo(b.x, b.y) <= 0.05f)
             {
+                Drain(b, Math.Min(b.build.health, Armored(b.damage, b.build.def.armor)));
                 HurtBuilding(b.build, b.damage);
                 fx.Add(new Fx { kind = FxKind.Hit, x = b.x, y = b.y, r = 0.25f, color = d.color });
                 if (d.splash > 0) SplashBuildings(b.x, b.y, d.splash, b.damage * 0.5f, b.build);
@@ -469,6 +472,15 @@ namespace AbyssDefense.Sim
                 return;
             }
             if (b.life <= 0) b.dead = true;   // 탄은 벽 위를 넘어간다
+        }
+
+        /// 탄이 실제로 준 피해(방어력을 뺀 값, 남은 체력까지만)의 일부를 쏜 유닛이 되찾는다
+        void Drain(Bullet b, float dealt)
+        {
+            var o = b.owner;
+            if (o == null || o.dead || dealt <= 0 || o.health >= o.maxHealth) return;
+            o.health = Math.Min(o.maxHealth, o.health + dealt * o.def.drain);
+            fx.Add(new Fx { kind = FxKind.Spawn, x = o.x, y = o.y, r = o.def.radius * 1.6f, color = b.def.color });
         }
 
         void Splash(float x, float y, float rad, float dmg, bool air)
