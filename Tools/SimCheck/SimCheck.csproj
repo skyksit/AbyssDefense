@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 시뮬레이션(Assets/Scripts/Sim)만 떼어 콘솔에서 점검한다. Unity 가 필요 없다.
+       실행: D:\Unity\Editor\6000.6.5f1\Editor\Data\DotNetSdk\dotnet.exe run -c Release -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\Assets\Scripts\Sim\**\*.cs" />
+  </ItemGroup>
+</Project>

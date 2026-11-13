@@ -1,0 +1,17 @@
+{
+  "name": "AbyssDefense.Game",
+  "rootNamespace": "AbyssDefense",
+  "references": [
+    "AbyssDefense.Sim",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

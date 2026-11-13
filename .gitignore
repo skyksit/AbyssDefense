@@ -1,0 +1,62 @@
+# ───── Unity 가 만들어 내는 폴더 ─────
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]in/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+.utmp/
+
+# ───── 빌드 결과물 ─────
+*.apk
+*.aab
+*.unitypackage
+*.app
+*.exe
+*_BurstDebugInformation_DoNotShip/
+*_BackUpThisFolder_ButDontShipItWithYourGame/
+
+# ───── 점검 실행이 남기는 것 ─────
+Shots/
+Logs_*.log
+*.log
+
+# ───── IDE·편집기 ─────
+.vs/
+.vscode/
+.idea/
+*.csproj
+!Tools/SimCheck/SimCheck.csproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ───── Unity 임시·충돌 파일 ─────
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+crashlytics-build.properties
+/[Aa]ssets/AssetStoreTools*
+
+# ───── 안드로이드 서명 (저장소에 올리지 않는다) ─────
+*.keystore
+*.jks
+
+# ───── OS ─────
+.DS_Store
+Thumbs.db
+desktop.ini
