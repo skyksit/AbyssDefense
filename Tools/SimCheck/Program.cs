@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 38 && Content.TankFactory.units.Length == 6 && Content.Shipyard.units.Length == 6 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
+        Check(Content.Units.Length == 39 && Content.TankFactory.units.Length == 6 && Content.Shipyard.units.Length == 6 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 7, $"유닛 {Content.Units.Length}종 (비행 7종, 나머지 공장 6종)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -894,6 +894,23 @@ static class Program
             else Check(shoved.health < 5000 && shoved.x == ex, "충격탄은 지상의 적을 벽 안으로 밀지 않는다");
             behind.wall = false;
         }
+
+        // 수리 폭격기: 폭탄이 적을 때리면서 같은 범위의 아군 건물을 고친다 (유닛은 고치지 않는다)
+        s2g.units.Clear(); s2g.enemies.Clear(); s2g.bullets.Clear(); s2g.ruins.Clear();
+        s2g.Remove(rwx + 1, rwy);
+        s2g.Place(Content.Wall, rwx + 2, rwy);
+        Finish(s2g);
+        var patched = s2g.world.BuildAt(rwx + 2, rwy);
+        patched.health = 100;
+        var bombed = new Enemy { def = Content.Walker, x = patched.Cx + 1.0f, y = patched.Cy, health = 5000, maxHealth = 5000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        s2g.enemies.Add(bombed);
+        s2g.SetRally(shop7, patched.Cx, patched.Cy + 1.5f);
+        s2g.SpawnUnit(Content.Mender, shop7); s2g.SpawnUnit(Content.Scout, shop7);
+        var mender = s2g.units[0]; var friend = s2g.units[1];
+        friend.reload = 1 << 20; friend.health = 30;
+        for (int i = 0; i < 60 * 40 && bombed.health == 5000; i++) { s2g.Tick(); friend.x = patched.Cx + 1.0f; friend.y = patched.Cy + 0.8f; friend.reload = 1 << 20; }
+        Check(bombed.health < 5000 - 60 && patched.health == 170 && friend.health == 30 && mender.health == mender.maxHealth,
+            $"수리 폭격기의 폭탄은 적을 때리면서 아군 건물만 고친다 (적 −{5000 - bombed.health:0}, 방벽 {patched.health:0}, 척후 로봇 {friend.health:0})");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

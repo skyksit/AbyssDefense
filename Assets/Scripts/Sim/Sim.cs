@@ -473,6 +473,7 @@ namespace AbyssDefense.Sim
                 b.dead = true;
                 Splash(b.x, b.y, d.splash, b.damage, false);
                 if (d.slow > 0) SlowAround(b.x, b.y, d.splash, d);
+                if (d.heal > 0) HealBlast(b.x, b.y, d.splash, d.heal * b.damage / d.damage);
                 if (b.fromUnit) SplashBuildings(b.x, b.y, d.splash, b.damage);
                 fx.Add(new Fx { kind = FxKind.Explode, x = b.x, y = b.y, r = d.splash, color = d.color });
                 if (d.frag != null)
@@ -525,6 +526,19 @@ namespace AbyssDefense.Sim
             if (o == null || o.dead || dealt <= 0 || o.health >= o.maxHealth) return;
             o.health = Math.Min(o.maxHealth, o.health + dealt * o.def.drain);
             fx.Add(new Fx { kind = FxKind.Spawn, x = o.x, y = o.y, r = o.def.radius * 1.6f, color = b.def.color });
+        }
+
+        /// 수리 폭탄: 범위 안의 다 지어진 아군 건물을 고친다 (유닛은 고치지 않는다)
+        void HealBlast(float x, float y, float rad, float amount)
+        {
+            var bs = world.buildings;
+            for (int i = 0; i < bs.Count; i++)
+            {
+                var b = bs[i];
+                if (b.def.enemy || !b.Built || b.health >= b.maxHealth || b.DistTo(x, y) > rad) continue;
+                b.health = Math.Min(b.maxHealth, b.health + amount);
+            }
+            fx.Add(new Fx { kind = FxKind.Spawn, x = x, y = y, r = rad, color = 0x8CE99A });
         }
 
         /// 충격탄: 맞은 적과 범위 안의 적을 탄이 날아가던 쪽으로 밀어낸다

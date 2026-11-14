@@ -440,6 +440,7 @@ namespace AbyssDefense
                 if (u.tier >= 2) { c.Fill(Circle(m - r * 0.35f, m + r * 0.5f, r * 0.16f), lite); c.Fill(Circle(m - r * 0.35f, m - r * 0.5f, r * 0.16f), lite); }
                 if (u.tier >= 3) c.Fill(Box(m + r * 0.55f, m, r * 0.3f, 2, 1), Color.white);
                 if (u.tier >= 4) { c.Fill(Box(m, m + r * 0.42f, r * 0.3f, 2.5f, 1), Color.white); c.Fill(Box(m, m - r * 0.42f, r * 0.3f, 2.5f, 1), Color.white); }
+                if (u.bullet != null && u.bullet.heal > 0) { c.Fill(Box(m - r * 0.1f, m, r * 0.3f, 2.5f, 1), Color.white); c.Fill(Box(m - r * 0.1f, m, 2.5f, r * 0.3f, 1), Color.white); }   // 수리 폭격기: 등의 십자
                 if (u.bullet != null && u.bullet.homing > 0)
                 {
                     // 유도탄기: 날개 밑에 매단 유도탄 두 발

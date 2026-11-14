@@ -24,6 +24,7 @@ namespace AbyssDefense.Sim
         public int lifeTicks;
         public bool artillery;       // 목표 지점까지 날아가 터진다 (지상만)
         public int pierce;           // 관통 수 (0 = 첫 적에서 사라짐)
+        public float heal;           // 터질 때 범위 안의 아군 건물을 이만큼 고친다 (곡사탄)
         public float knockback;      // 맞은 적(범위 피해가 있으면 범위 안의 적 모두)을 탄이 날아가던 쪽으로 이만큼 밀어낸다. 보스는 절반
         public bool pierceArmor;     // 철갑탄: 직격한 적과 적 건물의 방어력을 무시한다
         public float burn;           // 맞은 적을 불태운다: 초당 이만큼의 피해 (방어력을 무시한다)
@@ -212,6 +213,14 @@ namespace AbyssDefense.Sim
             tier = 3, flying = true, health = 520, armor = 3, speed = 0.038f, radius = 0.40f, range = 6.5f, reloadTicks = 55, color = 0x339AF0, tech = Research.Tier3,
             bullet = new BulletDef { speed = 0.20f, damage = 70, splash = 1.0f, lifeTicks = 55, homing = 0.12f, color = 0xFFD8A8, size = 0.2f },
             cost = new[] { new ItemStack(Steel, 40), new ItemStack(Circuit, 45), new ItemStack(Powder, 30), new ItemStack(Alloy, 15) }, buildTicks = 35 * 60, supply = 3,
+        };
+        public static readonly UnitDef Mender = new UnitDef
+        {
+            key = "mender", name = "수리 폭격기", desc = "3단계 폭격기. 폭탄이 범위 안의 적을 때리면서 같은 범위의 아군 건물을 고친다. 공중은 못 쏜다.",
+            tier = 3, flying = true, health = 900, armor = 6, speed = 0.036f, radius = 0.46f, range = 0.9f, reloadTicks = 70, color = 0x4DD4AC, tech = Research.Tier3,
+            targetAir = false,
+            bullet = new BulletDef { speed = 0.05f, damage = 85, splash = 1.7f, lifeTicks = 30, artillery = true, heal = 70, color = 0xB2F2BB, size = 0.26f },
+            cost = new[] { new ItemStack(Steel, 50), new ItemStack(Circuit, 50), new ItemStack(Powder, 30), new ItemStack(Alloy, 20) }, buildTicks = 38 * 60, supply = 3,
         };
 
         // 4·5단계
@@ -458,7 +467,7 @@ namespace AbyssDefense.Sim
 
         public static readonly UnitDef[] Units =
         {
-            Scout, Assault, Skimmer, Heavy, Siege, Titan, Recon, Bomber, Striker, Seeker, Warship, Carrier,
+            Scout, Assault, Skimmer, Heavy, Siege, Titan, Recon, Bomber, Striker, Seeker, Mender, Warship, Carrier,
             Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Pyre, Patrol, Gunboat, Destroyer, Shockboat, Arcship, Flagship, Escort, ArmoredCar, LightTank, HeavyTank, Bulwark, PiercerTank, Juggernaut, Commander,
         };
 
@@ -524,7 +533,7 @@ namespace AbyssDefense.Sim
             key = "airfield", name = "비행장", desc = "핵의 자원으로 비행 유닛을 만든다.",
             kind = BlockKind.Factory, size = 2, health = 420, color = 0x4DABF7, tech = Research.Airfield,
             cost = new[] { new ItemStack(Iron, 100), new ItemStack(Steel, 30), new ItemStack(Circuit, 30) },
-            units = new[] { Recon, Bomber, Striker, Seeker, Warship, Carrier },
+            units = new[] { Recon, Bomber, Striker, Seeker, Mender, Warship, Carrier },
         };
 
         public static readonly BlockDef SupportShop = new BlockDef
