@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 22 && Content.LegShop.units.Length == 4 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
+        Check(Content.Units.Length == 23 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 4 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -653,6 +653,27 @@ static class Program
         for (int i = 0; i < 60; i++) s2c.Tick();
         float movedFree = Dist(new Unit { x = free.x, y = free.y }, 3.5f, fy0), movedHeld = Dist(new Unit { x = held.x, y = held.y }, 3.5f, fy0);
         Check(movedFree > 0.5f && Math.Abs(movedHeld - movedFree * 0.5f) < 0.05f && held.slowTicks == 0, $"느려진 적은 절반 속도로 걷는다 ({movedHeld:0.00} / {movedFree:0.00}칸)");
+
+        // 채굴 드론: 집결 지점에서 가장 가까운 벽을 캐서 핵으로 나른다
+        var s2d = EmptySim(Full, all);
+        s2d.Place(Content.SupportShop, 3, 20);
+        Finish(s2d);
+        var shop4 = (FactoryBuilding)s2d.world.BuildAt(3, 20);
+        shop4.product = -1; shop4.making = null;
+        s2d.units.Clear();
+        int rockTile = s2d.world.Idx((int)s2d.Core.Cx + 4, s2d.Core.y + 1);
+        s2d.world.tiles[rockTile].wall = true;
+        s2d.SetRally(shop4, s2d.Core.Cx + 3.5f, s2d.Core.y + 1.5f);
+        s2d.SpawnUnit(Content.Miner, shop4);
+        var miner = s2d.units[0];
+        int iron0 = s2d.Core.items[Content.Iron], sulfur0 = s2d.Core.items[Content.Sulfur];
+        for (int i = 0; i < 60 * 60 && miner.mineTrips < 3; i++) s2d.Tick();
+        Check(miner.mineTile < 0 && s2d.Core.items[Content.Iron] - iron0 == 16 && s2d.Core.items[Content.Sulfur] - sulfur0 == 4 && s2d.mined[Content.Iron] == 16,
+            $"채굴 드론은 벽을 캐서 핵으로 나른다 (세 번에 철광 {s2d.Core.items[Content.Iron] - iron0}, 황석 {s2d.Core.items[Content.Sulfur] - sulfur0}, {s2d.tick / 60}초)");
+        var raider = new Enemy { def = Content.Walker, x = miner.x + 0.3f, y = miner.y, health = 50, maxHealth = 50, cooldown = 1 << 20 };
+        s2d.enemies.Add(raider);
+        for (int i = 0; i < 300; i++) s2d.Tick();
+        Check(raider.health == 50 && !raider.dead, "채굴 드론은 싸우지 못한다");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

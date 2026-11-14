@@ -285,7 +285,7 @@ namespace AbyssDefense
             while (robo == null || !robo.Built || !sup.Built || !leg.Built || (yard != null && !yard.Built)) yield return null;
             gm.SetSpeed(1);
             foreach (var ud in new[] { Content.Siege, Content.Titan }) s30.SpawnUnit(ud, robo);
-            foreach (var ud in new[] { Content.Mechanic, Content.Guardian, Content.RepairDrone, Content.Transport, Content.Warship, Content.Carrier }) s30.SpawnUnit(ud, sup);
+            foreach (var ud in new[] { Content.Mechanic, Content.Guardian, Content.RepairDrone, Content.Transport, Content.Miner, Content.Warship, Content.Carrier }) s30.SpawnUnit(ud, sup);
             foreach (var ud in new[] { Content.Bug, Content.Climber, Content.Spitter, Content.Leech }) s30.SpawnUnit(ud, leg);
             if (yard != null) foreach (var ud in new[] { Content.Patrol, Content.Gunboat, Content.Destroyer }) s30.SpawnUnit(ud, yard);
             // 핵을 탭하고 다른 곳을 탭하면 지휘기가 그리로 간다

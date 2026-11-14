@@ -20,6 +20,7 @@ namespace AbyssDefense.Sim
         public Unit carrier;             // 나를 싣고 가는 수송기
         public List<Unit> cargo;         // (수송기) 싣고 있는 유닛
         public int navalGoal = -1, navalTick;   // (해상) 지금 가고 있는 물 칸
+        public int mineTile = -1, mineWork, mineLoad, mineItem, mineTrips;   // (채굴 드론) 캐는 벽 칸, 캔 틱, 싣고 있는 양과 자원, 나른 횟수
     }
 
     /// 방어: 핵 옆의 집결 지점을 지키며 그 둘레로 온 적만 쫓는다. 공격: 적 출현 지점 앞으로 나가 그 둘레의 적과 싸운다
@@ -99,6 +100,7 @@ namespace AbyssDefense.Sim
         public readonly List<Unit> units = new List<Unit>();
         public UnitStance stance = UnitStance.Defend;
         public int unitsBuilt, unitsLost, structuresDestroyed;
+        public readonly int[] mined = new int[Content.Items.Length];   // 채굴 드론이 핵으로 나른 자원
         GroundNav nav, sea;
 
         // 지휘기: 핵에서 나오는 코어 유닛. 한도를 차지하지 않고, 잃어도 잠시 뒤 다시 나온다. 플레이어가 갈 곳을 찍어 준다
@@ -321,6 +323,7 @@ namespace AbyssDefense.Sim
             }
 
             if (d.capacity > 0) { UpdateTransport(u, attack, ax, ay); return; }
+            if (d.mine > 0) { UpdateMiner(u); return; }
             if (d.bullet == null) { UpdateRepairer(u); return; }
 
             if (--u.retarget <= 0 || u.target == null || u.target.dead)
@@ -496,6 +499,52 @@ namespace AbyssDefense.Sim
             if (u.tbuild != null) { gx = u.tbuild.Cx; gy = u.tbuild.Cy; stop = u.def.healRange * 0.5f; }
             float dx = gx - u.x, dy = gy - u.y;
             if (dx * dx + dy * dy > stop * stop) MoveUnit(u, gx, gy);
+        }
+
+        /// (x, y) 에서 가장 가까운 지형 벽 칸 (호수 제외). 없으면 -1
+        int NearestRock(float x, float y)
+        {
+            int best = -1; float bd = float.MaxValue;
+            for (int i = 0; i < world.tiles.Length; i++)
+            {
+                var t = world.tiles[i];
+                if (!t.wall || t.water) continue;
+                float dx = i % world.W + 0.5f - x, dy = i / world.W + 0.5f - y;
+                float dd = dx * dx + dy * dy;
+                if (dd < bd) { bd = dd; best = i; }
+            }
+            return best;
+        }
+
+        /// 채굴 드론: 집결 지점에서 가장 가까운 벽으로 가서 캐고, 다 캐면 핵으로 날라 내려놓는다
+        void UpdateMiner(Unit u)
+        {
+            var d = u.def;
+            var core = Core;
+            if (core == null) return;
+            if (u.mineLoad > 0)
+            {
+                if (core.DistTo(u.x, u.y) > 0.3f) { MoveUnit(u, core.Cx, core.Cy); return; }
+                core.Add(u.mineItem, u.mineLoad);
+                mined[u.mineItem] += u.mineLoad;
+                fx.Add(new Fx { kind = FxKind.Spawn, x = u.x, y = u.y, r = 0.6f, color = Content.Items[u.mineItem].color });
+                u.mineLoad = 0; u.mineTrips++; u.mineTile = -1;
+                return;
+            }
+            if (u.mineTile < 0 || (tick + u.serial) % 60 == 0)
+            {
+                int rock = NearestRock(u.rallyX, u.rallyY);
+                if (rock != u.mineTile) { u.mineTile = rock; u.mineWork = 0; }
+            }
+            if (u.mineTile < 0) { if (!Near(u, u.rallyX, u.rallyY, 0.3f)) MoveUnit(u, u.rallyX, u.rallyY); return; }
+            float tx = u.mineTile % world.W + 0.5f, ty = u.mineTile / world.W + 0.5f;
+            if (!Near(u, tx, ty, 0.5f)) { MoveUnit(u, tx, ty); return; }
+            u.aim = (float)Math.Atan2(ty - u.y, tx - u.x);
+            u.mineItem = u.mineTrips % 3 == 2 ? Content.Sulfur : Content.Iron;
+            if (u.mineWork % 20 == 0) fx.Add(new Fx { kind = FxKind.Hit, x = tx, y = ty, r = 0.22f, color = Content.Items[u.mineItem].color });
+            if (++u.mineWork < d.mineTicks) return;
+            u.mineWork = 0;
+            u.mineLoad = u.mineItem == Content.Sulfur ? Math.Max(1, d.mine / 2) : d.mine;
         }
 
         /// 출현 지점에서 내 핵 쪽으로 몇 걸음 나온 빈 칸 (수송기가 유닛을 내려놓는 곳)

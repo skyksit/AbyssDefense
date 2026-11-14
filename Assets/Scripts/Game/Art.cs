@@ -359,7 +359,8 @@ namespace AbyssDefense
                 {
                     c.Fill(Circle(m, m, r * 0.5f), dark);
                     c.Fill(Circle(m, m, r * 0.38f), col);
-                    c.Fill(Box(m, m, r * 0.26f, 2, 1), Color.white); c.Fill(Box(m, m, 2, r * 0.26f, 1), Color.white);
+                    if (u.mine > 0) c.Fill(Poly(m + r * 0.95f, m, m + r * 0.3f, m + r * 0.24f, m + r * 0.3f, m - r * 0.24f), Color.white);   // 채굴 드론: 앞으로 뻗은 굴착 날
+                    else { c.Fill(Box(m, m, r * 0.26f, 2, 1), Color.white); c.Fill(Box(m, m, 2, r * 0.26f, 1), Color.white); }
                 }
             }
             else if (shape == "commander")
