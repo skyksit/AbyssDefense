@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 28 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 5 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇 5단계, 비행 6종)");
+        Check(Content.Units.Length == 29 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 5 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -767,6 +767,31 @@ static class Program
         dodger.x = 16; dodger.y = 33.5f;   // 탄이 날아가는 동안 옆으로 비켜난다
         for (int i = 0; i < 60 && dodger.health == 5000; i++) s2f.Tick();
         Check(fired && dodger.health < 5000 - 60 && s2f.bullets.Count == 0, $"유도탄은 자리를 옮긴 적을 쫓아가 맞힌다 (피해 {5000 - dodger.health:0})");
+
+        // 부양 로봇: 호수를 가로지른다 (맵을 세로로 가르는 호수 띠를 만든다). 맨 벽은 못 넘는다
+        for (int pass = 0; pass < 2; pass++)
+        {
+            var sh = EmptySim(Full, all);
+            for (int y = 1; y < sh.world.H - 1; y++)
+            {
+                var st = sh.world.tiles[sh.world.Idx(9, y)];
+                if (st.build != null) continue;
+                st.wall = true; st.water = pass == 0;
+            }
+            sh.Place(Content.RobotFactory, 3, 20);
+            Finish(sh);
+            var rf = (FactoryBuilding)sh.world.BuildAt(3, 20);
+            rf.product = -1; rf.making = null;
+            sh.units.Clear();
+            sh.SetRally(rf, 10.5f, 21.5f);
+            sh.SpawnUnit(Content.Skimmer, rf); sh.SpawnUnit(Content.Scout, rf);
+            var skimmer = sh.units[0]; var walker = sh.units[1];
+            skimmer.ox = skimmer.oy = walker.ox = walker.oy = 0;
+            bool onWater = false;
+            for (int i = 0; i < 60 * 20; i++) { sh.Tick(); if (sh.world.tiles[sh.world.Idx((int)skimmer.x, (int)skimmer.y)].water) onWater = true; }
+            if (pass == 0) Check(onWater && Dist(skimmer, 10.5f, 21.5f) < 0.3f && walker.x < 9, $"부양 로봇은 호수를 가로지르고, 걷는 로봇은 못 건넌다 (부양 x {skimmer.x:0.0}, 척후 x {walker.x:0.0})");
+            else Check(skimmer.x < 9 && walker.x < 9, $"부양 로봇도 맨 벽은 못 넘는다 (x {skimmer.x:0.0})");
+        }
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

@@ -86,6 +86,7 @@ namespace AbyssDefense.Sim
             field = new FlowField(world);
             nav = new GroundNav(world);
             sea = new GroundNav(world, true);
+            skim = new GroundNav(world, false, true);
             groups = WaveGen.Generate(rules);
             rng = new Rng(rules.seed * 977 + 13);
             waveCountdown = rules.firstWaveTicks;
@@ -392,7 +393,7 @@ namespace AbyssDefense.Sim
                     looted[s.item] += n;
                 }
                 if (b is EnemyCoreBuilding) world.spawns.Remove(world.Idx(b.x + 1, b.y + 1));
-                nav.Clear();
+                nav.Clear(); skim.Clear();
                 structuresDestroyed++;
             }
             fieldDirty = true;

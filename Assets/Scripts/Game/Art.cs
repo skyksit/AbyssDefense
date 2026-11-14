@@ -371,6 +371,16 @@ namespace AbyssDefense
                     else { c.Fill(Box(m, m, r * 0.26f, 2, 1), Color.white); c.Fill(Box(m, m, 2, r * 0.26f, 1), Color.white); }
                 }
             }
+            else if (shape == "hover")
+            {
+                // 둥근 치마 위에 얹힌 납작한 몸과 앞으로 뻗은 포신
+                c.Fill(Circle(m, m, r * 0.95f), Shade(col, 0.55f));
+                c.Fill(Ring(m, m, r * 0.95f, 2), dark);
+                c.Fill(Box(m, m, r * 0.62f, r * 0.46f, 5), dark);
+                c.Fill(Box(m, m, r * 0.62f - 3, r * 0.46f - 3, 4), col);
+                c.Fill(Box(m + r * 0.6f, m, r * 0.45f, 2.5f, 1), lite);
+                c.Fill(Circle(m - r * 0.1f, m, r * 0.2f), lite);
+            }
             else if (shape == "commander")
             {
                 c.Fill(Ring(m, m, r * 0.9f, 2), lite);

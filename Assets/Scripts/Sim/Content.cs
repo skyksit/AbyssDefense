@@ -72,6 +72,7 @@ namespace AbyssDefense.Sim
         public bool flying;              // 지형과 건물을 무시하고 날아간다
         public bool legs;                // 다리로 지형 벽을 타 넘는다 (지상의 적에게는 맞는다)
         public bool naval;               // 물 위만 다닌다
+        public bool hover;               // 떠서 다닌다: 땅과 호수를 모두 지난다 (지형 벽은 못 넘는다)
         public string shape;             // 그림 종류: mech, air, support, drone, bug, legs, boat, carrier, commander
         public float buildingMul = 1;    // 적 건물에 주는 피해 배수
         public bool suicide;             // 붙어서 터진다 (bullet 의 피해·범위를 쓴다)
@@ -159,6 +160,13 @@ namespace AbyssDefense.Sim
             tier = 2, health = 420, armor = 5, speed = 0.024f, radius = 0.36f, range = 2.0f, reloadTicks = 10, color = 0x38B2AC, tech = Research.Tier2,
             bullet = new BulletDef { speed = 0.20f, damage = 9, lifeTicks = 13, pierce = 2, color = 0xFFB347, size = 0.2f },
             cost = new[] { new ItemStack(Steel, 30), new ItemStack(Circuit, 20) }, buildTicks = 16 * 60, supply = 2,
+        };
+        public static readonly UnitDef Skimmer = new UnitDef
+        {
+            key = "skimmer", name = "부양 로봇", desc = "땅에서 조금 떠서 달리는 빠른 2단계 로봇. 호수를 가로질러 지름길로 간다. 장갑은 얇다.",
+            tier = 2, hover = true, shape = "hover", health = 300, armor = 3, speed = 0.040f, radius = 0.32f, range = 3.8f, reloadTicks = 16, color = 0x63E6BE, tech = Research.Tier2,
+            bullet = new BulletDef { speed = 0.27f, damage = 11, lifeTicks = 18, color = 0xC3FAE8, size = 0.14f },
+            cost = new[] { new ItemStack(Steel, 25), new ItemStack(Circuit, 25) }, buildTicks = 14 * 60, supply = 2,
         };
         public static readonly UnitDef Heavy = new UnitDef
         {
@@ -370,7 +378,7 @@ namespace AbyssDefense.Sim
 
         public static readonly UnitDef[] Units =
         {
-            Scout, Assault, Heavy, Siege, Titan, Recon, Bomber, Striker, Seeker, Warship, Carrier,
+            Scout, Assault, Skimmer, Heavy, Siege, Titan, Recon, Bomber, Striker, Seeker, Warship, Carrier,
             Mechanic, Guardian, RepairDrone, Transport, Miner, Bug, Climber, Spitter, Leech, Shatter, Patrol, Gunboat, Destroyer, Arcship, Flagship, Escort, Commander,
         };
 
@@ -428,7 +436,7 @@ namespace AbyssDefense.Sim
             key = "robotfactory", name = "로봇 공장", desc = "핵의 자원으로 공격 로봇을 만든다.",
             kind = BlockKind.Factory, size = 2, health = 500, color = 0x38B2AC, tech = Research.RobotFactory,
             cost = new[] { new ItemStack(Iron, 120), new ItemStack(Steel, 40) },
-            units = new[] { Scout, Assault, Heavy, Siege, Titan },
+            units = new[] { Scout, Assault, Skimmer, Heavy, Siege, Titan },
         };
 
         public static readonly BlockDef Airfield = new BlockDef

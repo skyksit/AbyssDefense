@@ -29,16 +29,17 @@ namespace AbyssDefense.Sim
     public enum UnitStance { Defend, Attack }
 
     /// 유닛의 길찾기. 지상: 벽과 적 건물이 막힌 것으로 본다 (아군 건물은 넘어 다닌다). 해상: 물 칸만 다닌다.
+    /// 부양: 지상과 같되 호수도 지난다.
     /// 목표 칸마다 거리장을 만들어 두고 다시 쓴다
     public sealed class GroundNav
     {
         public const int Unreachable = int.MaxValue;
         readonly World w;
-        readonly bool water;
+        readonly bool water, hover;
         readonly Dictionary<int, int[]> cache = new Dictionary<int, int[]>();
         readonly int[] queue;
 
-        public GroundNav(World w, bool water = false) { this.w = w; this.water = water; queue = new int[w.W * w.H]; }
+        public GroundNav(World w, bool water = false, bool hover = false) { this.w = w; this.water = water; this.hover = hover; queue = new int[w.W * w.H]; }
 
         /// 적 건물이 부서지면 길이 달라진다
         public void Clear() { cache.Clear(); }
@@ -66,7 +67,7 @@ namespace AbyssDefense.Sim
                     if (water) { if (!w.tiles[n].water) continue; }
                     else
                     {
-                        if (w.tiles[n].wall) continue;
+                        if (w.tiles[n].wall && !(hover && w.tiles[n].water)) continue;
                         var nb = w.tiles[n].build;
                         if (nb != null && nb.def.enemy && nb != goalBuild) continue;
                     }
@@ -87,7 +88,7 @@ namespace AbyssDefense.Sim
                     {
                         if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r || !w.In(x + dx, y + dy)) continue;
                         var t = w.tiles[w.Idx(x + dx, y + dy)];
-                        if (water ? t.water : !t.wall) return w.Idx(x + dx, y + dy);
+                        if (water ? t.water : !t.wall || (hover && t.water)) return w.Idx(x + dx, y + dy);
                     }
             return -1;
         }
@@ -103,7 +104,10 @@ namespace AbyssDefense.Sim
         public UnitStance stance = UnitStance.Defend;
         public int unitsBuilt, unitsLost, structuresDestroyed;
         public readonly int[] mined = new int[Content.Items.Length];   // 채굴 드론이 핵으로 나른 자원
-        GroundNav nav, sea;
+        GroundNav nav, sea, skim;
+
+        /// 걸어 다니는(또는 떠서 다니는) 유닛에게 막힌 칸인가. 부양 유닛은 호수를 지난다
+        bool Blocks(UnitDef d, int x, int y) => world.Solid(x, y) && !(d.hover && world.tiles[world.Idx(x, y)].water);
 
         // 지휘기: 핵에서 나오는 코어 유닛. 한도를 차지하지 않고, 잃어도 잠시 뒤 다시 나온다. 플레이어가 갈 곳을 찍어 준다
         public Unit commander;
@@ -413,7 +417,7 @@ namespace AbyssDefense.Sim
             else
             {
                 gx = u.rallyX + u.ox; gy = u.rallyY + u.oy;
-                if (d.naval || (d.GroundBound && world.Solid((int)gx, (int)gy))) { gx = u.rallyX; gy = u.rallyY; }
+                if (d.naval || (d.GroundBound && Blocks(d, (int)gx, (int)gy))) { gx = u.rallyX; gy = u.rallyY; }
             }
             float ddx = gx - u.x, ddy = gy - u.y;
             if (ddx * ddx + ddy * ddy > stop * stop) MoveUnit(u, gx, gy);
@@ -778,7 +782,7 @@ namespace AbyssDefense.Sim
                         }
                 }
             }
-            nav.Clear(); sea.Clear();
+            nav.Clear(); sea.Clear(); skim.Clear();
         }
 
         Building AddEnemy(BlockDef def, int x, int y, float healthMul)
@@ -800,20 +804,21 @@ namespace AbyssDefense.Sim
 
             int cx = (int)u.x, cy = (int)u.y;
             int gx = (int)tx, gy = (int)ty;
-            int goal = world.Solid(gx, gy) ? nav.Open(gx, gy) : world.Idx(gx, gy);   // 벽 위를 나는 적은 가장 가까운 바닥에서 쏜다
+            var nv = u.def.hover ? skim : nav;
+            int goal = Blocks(u.def, gx, gy) ? nv.Open(gx, gy) : world.Idx(gx, gy);   // 벽 위를 나는 적은 가장 가까운 바닥에서 쏜다
             int cur = world.Idx(cx, cy);
             if (goal < 0) return;
             if (goal == cur)
             {
-                if (!world.Solid(gx, gy)) StepUnit(u, tx, ty, speed);
+                if (!Blocks(u.def, gx, gy)) StepUnit(u, tx, ty, speed);
                 return;
             }
-            var f = nav.Field(goal);
+            var f = nv.Field(goal);
             int best = -1, bv = f[cur];
             for (int k = 0; k < 4; k++)
             {
                 int nx = cx + World.DX[k], ny = cy + World.DY[k];
-                if (world.Solid(nx, ny)) continue;
+                if (Blocks(u.def, nx, ny)) continue;
                 int n = world.Idx(nx, ny);
                 if (f[n] < bv) { bv = f[n]; best = n; }
             }
