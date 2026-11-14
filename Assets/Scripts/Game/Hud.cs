@@ -20,7 +20,8 @@ namespace AbyssDefense
         float infoUntil;
 
         // 공장을 탭하면 뜨는 창: 만들 유닛 고르기, 생산 정지, 집결 지점
-        const int ProductButtons = 5;
+        const int ProductButtons = 6;
+        const float ProductRowPx = 1002, ProductGapPx = 8;   // 생산 버튼 한 줄의 너비. 유닛이 5종을 넘는 공장은 버튼을 좁혀 한 줄에 넣는다
         GameObject factoryPanel;
         Text factoryTitle;
         readonly Text[] prodText = new Text[ProductButtons];
@@ -118,7 +119,7 @@ namespace AbyssDefense
             factoryPanel = fp.gameObject;
             factoryTitle = Ui.Label(fp.transform, "", 28, null, TextAnchor.MiddleLeft, true);
             factoryTitle.rectTransform.TopBar(8, 46, 22, 22);
-            const float bw = 194, bgap = 8;
+            const float bw = ProductRowPx / 5 - ProductGapPx * 4 / 5, bgap = ProductGapPx;
             for (int i = 0; i < ProductButtons; i++)
             {
                 int k = i;
@@ -210,6 +211,10 @@ namespace AbyssDefense
                 bool has = i < f.def.units.Length;
                 prodBg[i].gameObject.SetActive(has);
                 if (!has) continue;
+                int cols = Mathf.Max(5, f.def.units.Length);
+                float pw = (ProductRowPx - ProductGapPx * (cols - 1)) / cols;
+                prodBg[i].rectTransform.At(new Vector2(0, 0), new Vector2(0, 0), 20 + i * (pw + ProductGapPx), 106, pw, 116);
+                prodText[i].fontSize = cols > 5 ? 19 : 22;
                 var u = f.def.units[i];
                 bool unlocked = sim.IsUnlocked(u);
                 prodBg[i].color = f.product == i ? new Color(0.25f, 0.45f, 0.42f) : Ui.Card;

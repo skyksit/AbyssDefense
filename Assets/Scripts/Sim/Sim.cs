@@ -26,6 +26,7 @@ namespace AbyssDefense.Sim
         public bool dead;
         public Building build;       // 유닛이 적 건물을 겨눠 쏜 탄
         public bool fromUnit;
+        public Enemy target;         // 유도탄이 쫓는 적
         public Unit owner;           // 쏜 유닛 (준 피해로 체력을 되찾는 유닛만)
         public List<Enemy> hit;      // 관통탄이 이미 맞힌 적
     }
@@ -439,6 +440,16 @@ namespace AbyssDefense.Sim
 
         void UpdateBullet(Bullet b)
         {
+            if (b.target != null && !b.target.dead && b.def.homing > 0)
+            {
+                // 유도탄: 속력은 그대로 두고 겨눈 적 쪽으로 방향만 튼다
+                float cur = (float)Math.Atan2(b.vy, b.vx), want = (float)Math.Atan2(b.target.y - b.y, b.target.x - b.x);
+                float diff = want - cur;
+                while (diff > Math.PI) diff -= 2 * (float)Math.PI;
+                while (diff < -Math.PI) diff += 2 * (float)Math.PI;
+                cur += Math.Max(-b.def.homing, Math.Min(b.def.homing, diff));
+                b.vx = (float)Math.Cos(cur) * b.def.speed; b.vy = (float)Math.Sin(cur) * b.def.speed;
+            }
             b.x += b.vx; b.y += b.vy;
             b.life--;
             var d = b.def;

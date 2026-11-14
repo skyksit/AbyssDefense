@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 27 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 5 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
+        Check(Content.Units.Length == 28 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 5 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇 5단계, 비행 6종)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -753,6 +753,20 @@ static class Program
         s2f.HurtUnit(flag, 999999, 0);
         s2f.Tick(); s2f.Tick();
         Check(s2f.units.Count == 0 && s2f.unitsLost == 1, "기함을 잃으면 함재기도 함께 떨어진다");
+
+        // 유도탄기: 유도탄은 쏜 뒤에 자리를 옮긴 적도 쫓아가 맞힌다
+        s2f.enemies.Clear(); s2f.bullets.Clear();
+        s2f.SpawnUnit(Content.Seeker, shop6);
+        var seeker = s2f.units[0];
+        seeker.x = 12; seeker.y = 30; s2f.SetRally(shop6, 12, 30); seeker.ox = seeker.oy = 0;
+        var dodger = new Enemy { def = Content.Walker, x = 17, y = 30, health = 5000, maxHealth = 5000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        s2f.enemies.Add(dodger);
+        for (int i = 0; i < 200 && s2f.bullets.Count == 0; i++) s2f.Tick();
+        bool fired = s2f.bullets.Count == 1 && s2f.bullets[0].target == dodger;
+        seeker.reload = 1 << 20;
+        dodger.x = 16; dodger.y = 33.5f;   // 탄이 날아가는 동안 옆으로 비켜난다
+        for (int i = 0; i < 60 && dodger.health == 5000; i++) s2f.Tick();
+        Check(fired && dodger.health < 5000 - 60 && s2f.bullets.Count == 0, $"유도탄은 자리를 옮긴 적을 쫓아가 맞힌다 (피해 {5000 - dodger.health:0})");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

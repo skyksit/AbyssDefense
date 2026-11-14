@@ -373,6 +373,7 @@ namespace AbyssDefense.Sim
                         var bl = FireFrom(u.x, u.y, t.x + t.vx * lead, t.y + t.vy * lead, d.bullet, d.bullet.damage * world.mods.unitMul, d.radius);
                         bl.fromUnit = true;
                         if (d.drain > 0) bl.owner = u;
+                        if (d.bullet.homing > 0) bl.target = t;
                     }
                 }
                 return;
