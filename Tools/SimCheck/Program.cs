@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 23 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 4 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
+        Check(Content.Units.Length == 24 && Content.Shipyard.units.Length == 4 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 4 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -674,6 +674,34 @@ static class Program
         s2d.enemies.Add(raider);
         for (int i = 0; i < 300; i++) s2d.Tick();
         Check(raider.health == 50 && !raider.dead, "채굴 드론은 싸우지 못한다");
+
+        // 방전함: 사거리 안의 적 여럿을 한꺼번에 친다 (물이 없는 맵이라 태어난 자리에 서 있다)
+        var s2e = EmptySim(Full, Mods(Research.Support, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1, Research.Tier4, 1));
+        Check(!s2c.IsUnlocked(Content.Arcship) && s2e.IsUnlocked(Content.Arcship), "방전함은 기체 개량 III 을 연구해야 한다");
+        s2e.Place(Content.SupportShop, 3, 20);
+        Finish(s2e);
+        var shop5 = (FactoryBuilding)s2e.world.BuildAt(3, 20);
+        shop5.product = -1; shop5.making = null;
+        s2e.units.Clear();
+        s2e.SpawnUnit(Content.Arcship, shop5);
+        var arc = s2e.units[0];
+        var ring = new List<Enemy>();
+        for (int i = 0; i < 10; i++)
+        {
+            float a = i * 0.6283f, rr = 2.5f + i * 0.2f;
+            ring.Add(new Enemy { def = i == 0 ? Content.Flyer : Content.Walker, x = arc.x + (float)Math.Cos(a) * rr, y = arc.y + (float)Math.Sin(a) * rr, health = 1000, maxHealth = 1000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 });
+        }
+        var outOfRange = new Enemy { def = Content.Walker, x = arc.x + 8, y = arc.y, health = 1000, maxHealth = 1000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        s2e.enemies.AddRange(ring); s2e.enemies.Add(outOfRange);
+        for (int i = 0; i < 120 && ring[0].health == 1000; i++) s2e.Tick();
+        int zapped = 0; bool nearestFirst = true;
+        for (int i = 0; i < 10; i++) { if (ring[i].health == 1000 - Content.Arcship.fieldDamage) zapped++; else if (i < 8) nearestFirst = false; }
+        Check(zapped == 8 && nearestFirst && ring[8].health == 1000 && outOfRange.health == 1000 && s2e.bullets.Count == 0,
+            $"방전함은 사거리 안의 가까운 적 8기를 지상·공중 가리지 않고 한꺼번에 친다 ({zapped}기)");
+        arc.health = arc.maxHealth; s2e.SpawnUnit(Content.Scout, shop5);
+        var hurt = s2e.units[1]; hurt.x = arc.x + 1; hurt.y = arc.y; hurt.health = 50;
+        for (int i = 0; i < 60; i++) { s2e.Tick(); hurt.x = arc.x + 1; hurt.y = arc.y; }
+        Check(hurt.health > 50, "방전함은 곁의 아군을 고친다");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

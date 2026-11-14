@@ -324,7 +324,7 @@ namespace AbyssDefense.Sim
 
             if (d.capacity > 0) { UpdateTransport(u, attack, ax, ay); return; }
             if (d.mine > 0) { UpdateMiner(u); return; }
-            if (d.bullet == null) { UpdateRepairer(u); return; }
+            if (d.bullet == null && d.fieldDamage <= 0) { UpdateRepairer(u); return; }
 
             if (--u.retarget <= 0 || u.target == null || u.target.dead)
             {
@@ -353,6 +353,7 @@ namespace AbyssDefense.Sim
                     if (u.reload <= 0)
                     {
                         u.reload = d.reloadTicks;
+                        if (d.fieldDamage > 0) { Pulse(u); return; }
                         float lead = dist / d.bullet.speed;
                         var bl = FireFrom(u.x, u.y, t.x + t.vx * lead, t.y + t.vy * lead, d.bullet, d.bullet.damage * world.mods.unitMul, d.radius);
                         bl.fromUnit = true;
@@ -380,6 +381,7 @@ namespace AbyssDefense.Sim
                     if (u.reload <= 0)
                     {
                         u.reload = d.reloadTicks;
+                        if (d.fieldDamage > 0) { Pulse(u); return; }
                         var bl = FireFrom(u.x, u.y, tb.Cx, tb.Cy, d.bullet, d.bullet.damage * world.mods.unitMul * d.buildingMul, d.radius);
                         bl.build = tb; bl.fromUnit = true;
                         if (d.drain > 0) bl.owner = u;
@@ -441,6 +443,51 @@ namespace AbyssDefense.Sim
         }
 
         // ───────── 특수 유닛 ─────────
+
+        readonly List<Enemy> pulseHit = new List<Enemy>();
+
+        /// 방전: 사거리 안의 적을 가까운 순으로 fieldTargets 기까지 한꺼번에 친다. 남은 몫은 사거리 안의 적 건물을 친다
+        void Pulse(Unit u)
+        {
+            var d = u.def;
+            float dmg = d.fieldDamage * world.mods.unitMul;
+            uint col = 0x99E9F2;
+            pulseHit.Clear();
+            while (pulseHit.Count < d.fieldTargets)
+            {
+                Enemy best = null; float bd = float.MaxValue;
+                for (int i = 0; i < enemies.Count; i++)
+                {
+                    var e = enemies[i];
+                    if (e.dead || (e.def.flying ? !d.targetAir : !d.targetGround) || pulseHit.Contains(e)) continue;
+                    float dx = e.x - u.x, dy = e.y - u.y, lim = d.range + e.def.radius;
+                    float dd = dx * dx + dy * dy;
+                    if (dd <= lim * lim && dd < bd) { bd = dd; best = e; }
+                }
+                if (best == null) break;
+                pulseHit.Add(best);
+            }
+            int left = d.fieldTargets - pulseHit.Count;
+            foreach (var e in pulseHit)
+            {
+                fx.Add(new Fx { kind = FxKind.Hit, x = e.x, y = e.y, r = 0.3f, color = col });
+                Damage(e, dmg);
+            }
+            if (rules.assault && d.targetGround)
+            {
+                var bs = world.buildings;
+                for (int i = 0; i < bs.Count && left > 0; i++)
+                {
+                    var b = bs[i];
+                    if (!b.def.enemy || b.dead || b.DistTo(u.x, u.y) > d.range) continue;
+                    HurtBuilding(b, dmg * d.buildingMul);
+                    fx.Add(new Fx { kind = FxKind.Hit, x = b.Cx, y = b.Cy, r = 0.3f, color = col });
+                    left--;
+                }
+            }
+            fx.Add(new Fx { kind = FxKind.Explode, x = u.x, y = u.y, r = d.radius * 2.2f, color = col });
+            pulseHit.Clear();
+        }
 
         /// 자폭 유닛이 터진다: 둘레의 적과 적 건물에 범위 피해
         void Explode(Unit u)

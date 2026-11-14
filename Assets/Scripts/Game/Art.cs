@@ -299,7 +299,8 @@ namespace AbyssDefense
                 c.Fill(Circle(m + r * 0.1f, m, r * 0.26f), lite);
                 c.Fill(Box(m + r * 0.45f, m, r * 0.32f, 2.5f, 1), lite);
                 if (u.tier >= 2) c.Fill(Circle(m - r * 0.5f, m, r * 0.2f), lite);
-                if (u.tier >= 3) { c.Fill(Box(m - r * 0.15f, m + r * 0.3f, r * 0.2f, 2, 1), Color.white); c.Fill(Box(m - r * 0.15f, m - r * 0.3f, r * 0.2f, 2, 1), Color.white); }
+                if (u.fieldDamage > 0) { c.Fill(Ring(m + r * 0.1f, m, r * 0.42f, 2), Color.white); c.Fill(Circle(m + r * 0.1f, m, r * 0.16f), Color.white); }   // 방전함: 포 대신 방전 고리
+                else if (u.tier >= 3) { c.Fill(Box(m - r * 0.15f, m + r * 0.3f, r * 0.2f, 2, 1), Color.white); c.Fill(Box(m - r * 0.15f, m - r * 0.3f, r * 0.2f, 2, 1), Color.white); }
             }
             else if (shape == "bug")
             {
