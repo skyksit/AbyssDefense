@@ -84,6 +84,7 @@ namespace AbyssDefense.Sim
         public int fieldTargets;         // (방전) 한 번에 치는 적의 수 (가까운 순)
         public UnitDef spawns;           // (기함) 이 유닛을 스스로 띄운다. 띄운 유닛은 한도를 차지하지 않고 곁을 지킨다
         public int spawnMax, spawnTicks; // 한 번에 거느리는 수, 하나를 띄우는 데 걸리는 틱
+        public bool rebuild;             // (재건 드론) 적에게 부서진 아군 건물의 자리로 가서 같은 건물을 다시 놓는다
         public int mine;                 // (채굴 드론) 벽에서 한 번에 캐 오는 양. 세 번에 한 번은 황석을 절반만큼 캔다
         public int mineTicks;            // 한 번 캐는 데 걸리는 틱
         public bool commander;           // 핵에서 나오는 지휘기
@@ -274,6 +275,13 @@ namespace AbyssDefense.Sim
             mine = 8, mineTicks = 5 * 60,
             cost = new[] { new ItemStack(Iron, 40), new ItemStack(Circuit, 15) }, buildTicks = 12 * 60, supply = 1,
         };
+        public static readonly UnitDef Rebuilder = new UnitDef
+        {
+            key = "rebuilder", name = "재건 드론", desc = "적에게 부서진 건물의 자리로 날아가 같은 건물을 다시 놓는다. 비용은 평소처럼 핵에서 나간다. 싸우지 못한다.",
+            tier = 1, flying = true, shape = "drone", health = 140, armor = 0, speed = 0.050f, radius = 0.24f, color = 0xB2F2BB,
+            rebuild = true,
+            cost = new[] { new ItemStack(Iron, 35), new ItemStack(Steel, 10), new ItemStack(Circuit, 20) }, buildTicks = 14 * 60, supply = 1,
+        };
 
         // 다리 공방
         public static readonly UnitDef Bug = new UnitDef
@@ -379,7 +387,7 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef[] Units =
         {
             Scout, Assault, Skimmer, Heavy, Siege, Titan, Recon, Bomber, Striker, Seeker, Warship, Carrier,
-            Mechanic, Guardian, RepairDrone, Transport, Miner, Bug, Climber, Spitter, Leech, Shatter, Patrol, Gunboat, Destroyer, Arcship, Flagship, Escort, Commander,
+            Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Patrol, Gunboat, Destroyer, Arcship, Flagship, Escort, Commander,
         };
 
         // ───────── 건물 ─────────
@@ -449,10 +457,10 @@ namespace AbyssDefense.Sim
 
         public static readonly BlockDef SupportShop = new BlockDef
         {
-            key = "supportshop", name = "지원 공방", desc = "수리·보호막·수송·채굴 유닛을 만든다.",
+            key = "supportshop", name = "지원 공방", desc = "수리·보호막·수송·채굴·재건 유닛을 만든다.",
             kind = BlockKind.Factory, size = 2, health = 450, color = 0x37B24D, tech = Research.Support,
             cost = new[] { new ItemStack(Iron, 100), new ItemStack(Steel, 40), new ItemStack(Circuit, 30) },
-            units = new[] { Mechanic, Guardian, RepairDrone, Transport, Miner },
+            units = new[] { Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder },
         };
 
         public static readonly BlockDef LegShop = new BlockDef

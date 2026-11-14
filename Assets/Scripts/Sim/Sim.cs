@@ -382,6 +382,7 @@ namespace AbyssDefense.Sim
             bool core = b is CoreBuilding;
             world.Remove(b);
             if (core) world.core.dead = true;
+            else if (!b.def.enemy) AddRuin(b);
             if (b.def.enemy)
             {
                 // 적 건물: 전리품이 들어오고, 적 핵이었다면 그 출현 지점이 사라진다

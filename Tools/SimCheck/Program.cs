@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 29 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 5 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
+        Check(Content.Units.Length == 30 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 5 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -792,6 +792,29 @@ static class Program
             if (pass == 0) Check(onWater && Dist(skimmer, 10.5f, 21.5f) < 0.3f && walker.x < 9, $"부양 로봇은 호수를 가로지르고, 걷는 로봇은 못 건넌다 (부양 x {skimmer.x:0.0}, 척후 x {walker.x:0.0})");
             else Check(skimmer.x < 9 && walker.x < 9, $"부양 로봇도 맨 벽은 못 넘는다 (x {skimmer.x:0.0})");
         }
+
+        // 재건 드론: 적에게 부서진 건물을 같은 자리에 다시 놓는다
+        var s2g = EmptySim(Full, all);
+        s2g.Place(Content.SupportShop, 3, 20);
+        int rwx = (int)s2g.Core.Cx + 5, rwy = s2g.Core.y + 6;
+        s2g.Place(Content.Wall, rwx, rwy); s2g.Place(Content.RapidTurret, rwx + 1, rwy); s2g.Place(Content.Wall, rwx + 2, rwy);
+        Finish(s2g);
+        var shop7 = (FactoryBuilding)s2g.world.BuildAt(3, 20);
+        shop7.product = -1; shop7.making = null;
+        s2g.units.Clear();
+        s2g.world.BuildAt(rwx + 2, rwy).health = 0;
+        s2g.Tick();
+        Check(s2g.ruins.Count == 0 && s2g.world.BuildAt(rwx + 2, rwy) == null, "재건 드론이 없으면 부서진 자리를 적어 두지 않는다");
+        s2g.SpawnUnit(Content.Rebuilder, shop7);
+        s2g.Remove(rwx, rwy);
+        s2g.world.BuildAt(rwx + 1, rwy).health = 0;
+        s2g.Tick();
+        int ruinCount = s2g.ruins.Count, ironBefore = s2g.Core.items[Content.Iron];
+        for (int i = 0; i < 60 * 40; i++) s2g.Tick();
+        var again = s2g.world.BuildAt(rwx + 1, rwy);
+        Check(ruinCount == 1 && s2g.ruins.Count == 0 && again != null && again.def == Content.RapidTurret && again.Built && s2g.Core.items[Content.Iron] <= ironBefore - 35,
+            $"재건 드론은 부서진 속사포를 같은 자리에 다시 짓고 비용을 낸다 (철광 {ironBefore} → {s2g.Core.items[Content.Iron]})");
+        Check(s2g.world.BuildAt(rwx, rwy) == null && s2g.world.BuildAt(rwx + 2, rwy) == null, "직접 철거한 건물과 드론이 없을 때 부서진 건물은 다시 짓지 않는다");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

@@ -25,6 +25,13 @@ namespace AbyssDefense.Sim
         public int mineTile = -1, mineWork, mineLoad, mineItem, mineTrips;   // (채굴 드론) 캐는 벽 칸, 캔 틱, 싣고 있는 양과 자원, 나른 횟수
     }
 
+    /// 적에게 부서진 아군 건물의 자리 (재건 드론이 다시 짓는다)
+    public struct Ruin
+    {
+        public BlockDef def;
+        public int x, y;
+    }
+
     /// 방어: 핵 옆의 집결 지점을 지키며 그 둘레로 온 적만 쫓는다. 공격: 적 출현 지점 앞으로 나가 그 둘레의 적과 싸운다
     public enum UnitStance { Defend, Attack }
 
@@ -104,6 +111,9 @@ namespace AbyssDefense.Sim
         public UnitStance stance = UnitStance.Defend;
         public int unitsBuilt, unitsLost, structuresDestroyed;
         public readonly int[] mined = new int[Content.Items.Length];   // 채굴 드론이 핵으로 나른 자원
+        public const int MaxRuins = 40;
+        /// 재건 드론이 다시 지을 자리. 부서진 순서대로 짓는다
+        public readonly List<Ruin> ruins = new List<Ruin>();
         GroundNav nav, sea, skim;
 
         /// 걸어 다니는(또는 떠서 다니는) 유닛에게 막힌 칸인가. 부양 유닛은 호수를 지난다
@@ -342,6 +352,7 @@ namespace AbyssDefense.Sim
             }
 
             if (d.capacity > 0) { UpdateTransport(u, attack, ax, ay); return; }
+            if (d.rebuild) { UpdateRebuilder(u); return; }
             if (d.mine > 0) { UpdateMiner(u); return; }
             if (d.bullet == null && d.fieldDamage <= 0) { UpdateRepairer(u); return; }
 
@@ -583,6 +594,37 @@ namespace AbyssDefense.Sim
             if (u.tbuild != null) { gx = u.tbuild.Cx; gy = u.tbuild.Cy; stop = u.def.healRange * 0.5f; }
             float dx = gx - u.x, dy = gy - u.y;
             if (dx * dx + dy * dy > stop * stop) MoveUnit(u, gx, gy);
+        }
+
+        /// 아군 건물이 적에게 부서졌다: 살아 있는 재건 드론이 있으면 그 자리를 적어 둔다 (철거한 건물은 적지 않는다)
+        void AddRuin(Building b)
+        {
+            if (ruins.Count >= MaxRuins) return;
+            bool any = false;
+            for (int i = 0; i < units.Count && !any; i++) any = units[i].def.rebuild && !units[i].dead;
+            if (any) ruins.Add(new Ruin { def = b.def, x = b.x, y = b.y });
+        }
+
+        /// 재건 드론: 가장 먼저 부서진 자리로 가서 같은 건물의 건설 터를 놓는다. 자원이 모자라면 그 자리에서 기다리고,
+        /// 그 자리에 다시는 지을 수 없으면(다른 건물이 들어섰다) 그 자리를 버린다. 할 일이 없으면 집결 지점에 머문다
+        void UpdateRebuilder(Unit u)
+        {
+            if (ruins.Count == 0)
+            {
+                if (!Near(u, u.rallyX + u.ox, u.rallyY + u.oy, 0.3f)) MoveUnit(u, u.rallyX + u.ox, u.rallyY + u.oy);
+                return;
+            }
+            // 드론마다 다른 자리를 맡는다 (자리가 드론보다 적으면 같은 자리로 모인다)
+            int order = 0;
+            for (int i = 0; i < units.Count; i++) if (units[i].def.rebuild && !units[i].dead && units[i].serial < u.serial) order++;
+            var r = ruins[order % ruins.Count];
+            float tx = r.x + r.def.size * 0.5f, ty = r.y + r.def.size * 0.5f;
+            if (!Near(u, tx, ty, 0.8f)) { MoveUnit(u, tx, ty); return; }
+            u.aim = (float)Math.Atan2(ty - u.y, tx - u.x);
+            var res = CanPlace(r.def, r.x, r.y);
+            if (res == PlaceResult.NoResources) return;
+            ruins.Remove(r);
+            if (res == PlaceResult.Ok) Place(r.def, r.x, r.y);
         }
 
         /// (x, y) 에서 가장 가까운 지형 벽 칸 (호수 제외). 없으면 -1

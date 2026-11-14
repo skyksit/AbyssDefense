@@ -368,6 +368,7 @@ namespace AbyssDefense
                     c.Fill(Circle(m, m, r * 0.5f), dark);
                     c.Fill(Circle(m, m, r * 0.38f), col);
                     if (u.mine > 0) c.Fill(Poly(m + r * 0.95f, m, m + r * 0.3f, m + r * 0.24f, m + r * 0.3f, m - r * 0.24f), Color.white);   // 채굴 드론: 앞으로 뻗은 굴착 날
+                    else if (u.rebuild) { c.Fill(Box(m, m, r * 0.26f, r * 0.26f, 1), Color.white); c.Fill(Box(m, m, r * 0.14f, r * 0.14f, 1), col); }   // 재건 드론: 건설 터 모양의 네모 테
                     else { c.Fill(Box(m, m, r * 0.26f, 2, 1), Color.white); c.Fill(Box(m, m, 2, r * 0.26f, 1), Color.white); }
                 }
             }
