@@ -850,7 +850,8 @@ namespace AbyssDefense.Sim
         void BuildEnemyBase()
         {
             float d = rules.depth;
-            float hp = 1 + 3f * d;
+            float lateBase = 1 + RegionRules.LateBase * rules.late;   // 후반의 적 거점은 건물도 포탑도 훨씬 단단하고 세다
+            float hp = (1 + 3f * d) * lateBase;
             for (int k = 0; k < world.spawns.Count; k++)
             {
                 int s = world.spawns[k];
@@ -873,7 +874,7 @@ namespace AbyssDefense.Sim
                     var t = world.At(x, y);
                     if (far < 3 || t == null || t.wall || t.build != null || field.cost[world.Idx(x, y)] == float.MaxValue) continue;
                     var tb = (EnemyTurretBuilding)AddEnemy(Content.EnemyTurret, x, y, hp);
-                    tb.damage = Content.EnemyTurret.bullet.damage * (1 + 1.5f * d);
+                    tb.damage = Content.EnemyTurret.bullet.damage * (1 + 1.5f * d) * lateBase;
                     placed++;
                     // 포탑의 아군 쪽 면에 방벽
                     float here = field.cost[world.Idx(x, y)];

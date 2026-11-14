@@ -112,7 +112,7 @@ namespace AbyssDefense.Sim
 
         public CoreBuilding Core => world.core;
         /// 적의 공격력 배수 (깊을수록 세다)
-        public float EnemyDamageMul => 1.3f + 0.7f * rules.depth;
+        public float EnemyDamageMul => rules.enemyDamageMul;
         public bool AllWavesSent => !rules.assault && wave >= rules.winWave;
         public int PendingSpawns => pending.Count;
 
@@ -301,7 +301,7 @@ namespace AbyssDefense.Sim
             float sx = s % world.W + 0.5f, sy = s / world.W + 0.5f;
             var e = new Enemy { def = def, serial = ++serial };
             e.maxHealth = e.health = def.health * rules.enemyHealthMul * (1 + 0.12f * (wave - 1));
-            e.armor = def.armor * (1 + 2f * rules.depth);
+            e.armor = def.armor * rules.enemyArmorMul;
             e.ox = rng.Range(-0.25f, 0.25f); e.oy = rng.Range(-0.25f, 0.25f);
             if (def.flying) { e.x = sx + rng.Range(-4f, 4f); e.y = world.H - 0.5f; }
             else { e.x = sx + rng.Range(-1.2f, 1.2f); e.y = sy + rng.Range(-1.2f, 1.2f); }

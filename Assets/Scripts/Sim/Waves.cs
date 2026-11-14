@@ -14,12 +14,26 @@ namespace AbyssDefense.Sim
         public int waveTicks, firstWaveTicks;
         public int spawnCount;
         public float enemyHealthMul;
+        public float enemyDamageMul, enemyArmorMul;   // 적의 공격력·방어력 배수
+        public float late;               // 후반 보정의 바탕: 지역 10 까지 0, 그 뒤로 고르게 커져 지역 100 에서 1
         public bool hasBoss;             // 10의 배수 지역: 마지막 웨이브의 보스가 심연 군주다
         public int[] startItems;
         public bool assault;             // 적 거점 지역: 웨이브는 끝없이 오고, 적 핵을 모두 부숴야 점령한다
 
         /// 지역 15 부터 5 로 끝나는 지역 (15, 25, … 95)
         public static bool IsAssault(int region) => region >= 15 && region % 10 == 5;
+
+        // 후반 보정: 출격 물자 한도가 크게 늘었으므로(최대 6400) 깊은 지역의 적을 그만큼 더 강하게 한다.
+        // 지역 10 까지는 그대로고, 지역 100 에서 체력 ×(1 + LateHealth), 공격력 ×(1 + LateDamage), 방어력 ×(1 + LateArmor),
+        // 적 거점의 건물 체력과 포탑 화력 ×(1 + LateBase) 가 된다. 값은 봇이 늘어난 한도로도 지역 100 을 못 넘게 맞췄다
+        public const float LateHealth = 2.5f, LateDamage = 1.0f, LateArmor = 0.4f, LateBase = 2.5f;
+
+        /// 지역 10 까지 0, 그 뒤로 고르게 커져 지역 100 에서 1
+        public static float Late(float depth)
+        {
+            float t = Math.Max(0f, (depth - 0.1f) / 0.9f);
+            return t;
+        }
 
         public static RegionRules For(int abyssId, int region)
         {
@@ -35,7 +49,10 @@ namespace AbyssDefense.Sim
                 waveTicks = (int)((40 - 14 * d) * 60),
                 firstWaveTicks = (int)((70 + 50 * d) * 60),
                 spawnCount = region >= 45 ? 3 : region >= 15 ? 2 : 1,
-                enemyHealthMul = (1.3f + 11f * d) * a.enemyHealthMul,
+                late = Late(d),
+                enemyHealthMul = (1.3f + 11f * d) * (1 + LateHealth * Late(d)) * a.enemyHealthMul,
+                enemyDamageMul = (1.3f + 0.7f * d) * (1 + LateDamage * Late(d)),
+                enemyArmorMul = (1 + 2f * d) * (1 + LateArmor * Late(d)),
                 hasBoss = region % 10 == 0,
                 assault = IsAssault(region),
                 startItems = new int[Content.Items.Length],
