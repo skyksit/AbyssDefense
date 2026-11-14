@@ -24,6 +24,7 @@ namespace AbyssDefense.Sim
         public int lifeTicks;
         public bool artillery;       // 목표 지점까지 날아가 터진다 (지상만)
         public int pierce;           // 관통 수 (0 = 첫 적에서 사라짐)
+        public float knockback;      // 맞은 적(범위 피해가 있으면 범위 안의 적 모두)을 탄이 날아가던 쪽으로 이만큼 밀어낸다. 보스는 절반
         public bool pierceArmor;     // 철갑탄: 직격한 적과 적 건물의 방어력을 무시한다
         public float burn;           // 맞은 적을 불태운다: 초당 이만큼의 피해 (방어력을 무시한다)
         public int burnTicks;        // 불타는 시간
@@ -415,6 +416,13 @@ namespace AbyssDefense.Sim
             bullet = new BulletDef { speed = 0.11f, damage = 130, splash = 1.8f, lifeTicks = 100, artillery = true, color = 0xE3FAFC, size = 0.32f },
             cost = new[] { new ItemStack(Steel, 110), new ItemStack(Circuit, 80), new ItemStack(Alloy, 40) }, buildTicks = 50 * 60, supply = 3,
         };
+        public static readonly UnitDef Shockboat = new UnitDef
+        {
+            key = "shockboat", name = "충격함", desc = "3단계 함정. 충격탄이 터지면서 범위 안의 적을 0.9칸 뒤로 밀어낸다. 보스는 절반만 밀린다.",
+            tier = 3, naval = true, shape = "boat", health = 2200, armor = 12, speed = 0.018f, radius = 0.50f, range = 7.5f, reloadTicks = 45, color = 0x22B8CF, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.30f, damage = 50, splash = 1.2f, lifeTicks = 30, knockback = 0.9f, color = 0xFFFFFF, size = 0.24f },
+            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 70), new ItemStack(Powder, 40), new ItemStack(Alloy, 30) }, buildTicks = 45 * 60, supply = 3,
+        };
         public static readonly UnitDef Arcship = new UnitDef
         {
             key = "arcship", name = "방전함", desc = "4단계 함정. 포 대신 전류를 뿜어 5.5칸 안의 적 8기를 지상·공중 가리지 않고 한꺼번에 치고, 곁의 아군을 고친다.",
@@ -451,7 +459,7 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef[] Units =
         {
             Scout, Assault, Skimmer, Heavy, Siege, Titan, Recon, Bomber, Striker, Seeker, Warship, Carrier,
-            Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Pyre, Patrol, Gunboat, Destroyer, Arcship, Flagship, Escort, ArmoredCar, LightTank, HeavyTank, Bulwark, PiercerTank, Juggernaut, Commander,
+            Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Pyre, Patrol, Gunboat, Destroyer, Shockboat, Arcship, Flagship, Escort, ArmoredCar, LightTank, HeavyTank, Bulwark, PiercerTank, Juggernaut, Commander,
         };
 
         // ───────── 건물 ─────────
@@ -548,7 +556,7 @@ namespace AbyssDefense.Sim
             key = "shipyard", name = "조선소", desc = "물가에만 지을 수 있다. 호수 위를 다니는 함정을 만든다.",
             kind = BlockKind.Factory, size = 2, health = 500, color = 0x1098AD, tech = Research.Shipyard, needsWater = true,
             cost = new[] { new ItemStack(Iron, 120), new ItemStack(Steel, 50), new ItemStack(Circuit, 20) },
-            units = new[] { Patrol, Gunboat, Destroyer, Arcship, Flagship },
+            units = new[] { Patrol, Gunboat, Destroyer, Shockboat, Arcship, Flagship },
         };
 
         // 적 거점 지역에만 나오는 적의 건물. 체력과 화력은 깊이에 따라 커진다

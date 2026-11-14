@@ -308,7 +308,8 @@ namespace AbyssDefense
                 c.Fill(Circle(m + r * 0.1f, m, r * 0.26f), lite);
                 c.Fill(Box(m + r * 0.45f, m, r * 0.32f, 2.5f, 1), lite);
                 if (u.tier >= 2) c.Fill(Circle(m - r * 0.5f, m, r * 0.2f), lite);
-                if (u.spawns != null) { c.Fill(Box(m - r * 0.35f, m, r * 0.4f, r * 0.2f, 1), Color.white); c.Fill(Box(m + r * 0.5f, m, r * 0.45f, 2.5f, 1), Color.white); }   // 기함: 뒤쪽 갑판과 긴 포신
+                if (u.bullet != null && u.bullet.knockback > 0) { c.Fill(Box(m + r * 0.5f, m, r * 0.4f, 4.5f, 1), Color.white); c.Fill(Ring(m + r * 0.1f, m, r * 0.3f, 2), Color.white); }   // 충격함: 굵은 포신
+                else if (u.spawns != null) { c.Fill(Box(m - r * 0.35f, m, r * 0.4f, r * 0.2f, 1), Color.white); c.Fill(Box(m + r * 0.5f, m, r * 0.45f, 2.5f, 1), Color.white); }   // 기함: 뒤쪽 갑판과 긴 포신
                 else if (u.fieldDamage > 0) { c.Fill(Ring(m + r * 0.1f, m, r * 0.42f, 2), Color.white); c.Fill(Circle(m + r * 0.1f, m, r * 0.16f), Color.white); }   // 방전함: 포 대신 방전 고리
                 else if (u.tier >= 3) { c.Fill(Box(m - r * 0.15f, m + r * 0.3f, r * 0.2f, 2, 1), Color.white); c.Fill(Box(m - r * 0.15f, m - r * 0.3f, r * 0.2f, 2, 1), Color.white); }
             }

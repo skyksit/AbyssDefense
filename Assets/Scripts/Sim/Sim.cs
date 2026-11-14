@@ -502,6 +502,7 @@ namespace AbyssDefense.Sim
                 if (d.slow > 0) { if (d.splash > 0) SlowAround(b.x, b.y, d.splash, d); else Slow(e, d); }
                 fx.Add(new Fx { kind = FxKind.Hit, x = b.x, y = b.y, r = 0.25f, color = d.color });
                 if (d.splash > 0) Splash(b.x, b.y, d.splash, b.damage * 0.5f, true);
+                if (d.knockback > 0) Knock(b, e);
                 if (b.hit == null || b.hit.Count > d.pierce) { b.dead = true; return; }
             }
             // 유닛이 적 건물을 겨눠 쏜 탄은 그 건물에 닿으면 맞는다
@@ -524,6 +525,39 @@ namespace AbyssDefense.Sim
             if (o == null || o.dead || dealt <= 0 || o.health >= o.maxHealth) return;
             o.health = Math.Min(o.maxHealth, o.health + dealt * o.def.drain);
             fx.Add(new Fx { kind = FxKind.Spawn, x = o.x, y = o.y, r = o.def.radius * 1.6f, color = b.def.color });
+        }
+
+        /// 충격탄: 맞은 적과 범위 안의 적을 탄이 날아가던 쪽으로 밀어낸다
+        void Knock(Bullet b, Enemy direct)
+        {
+            var d = b.def;
+            float dirX = b.vx / d.speed, dirY = b.vy / d.speed;
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var e = enemies[i];
+                if (e.dead) continue;
+                if (e != direct)
+                {
+                    float dx = e.x - b.x, dy = e.y - b.y, lim = d.splash + e.def.radius;
+                    if (d.splash <= 0 || dx * dx + dy * dy > lim * lim) continue;
+                }
+                Push(e, dirX, dirY, d.knockback);
+            }
+        }
+
+        /// 적을 밀어낸다. 보스는 절반만 밀리고, 지상의 적은 벽이나 건물 안으로는 밀리지 않는다
+        void Push(Enemy e, float dirX, float dirY, float dist)
+        {
+            if (e.def.boss) dist *= 0.5f;
+            float nx = e.x + dirX * dist, ny = e.y + dirY * dist;
+            int tx = (int)Math.Floor(nx), ty = (int)Math.Floor(ny);
+            if (!world.In(tx, ty)) return;
+            if (!e.def.flying)
+            {
+                var t = world.tiles[world.Idx(tx, ty)];
+                if (t.wall || t.build != null) return;
+            }
+            e.x = nx; e.y = ny;
         }
 
         /// 적을 느리게 한다. 더 센 둔화가 걸려 있으면 그것을 지키고, 보스는 절반만 느려진다

@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 37 && Content.TankFactory.units.Length == 6 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
+        Check(Content.Units.Length == 38 && Content.TankFactory.units.Length == 6 && Content.Shipyard.units.Length == 6 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -875,6 +875,25 @@ static class Program
         for (int i = 0; i < 60 * 15; i++) tk.Tick();
         Check(soaked && broke && waits && regrows && bul.barrier == 700 && bul.health == fullHp - 300,
             $"방호 전차의 보호막은 피해를 먼저 받고, 3초 뒤부터 다시 차오른다 ({soaked} {broke} {waits} {regrows}, 보호막 {bul.barrier:0})");
+
+        // 충격함: 충격탄은 적을 날아가던 쪽으로 밀어낸다 (물이 없는 맵이라 태어난 자리에 서 있다)
+        for (int pass = 0; pass < 2; pass++)
+        {
+            s2g.units.Clear(); s2g.enemies.Clear(); s2g.bullets.Clear(); s2g.ruins.Clear();
+            s2g.SpawnUnit(Content.Shockboat, shop7);
+            var shock = s2g.units[0];
+            float ex = (int)(shock.x + 5) + 0.5f;
+            var shoved = new Enemy { def = Content.Walker, x = ex, y = shock.y, health = 5000, maxHealth = 5000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+            var beside = new Enemy { def = Content.Chief, x = ex, y = shock.y + 0.9f, health = 5000, maxHealth = 5000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+            s2g.enemies.Add(shoved); s2g.enemies.Add(beside);
+            var behind = s2g.world.tiles[s2g.world.Idx((int)ex + 1, (int)shock.y)];
+            behind.wall = pass == 1;
+            for (int i = 0; i < 200 && shoved.health == 5000; i++) s2g.Tick();
+            if (pass == 0) Check(Math.Abs(shoved.x - ex - 0.9f) < 0.05f && Math.Abs(beside.x - ex - 0.45f) < 0.1f && Math.Abs(shoved.y - shock.y) < 0.05f,
+                $"충격탄은 범위 안의 적을 뒤로 밀어낸다 (보행병 {shoved.x - ex:0.00}칸, 보스 {beside.x - ex:0.00}칸)");
+            else Check(shoved.health < 5000 && shoved.x == ex, "충격탄은 지상의 적을 벽 안으로 밀지 않는다");
+            behind.wall = false;
+        }
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);
