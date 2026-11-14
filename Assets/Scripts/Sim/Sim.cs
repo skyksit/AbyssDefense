@@ -10,6 +10,8 @@ namespace AbyssDefense.Sim
         public float health, maxHealth, armor;
         public float ox, oy;         // 칸 가운데에서 비켜 걷는 정도 (겹쳐 보이지 않게)
         public int cooldown;
+        public int slowTicks;        // 남은 둔화 시간
+        public float slowMul = 1;    // 둔화 중의 속도 배수
         public bool dead;
         public int hitFlash;
         public int serial;
@@ -310,6 +312,7 @@ namespace AbyssDefense.Sim
             var core = Core;
             if (core == null) return;
             float speed = e.def.speed * abyss.enemySpeedMul;
+            if (e.slowTicks > 0) { e.slowTicks--; speed *= e.slowMul; }
 
             // 손이 닿는 곳에 아군 유닛이 있으면 멈춰서 그 유닛부터 친다
             var near = NearestUnit(e.x, e.y, e.def.range + 0.3f, e.def.HitsAir);
@@ -444,6 +447,7 @@ namespace AbyssDefense.Sim
                 if (b.life > 0) return;
                 b.dead = true;
                 Splash(b.x, b.y, d.splash, b.damage, false);
+                if (d.slow > 0) SlowAround(b.x, b.y, d.splash, d);
                 if (b.fromUnit) SplashBuildings(b.x, b.y, d.splash, b.damage);
                 fx.Add(new Fx { kind = FxKind.Explode, x = b.x, y = b.y, r = d.splash, color = d.color });
                 return;
@@ -457,6 +461,7 @@ namespace AbyssDefense.Sim
                 if (b.hit != null) { if (b.hit.Contains(e)) continue; b.hit.Add(e); }
                 Drain(b, Math.Min(e.health, Armored(b.damage, e.armor)));
                 Damage(e, b.damage);
+                if (d.slow > 0) { if (d.splash > 0) SlowAround(b.x, b.y, d.splash, d); else Slow(e, d); }
                 fx.Add(new Fx { kind = FxKind.Hit, x = b.x, y = b.y, r = 0.25f, color = d.color });
                 if (d.splash > 0) Splash(b.x, b.y, d.splash, b.damage * 0.5f, true);
                 if (b.hit == null || b.hit.Count > d.pierce) { b.dead = true; return; }
@@ -481,6 +486,27 @@ namespace AbyssDefense.Sim
             if (o == null || o.dead || dealt <= 0 || o.health >= o.maxHealth) return;
             o.health = Math.Min(o.maxHealth, o.health + dealt * o.def.drain);
             fx.Add(new Fx { kind = FxKind.Spawn, x = o.x, y = o.y, r = o.def.radius * 1.6f, color = b.def.color });
+        }
+
+        /// 적을 느리게 한다. 더 센 둔화가 걸려 있으면 그것을 지키고, 보스는 절반만 느려진다
+        void Slow(Enemy e, BulletDef d)
+        {
+            if (e.dead) return;
+            float mul = e.def.boss ? 1f - (1f - d.slow) * 0.5f : d.slow;
+            if (e.slowTicks > 0 && e.slowMul < mul) return;
+            e.slowMul = mul; e.slowTicks = d.slowTicks;
+        }
+
+        /// 범위 안의 적을 느리게 한다 (곡사탄은 지상만)
+        void SlowAround(float x, float y, float rad, BulletDef d)
+        {
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var e = enemies[i];
+                if (e.dead || (e.def.flying && d.artillery)) continue;
+                float dx = e.x - x, dy = e.y - y, lim = rad + e.def.radius;
+                if (dx * dx + dy * dy <= lim * lim) Slow(e, d);
+            }
         }
 
         void Splash(float x, float y, float rad, float dmg, bool air)

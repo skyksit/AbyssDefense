@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 21 && Content.LegShop.units.Length == 3 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
+        Check(Content.Units.Length == 22 && Content.LegShop.units.Length == 4 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -629,6 +629,30 @@ static class Program
         leech.health = leech.maxHealth - 1;
         for (int i = 0; i < 120; i++) { s2b.Tick(); prey.cooldown = 99; }
         Check(leech.health == leech.maxHealth, "흡수 로봇의 체력은 최대치를 넘지 않는다");
+
+        // 산성 로봇: 범위 안 지상의 적을 느리게 한다
+        var s2c = EmptySim(Full, all);
+        s2c.Place(Content.LegShop, 3, 20);
+        Finish(s2c);
+        var shop3 = (FactoryBuilding)s2c.world.BuildAt(3, 20);
+        shop3.product = -1; shop3.making = null;
+        s2c.units.Clear();
+        s2c.SpawnUnit(Content.Spitter, shop3);
+        var spit = s2c.units[0];
+        spit.x = shop3.rallyX; spit.y = shop3.rallyY + 6;
+        Enemy Far(EnemyDef def, float dx) => new Enemy { def = def, x = shop3.rallyX + dx, y = shop3.rallyY + 9.5f, health = 9000, maxHealth = 9000, cooldown = 1 << 20 };
+        var slowA = Far(Content.Walker, 0); var slowB = Far(Content.Walker, 0.8f); var slowBoss = Far(Content.Chief, -0.8f); var slowAir = Far(Content.Flyer, 0.3f);
+        s2c.enemies.AddRange(new[] { slowA, slowB, slowBoss, slowAir });
+        for (int i = 0; i < 60 * 10 && slowA.slowTicks == 0; i++) s2c.Tick();
+        Check(slowA.slowTicks > 0 && slowB.slowTicks > 0 && slowA.slowMul == 0.5f && slowBoss.slowMul == 0.75f && slowAir.slowTicks == 0 && slowAir.health == 9000,
+            $"산성 로봇은 범위 안 지상의 적을 늦춘다 (보스는 절반만, 공중은 안 맞음: {slowA.slowMul}, {slowBoss.slowMul})");
+        var free = new Enemy { def = Content.Walker, x = 3.5f, y = 3.5f, health = 9000, maxHealth = 9000 };
+        var held = new Enemy { def = Content.Walker, x = 3.5f, y = 3.5f, health = 9000, maxHealth = 9000, slowTicks = 60, slowMul = 0.5f };
+        s2c.units.Clear(); s2c.enemies.Clear(); s2c.enemies.Add(free); s2c.enemies.Add(held);
+        float fy0 = free.y;
+        for (int i = 0; i < 60; i++) s2c.Tick();
+        float movedFree = Dist(new Unit { x = free.x, y = free.y }, 3.5f, fy0), movedHeld = Dist(new Unit { x = held.x, y = held.y }, 3.5f, fy0);
+        Check(movedFree > 0.5f && Math.Abs(movedHeld - movedFree * 0.5f) < 0.05f && held.slowTicks == 0, $"느려진 적은 절반 속도로 걷는다 ({movedHeld:0.00} / {movedFree:0.00}칸)");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

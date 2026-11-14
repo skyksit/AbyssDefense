@@ -325,6 +325,12 @@ namespace AbyssDefense
                 c.Fill(Circle(m, m, r * 0.46f), col);
                 c.Fill(Box(m + r * 0.55f, m, r * 0.4f, 2.5f, 1), lite);
                 c.Fill(Circle(m, m, r * 0.2f), lite);
+                if (u.bullet != null && u.bullet.slow > 0)
+                {
+                    // 산성을 던지는 유닛: 탄 색의 둥근 산성 주머니
+                    c.Fill(Circle(m - r * 0.1f, m, r * 0.3f), C(u.bullet.color));
+                    c.Fill(Circle(m + r * 0.75f, m, r * 0.14f), C(u.bullet.color));
+                }
                 if (u.drain > 0)
                 {
                     // 체력을 빨아들이는 유닛: 탄 색의 심지와 앞으로 뻗은 두 송곳니
