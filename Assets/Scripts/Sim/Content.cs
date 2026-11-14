@@ -80,6 +80,8 @@ namespace AbyssDefense.Sim
         public int capacity;             // (수송기) 실을 수 있는 유닛의 한도 합
         public float fieldDamage;        // (방전) 탄 대신 사거리 안의 적 여럿을 한꺼번에 친다. 한 번에 한 적에게 주는 피해
         public int fieldTargets;         // (방전) 한 번에 치는 적의 수 (가까운 순)
+        public UnitDef spawns;           // (기함) 이 유닛을 스스로 띄운다. 띄운 유닛은 한도를 차지하지 않고 곁을 지킨다
+        public int spawnMax, spawnTicks; // 한 번에 거느리는 수, 하나를 띄우는 데 걸리는 틱
         public int mine;                 // (채굴 드론) 벽에서 한 번에 캐 오는 양. 세 번에 한 번은 황석을 절반만큼 캔다
         public int mineTicks;            // 한 번 캐는 데 걸리는 틱
         public bool commander;           // 핵에서 나오는 지휘기
@@ -332,6 +334,22 @@ namespace AbyssDefense.Sim
             fieldDamage = 40, fieldTargets = 8, heal = 8, healRange = 4f,
             cost = new[] { new ItemStack(Steel, 150), new ItemStack(Circuit, 120), new ItemStack(Alloy, 70) }, buildTicks = 70 * 60, supply = 4,
         };
+        /// 기함이 스스로 띄우는 호위기. 공장에서는 만들 수 없고, 기함을 잃으면 함께 떨어진다
+        public static readonly UnitDef Escort = new UnitDef
+        {
+            key = "escort", name = "함재기", desc = "기함이 띄우는 작은 호위기. 기함 곁을 지킨다.",
+            tier = 1, flying = true, health = 150, armor = 1, speed = 0.055f, radius = 0.22f, range = 2.8f, reloadTicks = 16, color = 0x66D9E8,
+            bullet = new BulletDef { speed = 0.28f, damage = 9, lifeTicks = 14, color = 0xC5F6FA, size = 0.12f },
+            supply = 0,
+        };
+        public static readonly UnitDef Flagship = new UnitDef
+        {
+            key = "flagship", name = "기함", desc = "5단계 함정. 사거리 10 의 관통 전자포를 쏘고, 15초마다 함재기를 띄워 둘까지 거느린다.",
+            tier = 5, naval = true, shape = "boat", health = 7000, armor = 20, speed = 0.012f, radius = 0.74f, range = 10f, reloadTicks = 90, color = 0x0C8599, tech = Research.Tier5,
+            buildingMul = 1.5f, spawns = Escort, spawnMax = 2, spawnTicks = 15 * 60,
+            bullet = new BulletDef { speed = 0.5f, damage = 170, lifeTicks = 24, pierce = 5, color = 0xE3FAFC, size = 0.3f },
+            cost = new[] { new ItemStack(Steel, 260), new ItemStack(Circuit, 200), new ItemStack(Alloy, 170) }, buildTicks = 120 * 60, supply = 5,
+        };
 
         /// 핵에서 나오는 코어 유닛. 플레이어가 갈 곳을 찍어 주고, 곁의 건설을 빠르게 한다
         public static readonly UnitDef Commander = new UnitDef
@@ -345,7 +363,7 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef[] Units =
         {
             Scout, Assault, Heavy, Siege, Titan, Recon, Bomber, Striker, Warship, Carrier,
-            Mechanic, Guardian, RepairDrone, Transport, Miner, Bug, Climber, Spitter, Leech, Shatter, Patrol, Gunboat, Destroyer, Arcship, Commander,
+            Mechanic, Guardian, RepairDrone, Transport, Miner, Bug, Climber, Spitter, Leech, Shatter, Patrol, Gunboat, Destroyer, Arcship, Flagship, Escort, Commander,
         };
 
         // ───────── 건물 ─────────
@@ -434,7 +452,7 @@ namespace AbyssDefense.Sim
             key = "shipyard", name = "조선소", desc = "물가에만 지을 수 있다. 호수 위를 다니는 함정을 만든다.",
             kind = BlockKind.Factory, size = 2, health = 500, color = 0x1098AD, tech = Research.Shipyard, needsWater = true,
             cost = new[] { new ItemStack(Iron, 120), new ItemStack(Steel, 50), new ItemStack(Circuit, 20) },
-            units = new[] { Patrol, Gunboat, Destroyer, Arcship },
+            units = new[] { Patrol, Gunboat, Destroyer, Arcship, Flagship },
         };
 
         // 적 거점 지역에만 나오는 적의 건물. 체력과 화력은 깊이에 따라 커진다

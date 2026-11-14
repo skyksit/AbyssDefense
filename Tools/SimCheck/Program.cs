@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 25 && Content.Shipyard.units.Length == 4 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 5 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
+        Check(Content.Units.Length == 27 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 5 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -720,6 +720,39 @@ static class Program
         foreach (var fe in around) if (fe.health < 5000) fragHits++;
         Check(aimed.health <= 5000 - 80 && aimed.health >= 5000 - 90 && maxBullets == Content.Shatter.bullet.fragCount && fragHits >= 4 && fragHits <= 6 && around.TrueForAll(fe => fe.health == 5000 || fe.health == 5000 - 28),
             $"파편 로봇의 포탄은 터지면서 파편 6개로 갈라져 공중의 적도 맞힌다 (파편 {maxBullets}개, 맞은 비행체 {fragHits})");
+
+        // 기함: 관통 전자포를 쏘고 함재기를 띄운다 (물이 없는 맵이라 태어난 자리에 서 있다)
+        var s2f = EmptySim(Full, Mods(Research.Support, 1, Research.Tier2, 1, Research.Tier3, 1, Research.Tier4, 1, Research.Tier5, 1));
+        Check(!s2e.IsUnlocked(Content.Flagship) && s2f.IsUnlocked(Content.Flagship), "기함은 기체 개량 IV 를 연구해야 한다");
+        s2f.Place(Content.SupportShop, 3, 20);
+        Finish(s2f);
+        var shop6 = (FactoryBuilding)s2f.world.BuildAt(3, 20);
+        shop6.product = -1; shop6.making = null;
+        s2f.units.Clear();
+        s2f.SpawnUnit(Content.Flagship, shop6);
+        var flag = s2f.units[0];
+        var row = new List<Enemy>();
+        for (int i = 0; i < 4; i++) row.Add(new Enemy { def = Content.Walker, x = flag.x + 4 + i, y = flag.y, health = 150, maxHealth = 150, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 });
+        s2f.enemies.AddRange(row);
+        for (int i = 0; i < 300 && !row[0].dead; i++) s2f.Tick();
+        for (int i = 0; i < 15; i++) s2f.Tick();
+        Check(row.TrueForAll(re => re.dead) && s2f.kills == 4 && s2f.units.Count == 1, $"기함의 전자포 한 발이 한 줄로 선 적 넷을 꿰뚫는다 (처치 {s2f.kills})");
+        for (int i = 0; i < Content.Flagship.spawnTicks + 5; i++) s2f.Tick();
+        int after1 = s2f.units.Count;
+        for (int i = 0; i < Content.Flagship.spawnTicks * 3; i++) s2f.Tick();
+        Check(after1 == 2 && s2f.units.Count == 3 && s2f.units[1].def == Content.Escort && s2f.SupplyUsed == 5 && Dist(s2f.units[1], flag.x, flag.y) < 2.5f,
+            $"기함은 15초마다 함재기를 띄워 둘까지 거느리고, 함재기는 한도를 차지하지 않는다 (유닛 {s2f.units.Count}, 한도 {s2f.SupplyUsed})");
+        s2f.stance = UnitStance.Attack;
+        for (int i = 0; i < 60 * 10; i++) s2f.Tick();
+        Check(Dist(s2f.units[1], flag.x, flag.y) < 2.5f && Dist(s2f.units[2], flag.x, flag.y) < 2.5f, "함재기는 공격 태세에서도 기함 곁을 지킨다");
+        s2f.stance = UnitStance.Defend;
+        s2f.HurtUnit(s2f.units[1], 99999, 0);
+        int lostBefore = s2f.unitsLost;
+        for (int i = 0; i < Content.Flagship.spawnTicks + 5; i++) s2f.Tick();
+        Check(s2f.units.Count == 3 && lostBefore == 0, "잃은 함재기는 다시 띄우고, 잃은 유닛으로 세지 않는다");
+        s2f.HurtUnit(flag, 999999, 0);
+        s2f.Tick(); s2f.Tick();
+        Check(s2f.units.Count == 0 && s2f.unitsLost == 1, "기함을 잃으면 함재기도 함께 떨어진다");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

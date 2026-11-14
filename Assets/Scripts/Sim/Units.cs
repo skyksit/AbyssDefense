@@ -19,6 +19,8 @@ namespace AbyssDefense.Sim
         public bool dead;
         public Unit carrier;             // 나를 싣고 가는 수송기
         public List<Unit> cargo;         // (수송기) 싣고 있는 유닛
+        public Unit parent;              // (함재기) 나를 띄운 기함
+        public int spawnTimer;           // (기함) 다음 함재기를 띄우기까지 쌓인 틱
         public int navalGoal = -1, navalTick;   // (해상) 지금 가고 있는 물 칸
         public int mineTile = -1, mineWork, mineLoad, mineItem, mineTrips;   // (채굴 드론) 캐는 벽 칸, 캔 틱, 싣고 있는 양과 자원, 나른 횟수
     }
@@ -306,11 +308,24 @@ namespace AbyssDefense.Sim
             if (d.commander) { u.rallyX = commandX; u.rallyY = commandY; }
             else if (u.home != null && !u.home.dead) { u.rallyX = u.home.rallyX; u.rallyY = u.home.rallyY; }
 
+            if (u.parent != null)
+            {
+                // 함재기: 기함 곁을 지키고, 기함을 잃으면 함께 떨어진다
+                if (u.parent.dead)
+                {
+                    u.dead = true;
+                    fx.Add(new Fx { kind = FxKind.EnemyDeath, x = u.x, y = u.y, r = d.radius * 2.2f, color = d.color });
+                    return;
+                }
+                u.rallyX = u.parent.x; u.rallyY = u.parent.y;
+            }
+            if (d.spawns != null) UpdateHangar(u);
+
             if (d.heal > 0 && (tick + u.serial) % 30 == 0) HealAround(u);
 
             // 지키는 곳: 방어면 집결 지점, 공격이면 가장 가까운 출현 지점
             float ax = u.rallyX, ay = u.rallyY;
-            bool attack = stance == UnitStance.Attack && world.spawns.Count > 0 && !d.commander;
+            bool attack = stance == UnitStance.Attack && world.spawns.Count > 0 && !d.commander && u.parent == null;
             if (attack)
             {
                 float bd = float.MaxValue;
@@ -443,6 +458,23 @@ namespace AbyssDefense.Sim
         }
 
         // ───────── 특수 유닛 ─────────
+
+        /// 기함: 거느린 함재기가 모자라면 시간이 찰 때마다 하나씩 띄운다
+        void UpdateHangar(Unit u)
+        {
+            var d = u.def;
+            int have = 0;
+            for (int i = 0; i < units.Count; i++) if (units[i].parent == u && !units[i].dead) have++;
+            if (have >= d.spawnMax) { u.spawnTimer = 0; return; }
+            if (++u.spawnTimer < d.spawnTicks) return;
+            u.spawnTimer = 0;
+            var c = new Unit { def = d.spawns, home = u.home, parent = u, serial = ++serial, x = u.x, y = u.y, aim = u.aim };
+            c.maxHealth = c.health = d.spawns.health * world.mods.unitMul;
+            c.rallyX = u.x; c.rallyY = u.y;
+            c.ox = rng.Range(-1.2f, 1.2f); c.oy = rng.Range(-1.2f, 1.2f);
+            units.Add(c);
+            fx.Add(new Fx { kind = FxKind.Spawn, x = u.x, y = u.y, r = d.spawns.radius * 2.5f, color = d.spawns.color });
+        }
 
         readonly List<Enemy> pulseHit = new List<Enemy>();
 
@@ -867,7 +899,7 @@ namespace AbyssDefense.Sim
             u.dead = true;
             fx.Add(new Fx { kind = FxKind.EnemyDeath, x = u.x, y = u.y, r = u.def.radius * 2.2f, color = u.def.color });
             if (u.def.commander) { commanderRespawn = CommanderRespawnTicks; return; }
-            unitsLost++;
+            if (u.parent == null) unitsLost++;   // 함재기는 잃은 유닛으로 세지 않는다
             if (u.cargo != null && u.cargo.Count > 0) Unload(u);   // 수송기가 떨어지면 실린 유닛은 그 자리에 내린다
         }
     }
