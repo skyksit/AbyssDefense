@@ -318,7 +318,7 @@ namespace AbyssDefense
             sv.stock[0] = 5000; sv.stock[1] = 5000; sv.stock[2] = 2000;
             sv.loadout[0] = 2000; sv.loadout[1] = 2000; sv.loadout[2] = 2000;
             gm.StartRegion(2, 30);
-            Note($"loadout cap with research 3: took iron {gm.Taken[0]} (expect 850)");
+            Note($"loadout cap with research 3: took iron {gm.Taken[0]} (expect 1150)");
             gm.bot = new AutoBot(gm.sim);
             gm.SetSpeed(8);
             while (gm.sim.state == SimState.Playing && !(gm.sim.wave >= 4 && gm.sim.enemies.Count >= 8 && gm.sim.bullets.Count >= 1)) yield return null;

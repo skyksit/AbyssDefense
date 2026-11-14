@@ -1210,7 +1210,19 @@ static class Program
         Check(BaseRules.ConquestRate(Content.Crystal, new[] { 9, 0, 0 }) == 0 && BaseRules.ConquestRate(Content.Crystal, new[] { 12, 0, 0 }) == 0.75f, "결정 보너스는 지역 12 부터");
         var lv5 = new int[Research.Defs.Length]; lv5[Research.Mining] = 5; lv5[Research.Loadout] = 2;
         Check(Math.Abs(BaseRules.Rate(Content.Iron, 1, lv5, new[] { 1, 0, 0 }) - (30 * 1.5f + 3)) < 0.01f, "총생산량 = 채굴장 × 채굴 기술 + 점령 보너스");
-        Check(BaseRules.LoadoutCap(null) == 400 && BaseRules.LoadoutCap(lv5) == 700, "출격 한도 400, 연구 단계마다 +150");
+        var lv10 = new int[Research.Defs.Length]; lv10[Research.Loadout] = 10;
+        var lv1 = new int[Research.Defs.Length]; lv1[Research.Loadout] = 1;
+        Check(BaseRules.LoadoutCap(null) == 400 && BaseRules.LoadoutCap(lv1) == 550 && BaseRules.LoadoutCap(lv5) == 800 && BaseRules.LoadoutCap(lv10) == 6400 && Research.Defs[Research.Loadout].maxLevel == 10,
+            "출격 한도 400, 연구 단계가 오를수록 더 크게 늘어 10단계에 6400");
+        int capMax = BaseRules.LoadoutCap(lv10); bool fits = true;
+        foreach (var hu in Content.Assembler.units)
+            foreach (var hc in hu.cost)
+            {
+                int need = hc.amount;
+                foreach (var bc in Content.Assembler.cost) if (bc.item == hc.item) need += bc.amount;
+                if (need > capMax * 0.6f) fits = false;
+            }
+        Check(fits, "출격 한도를 끝까지 올리면 조립소와 7단계 한 대를 짓고도 자원이 넉넉히 남는다");
         bool affordable = true;
         for (int lv = 1; lv < BaseRules.MaxStorageLevel; lv++)
         {

@@ -846,7 +846,7 @@ namespace AbyssDefense.Sim
             tier = 6, health = 42000, armor = 28, speed = 0.010f, radius = 0.90f, range = 7f, reloadTicks = 22, color = 0x7048E8, tech = Research.Assembler,
             barrier = 9000, barrierRegen = 450, barrierDelay = 5 * 60, regen = 120,
             bullet = new BulletDef { speed = 0.26f, damage = 460, splash = 1.6f, lifeTicks = 30, color = 0xD0BFFF, size = 0.4f },
-            cost = new[] { new ItemStack(Steel, 525), new ItemStack(Circuit, 475), new ItemStack(Alloy, 400), new ItemStack(Crystal, 200) }, buildTicks = 360 * 60, supply = 6,
+            cost = new[] { new ItemStack(Steel, 940), new ItemStack(Circuit, 860), new ItemStack(Alloy, 720), new ItemStack(Crystal, 360) }, buildTicks = 360 * 60, supply = 6,
         };
         public static readonly UnitDef Mothership = new UnitDef
         {
@@ -854,7 +854,7 @@ namespace AbyssDefense.Sim
             tier = 6, flying = true, shape = "carrier", health = 36000, armor = 22, speed = 0.016f, radius = 0.95f, range = 7f, reloadTicks = 14, color = 0x5F3DC4, tech = Research.Assembler,
             barrier = 9000, barrierRegen = 450, barrierDelay = 5 * 60, regen = 105, spawns = Escort, spawnMax = 5, spawnTicks = 8 * 60,
             bullet = new BulletDef { speed = 0.5f, damage = 200, lifeTicks = 16, chain = 4, chainRange = 2.6f, color = 0xE5DBFF, size = 0.24f },
-            cost = new[] { new ItemStack(Steel, 500), new ItemStack(Circuit, 525), new ItemStack(Alloy, 400), new ItemStack(Crystal, 200) }, buildTicks = 360 * 60, supply = 6,
+            cost = new[] { new ItemStack(Steel, 900), new ItemStack(Circuit, 940), new ItemStack(Alloy, 720), new ItemStack(Crystal, 360) }, buildTicks = 360 * 60, supply = 6,
         };
         public static readonly UnitDef Ravager = new UnitDef
         {
@@ -866,7 +866,7 @@ namespace AbyssDefense.Sim
                 speed = 0.11f, damage = 705, splash = 2.2f, lifeTicks = 100, artillery = true, burn = 88, burnTicks = 240, color = 0xF783AC, size = 0.4f, fragCount = 10,
                 frag = new BulletDef { speed = 0.18f, damage = 99, lifeTicks = 14, color = 0xFFDEEB, size = 0.15f },
             },
-            cost = new[] { new ItemStack(Steel, 525), new ItemStack(Circuit, 450), new ItemStack(Powder, 190), new ItemStack(Alloy, 400), new ItemStack(Crystal, 200) }, buildTicks = 360 * 60, supply = 6,
+            cost = new[] { new ItemStack(Steel, 940), new ItemStack(Circuit, 810), new ItemStack(Powder, 340), new ItemStack(Alloy, 720), new ItemStack(Crystal, 360) }, buildTicks = 360 * 60, supply = 6,
         };
         public static readonly UnitDef Doomtank = new UnitDef
         {
@@ -874,7 +874,7 @@ namespace AbyssDefense.Sim
             tier = 7, shape = "tank", health = 105000, armor = 36, speed = 0.009f, radius = 1.0f, range = 9f, reloadTicks = 80, color = 0x343A40, tech = Research.Transcend,
             targetAir = false, buildingMul = 2f, crush = 1040, regen = 280,
             bullet = new BulletDef { speed = 0.5f, damage = 2340, lifeTicks = 20, pierce = 3, pierceArmor = true, color = 0xFFF3BF, size = 0.4f },
-            cost = new[] { new ItemStack(Steel, 865), new ItemStack(Circuit, 720), new ItemStack(Alloy, 670), new ItemStack(Crystal, 430) }, buildTicks = 420 * 60, supply = 7,
+            cost = new[] { new ItemStack(Steel, 2080), new ItemStack(Circuit, 1730), new ItemStack(Alloy, 1610), new ItemStack(Crystal, 1030) }, buildTicks = 420 * 60, supply = 7,
         };
         public static readonly UnitDef Bastion = new UnitDef
         {
@@ -882,7 +882,7 @@ namespace AbyssDefense.Sim
             tier = 7, hover = true, shape = "hover", health = 77000, armor = 26, speed = 0.016f, radius = 0.95f, range = 6f, reloadTicks = 30, color = 0x1098AD, tech = Research.Transcend,
             fieldDamage = 310, fieldTargets = 12, heal = 105, healRange = 6f, shieldRange = 6f, shieldMul = 0.6f,
             barrier = 21000, barrierRegen = 875, barrierDelay = 5 * 60, regen = 210,
-            cost = new[] { new ItemStack(Steel, 815), new ItemStack(Circuit, 770), new ItemStack(Alloy, 670), new ItemStack(Crystal, 430) }, buildTicks = 420 * 60, supply = 7,
+            cost = new[] { new ItemStack(Steel, 1960), new ItemStack(Circuit, 1850), new ItemStack(Alloy, 1610), new ItemStack(Crystal, 1030) }, buildTicks = 420 * 60, supply = 7,
         };
         public static readonly UnitDef Nemesis = new UnitDef
         {
@@ -890,7 +890,7 @@ namespace AbyssDefense.Sim
             tier = 7, flying = true, shape = "carrier", health = 70000, armor = 28, speed = 0.018f, radius = 1.0f, range = 9f, reloadTicks = 24, color = 0xC2255C, tech = Research.Transcend,
             regen = 210,
             bullet = new BulletDef { speed = 0.22f, damage = 675, splash = 1.8f, lifeTicks = 60, homing = 0.14f, burn = 78, burnTicks = 180, color = 0xFFDEEB, size = 0.34f },
-            cost = new[] { new ItemStack(Steel, 815), new ItemStack(Circuit, 790), new ItemStack(Alloy, 670), new ItemStack(Crystal, 430) }, buildTicks = 420 * 60, supply = 7,
+            cost = new[] { new ItemStack(Steel, 1960), new ItemStack(Circuit, 1900), new ItemStack(Alloy, 1610), new ItemStack(Crystal, 1030) }, buildTicks = 420 * 60, supply = 7,
         };
 
         /// 핵에서 나오는 코어 유닛. 플레이어가 갈 곳을 찍어 주고, 곁의 건설을 빠르게 한다

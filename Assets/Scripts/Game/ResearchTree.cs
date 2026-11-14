@@ -292,7 +292,7 @@ namespace AbyssDefense
         }
 
         static string EffectText(ResearchDef d, int lv) =>
-            d.maxLevel == 1 ? (lv > 0 ? "해금됨" : "잠김") : d.percent ? $"+{Mathf.RoundToInt(lv * d.perLevel * 100)}%" : $"+{(int)(lv * d.perLevel)}";
+            d.maxLevel == 1 ? (lv > 0 ? "해금됨" : "잠김") : d.id == Research.Loadout ? $"+{BaseRules.LoadoutBonus(lv):N0}" : d.percent ? $"+{Mathf.RoundToInt(lv * d.perLevel * 100)}%" : $"+{(int)(lv * d.perLevel)}";
 
         /// 고른 연구의 창: 이름·설명·효과, 남은 비용(가진 양 / 남은 양), 연구 버튼
         void ResearchInfo(Transform root, ResearchDef d)

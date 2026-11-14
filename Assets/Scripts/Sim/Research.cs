@@ -38,7 +38,7 @@ namespace AbyssDefense.Sim
         {
             new ResearchDef { key = "damage", name = "포탑 화력", desc = "모든 포탑의 피해가 늘어난다", maxLevel = 8, perLevel = 0.15f, iron = 100, sulfur = 60, crystal = 40 },
             new ResearchDef { key = "health", name = "강화 장갑", desc = "방벽·포탑·공장의 체력이 늘어난다", maxLevel = 5, perLevel = 0.2f, reqRegion = 1, iron = 110, sulfur = 20, crystal = 30 },
-            new ResearchDef { key = "loadout", name = "출격 물자", desc = "출격할 때 가져갈 수 있는 자원 한도가 늘어난다", maxLevel = 6, perLevel = 150, percent = false, reqRegion = 1, iron = 120, sulfur = 40, crystal = 30 },
+            new ResearchDef { key = "loadout", name = "출격 물자", desc = "출격할 때 가져갈 수 있는 자원 한도가 늘어난다. 단계가 오를수록 더 크게 늘어난다", maxLevel = 10, perLevel = 150, percent = false, reqRegion = 1, iron = 120, sulfur = 40, crystal = 30 },
             new ResearchDef { key = "mortar", name = "박격포 기술", desc = "박격포를 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 2, iron = 150, sulfur = 100 },
             new ResearchDef { key = "core", name = "핵 보호막", desc = "심연 핵의 체력이 늘어난다", maxLevel = 5, perLevel = 0.3f, reqRegion = 3, iron = 120, sulfur = 50, crystal = 40 },
             new ResearchDef { key = "range", name = "조준 장치", desc = "모든 포탑의 사거리가 늘어난다", maxLevel = 4, perLevel = 0.07f, reqRegion = 4, iron = 90, sulfur = 70, crystal = 40, crystalFrom = 2 },
@@ -232,7 +232,10 @@ namespace AbyssDefense.Sim
         }
 
         /// 출격할 때 자원 한 종류를 가져갈 수 있는 최대량
-        public static int LoadoutCap(int[] research) => 400 + (int)(Research.Level(research, Research.Loadout) * Research.Defs[Research.Loadout].perLevel);
+        public const int BaseLoadout = 400;
+        /// 출격 물자 연구가 더해 주는 한도. 단계가 오를수록 한 단계가 더 크게 늘린다 (+150, +250, +350, …, 10단계에 +6000)
+        public static int LoadoutBonus(int level) => 100 * level + 50 * level * level;
+        public static int LoadoutCap(int[] research) => BaseLoadout + LoadoutBonus(Research.Level(research, Research.Loadout));
 
         /// 지역 하나를 처음 점령했을 때 영구히 늘어나는 생산량: (자원, 분당 양)
         public static void RegionBonus(int region, out int item, out float perMin)

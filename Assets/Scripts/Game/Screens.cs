@@ -482,9 +482,10 @@ namespace AbyssDefense
                 val.rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), -380, 0, 190, 76);
                 Action show = () => val.text = LoadoutAmount(item).ToString("N0");
                 Action<int> set = v => { save.loadout[item] = Mathf.Clamp(v, 0, limit); show(); };
-                var minus = Ui.Btn(row.transform, "-50", 30, Off, () => set(LoadoutAmount(item) - 50));
+                int step = cap >= 2000 ? 250 : cap >= 1000 ? 100 : 50;   // 한도가 커지면 한 번에 더 많이 바꾼다
+                var minus = Ui.Btn(row.transform, "-" + step, 30, Off, () => set(LoadoutAmount(item) - step));
                 minus.Rt().At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), -580, 0, 120, 76);
-                var plus = Ui.Btn(row.transform, "+50", 30, Off, () => set(LoadoutAmount(item) + 50));
+                var plus = Ui.Btn(row.transform, "+" + step, 30, Off, () => set(LoadoutAmount(item) + step));
                 plus.Rt().At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), -250, 0, 120, 76);
                 var maxB = Ui.Btn(row.transform, "최대", 30, Off, () => set(limit));
                 maxB.Rt().At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), -20, 0, 110, 76);
