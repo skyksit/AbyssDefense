@@ -332,6 +332,12 @@ namespace AbyssDefense
                     c.Fill(Circle(m - r * 0.1f, m, r * 0.3f), C(u.bullet.color));
                     c.Fill(Circle(m + r * 0.75f, m, r * 0.14f), C(u.bullet.color));
                 }
+                if (u.bullet != null && u.bullet.frag != null)
+                {
+                    // 파편을 쏘는 유닛: 굵은 포신과 그 끝의 파편 세 조각
+                    c.Fill(Box(m + r * 0.6f, m, r * 0.45f, 4f, 1), lite);
+                    for (int i = -1; i <= 1; i++) c.Fill(Circle(m + r * 1.05f, m + i * r * 0.2f, 1.8f), C(u.bullet.frag.color));
+                }
                 if (u.drain > 0)
                 {
                     // 체력을 빨아들이는 유닛: 탄 색의 심지와 앞으로 뻗은 두 송곳니

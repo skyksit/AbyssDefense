@@ -286,7 +286,7 @@ namespace AbyssDefense
             gm.SetSpeed(1);
             foreach (var ud in new[] { Content.Siege, Content.Titan }) s30.SpawnUnit(ud, robo);
             foreach (var ud in new[] { Content.Mechanic, Content.Guardian, Content.RepairDrone, Content.Transport, Content.Miner, Content.Warship, Content.Carrier }) s30.SpawnUnit(ud, sup);
-            foreach (var ud in new[] { Content.Bug, Content.Climber, Content.Spitter, Content.Leech }) s30.SpawnUnit(ud, leg);
+            foreach (var ud in new[] { Content.Bug, Content.Climber, Content.Spitter, Content.Leech, Content.Shatter }) s30.SpawnUnit(ud, leg);
             if (yard != null) foreach (var ud in new[] { Content.Patrol, Content.Gunboat, Content.Destroyer, Content.Arcship }) s30.SpawnUnit(ud, yard);
             // 핵을 탭하고 다른 곳을 탭하면 지휘기가 그리로 간다
             Vector2 corePt = Camera.main.WorldToScreenPoint(new Vector3(s30.Core.Cx, s30.Core.Cy));

@@ -450,6 +450,18 @@ namespace AbyssDefense.Sim
                 if (d.slow > 0) SlowAround(b.x, b.y, d.splash, d);
                 if (b.fromUnit) SplashBuildings(b.x, b.y, d.splash, b.damage);
                 fx.Add(new Fx { kind = FxKind.Explode, x = b.x, y = b.y, r = d.splash, color = d.color });
+                if (d.frag != null)
+                {
+                    // 파편: 폭발 범위 가장자리에서 바깥으로 고르게 튄다. 범위 안의 적은 폭발만 맞는다 (피해는 원래 탄의 배수를 따른다)
+                    float scale = b.damage / d.damage, a0 = (b.x + b.y) * 1.7f;
+                    for (int k = 0; k < d.fragCount; k++)
+                    {
+                        float a = a0 + k * 6.2832f / d.fragCount;
+                        float ex = b.x + (float)Math.Cos(a) * d.splash, ey = b.y + (float)Math.Sin(a) * d.splash;
+                        var fb = FireFrom(ex, ey, ex + (float)Math.Cos(a), ey + (float)Math.Sin(a), d.frag, d.frag.damage * scale, 0.1f);
+                        fb.fromUnit = b.fromUnit;
+                    }
+                }
                 return;
             }
             for (int i = 0; i < enemies.Count; i++)

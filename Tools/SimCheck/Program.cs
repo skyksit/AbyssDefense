@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 24 && Content.Shipyard.units.Length == 4 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 4 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
+        Check(Content.Units.Length == 25 && Content.Shipyard.units.Length == 4 && Content.SupportShop.units.Length == 5 && Content.LegShop.units.Length == 5 && Content.RobotFactory.units.Length == 5 && Content.Airfield.units.Length == 5, $"유닛 {Content.Units.Length}종 (로봇·비행 각 5단계)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -702,6 +702,24 @@ static class Program
         var hurt = s2e.units[1]; hurt.x = arc.x + 1; hurt.y = arc.y; hurt.health = 50;
         for (int i = 0; i < 60; i++) { s2e.Tick(); hurt.x = arc.x + 1; hurt.y = arc.y; }
         Check(hurt.health > 50, "방전함은 곁의 아군을 고친다");
+
+        // 파편 로봇: 곡사 포탄이 터지면서 파편이 사방으로 튄다
+        s2e.units.Clear(); s2e.enemies.Clear(); s2e.bullets.Clear();
+        s2e.SpawnUnit(Content.Shatter, shop5);
+        var shat = s2e.units[0];
+        Enemy Still(EnemyDef def, float dx, float dy) => new Enemy { def = def, x = shat.x + dx, y = shat.y + dy, health = 5000, maxHealth = 5000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        var aimed = Still(Content.Walker, 5, 0);
+        s2e.enemies.Add(aimed);
+        var around = new List<Enemy>();
+        for (int i = 0; i < 16; i++) around.Add(Still(Content.Flyer, 5 + 2.6f * (float)Math.Cos(i * 0.3927f), 2.6f * (float)Math.Sin(i * 0.3927f)));
+        s2e.enemies.AddRange(around);
+        for (int i = 0; i < 60 * 30 && aimed.health == 5000; i++) s2e.Tick();
+        int maxBullets = s2e.bullets.Count;
+        for (int i = 0; i < 20; i++) s2e.Tick();
+        int fragHits = 0;
+        foreach (var fe in around) if (fe.health < 5000) fragHits++;
+        Check(aimed.health <= 5000 - 80 && aimed.health >= 5000 - 90 && maxBullets == Content.Shatter.bullet.fragCount && fragHits >= 4 && fragHits <= 6 && around.TrueForAll(fe => fe.health == 5000 || fe.health == 5000 - 28),
+            $"파편 로봇의 포탄은 터지면서 파편 6개로 갈라져 공중의 적도 맞힌다 (파편 {maxBullets}개, 맞은 비행체 {fragHits})");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);
