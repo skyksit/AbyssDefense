@@ -473,6 +473,7 @@ namespace AbyssDefense.Sim
                 b.dead = true;
                 Splash(b.x, b.y, d.splash, b.damage, false);
                 if (d.slow > 0) SlowAround(b.x, b.y, d.splash, d);
+                if (d.burn > 0) BurnAround(b.x, b.y, d.splash, d, false);
                 if (d.heal > 0) HealBlast(b.x, b.y, d.splash, d.heal * b.damage / d.damage);
                 if (b.fromUnit) SplashBuildings(b.x, b.y, d.splash, b.damage);
                 fx.Add(new Fx { kind = FxKind.Explode, x = b.x, y = b.y, r = d.splash, color = d.color });
@@ -499,7 +500,7 @@ namespace AbyssDefense.Sim
                 if (b.hit != null) { if (b.hit.Contains(e)) continue; b.hit.Add(e); }
                 Drain(b, Math.Min(e.health, Armored(b.damage, e.armor)));
                 Damage(e, b.damage, d.pierceArmor);
-                if (d.burn > 0 && !e.dead && (e.burnTicks <= 0 || e.burnDps <= d.burn)) { e.burnDps = d.burn; e.burnTicks = d.burnTicks; }
+                if (d.burn > 0) Ignite(e, d);
                 if (d.slow > 0) { if (d.splash > 0) SlowAround(b.x, b.y, d.splash, d); else Slow(e, d); }
                 fx.Add(new Fx { kind = FxKind.Hit, x = b.x, y = b.y, r = 0.25f, color = d.color });
                 if (d.splash > 0) Splash(b.x, b.y, d.splash, b.damage * 0.5f, true);
@@ -611,6 +612,25 @@ namespace AbyssDefense.Sim
             float mul = e.def.boss ? 1f - (1f - d.slow) * 0.5f : d.slow;
             if (e.slowTicks > 0 && e.slowMul < mul) return;
             e.slowMul = mul; e.slowTicks = d.slowTicks;
+        }
+
+        /// 적을 불태운다. 더 센 불이 붙어 있으면 그것을 지킨다
+        void Ignite(Enemy e, BulletDef d)
+        {
+            if (e.dead || (e.burnTicks > 0 && e.burnDps > d.burn)) return;
+            e.burnDps = d.burn; e.burnTicks = d.burnTicks;
+        }
+
+        /// 범위 안의 적을 불태운다
+        void BurnAround(float x, float y, float rad, BulletDef d, bool air)
+        {
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var e = enemies[i];
+                if (e.dead || (e.def.flying && !air)) continue;
+                float dx = e.x - x, dy = e.y - y, lim = rad + e.def.radius;
+                if (dx * dx + dy * dy <= lim * lim) Ignite(e, d);
+            }
         }
 
         /// 범위 안의 적을 느리게 한다 (곡사탄은 지상만)

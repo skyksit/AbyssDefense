@@ -524,10 +524,65 @@ static class Program
 
     static float Dist(Unit u, float x, float y) => (float)Math.Sqrt((u.x - x) * (u.x - x) + (u.y - y) * (u.y - y));
 
+    /// 공장에서 만드는 모든 유닛을 하나씩 빈 맵에 세워 30초 돌려 본다: 정의가 말이 되는지, 무기가 있으면 겨눌 수 있는 적에게 피해를 주는지
+    static void AllUnits()
+    {
+        var lvAll = new int[Research.Defs.Length];
+        foreach (int id in new[] { Research.RobotFactory, Research.Airfield, Research.Support, Research.Legs, Research.Shipyard, Research.Tank, Research.Tier2, Research.Tier3, Research.Tier4, Research.Tier5 }) lvAll[id] = 1;
+        var mods = Research.Mods(lvAll);
+        var keys = new HashSet<string>(); var names = new HashSet<string>();
+        bool unique = true, sane = true, fights = true; string bad = "";
+        foreach (var u in Content.Units) { if (!keys.Add(u.key) || !names.Add(u.name)) { unique = false; bad += " " + u.key; } }
+        int made = 0;
+        foreach (var fdef in new[] { Content.RobotFactory, Content.Airfield, Content.SupportShop, Content.LegShop, Content.TankFactory, Content.Shipyard })
+        {
+            int lastTier = 0;
+            foreach (var u in fdef.units)
+            {
+                made++;
+                bool weapon = u.bullet != null || u.fieldDamage > 0;
+                if (u.tier < lastTier || u.supply != u.tier || u.cost.Length == 0 || u.buildTicks <= 0 || u.health <= 0 || u.speed <= 0 || string.IsNullOrEmpty(u.desc)
+                    || (weapon && !u.suicide && (u.range <= 0 || u.reloadTicks <= 0)) || (weapon && !u.targetAir && !u.targetGround)
+                    || (u.bullet != null && !u.suicide && !u.bullet.artillery && u.bullet.speed * u.bullet.lifeTicks < u.range) || (u.tier >= 2 && u != Content.Climber && u.tech < 0))
+                { sane = false; bad += " " + u.key; }
+                lastTier = u.tier;
+
+                var sim = EmptySim(Full, mods);
+                if (!sim.IsUnlocked(u)) { sane = false; bad += " 잠김:" + u.key; }
+                sim.Place(Content.SupportShop, 3, 20);
+                Finish(sim);
+                var shop = (FactoryBuilding)sim.world.BuildAt(3, 20);
+                shop.product = -1; shop.making = null;
+                sim.units.Clear();
+                sim.SpawnUnit(u, shop);
+                var unit = sim.units[0];
+                unit.x = 10.5f; unit.y = 30.5f; unit.ox = unit.oy = 0; sim.SetRally(shop, 10.5f, 30.5f);
+                float reach = Math.Min(2f, u.range > 0 ? u.range : 2f);
+                var ground = new Enemy { def = Content.Walker, x = unit.x + reach, y = unit.y, health = 90000, maxHealth = 90000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+                var air = new Enemy { def = Content.Flyer, x = unit.x - reach, y = unit.y, health = 90000, maxHealth = 90000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+                if (u.targetGround) sim.enemies.Add(ground); else sim.enemies.Add(air);
+                for (int i = 0; i < 60 * 30; i++)
+                {
+                    sim.Tick();
+                    ground.slowTicks = air.slowTicks = 1 << 20; ground.slowMul = air.slowMul = 0;   // 둔화 유닛이 덮어써도 제자리에 둔다
+                }
+                float dealt = 180000 - ground.health - air.health;
+                if (weapon && dealt <= 0) { fights = false; bad += " 못때림:" + u.key; }
+                if (!weapon && dealt > 0) { fights = false; bad += " 때림:" + u.key; }
+                if (unit.dead != u.suicide) { fights = false; bad += " 생사:" + u.key; }
+            }
+        }
+        Check(unique, "유닛의 key 와 이름은 겹치지 않는다" + bad);
+        Check(made == 72 && sane, "공장 유닛 72종의 정의가 말이 된다 (단계 순, 한도 = 단계, 비용·연구·사거리)" + bad);
+        Check(fights, "무기가 있는 유닛은 모두 겨눌 수 있는 적에게 피해를 주고, 없는 유닛은 주지 않는다" + bad);
+    }
+
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 41 && Content.TankFactory.units.Length == 6 && Content.Shipyard.units.Length == 6 && Content.SupportShop.units.Length == 7 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 7 && Content.Airfield.units.Length == 7, $"유닛 {Content.Units.Length}종 (로봇·비행·지원 7종, 나머지 공장 6종)");
+        bool twelve = true;
+        foreach (var fb in new[] { Content.RobotFactory, Content.Airfield, Content.SupportShop, Content.LegShop, Content.TankFactory, Content.Shipyard }) if (fb.units.Length != 12) twelve = false;
+        Check(Content.Units.Length == 74 && twelve, $"유닛 {Content.Units.Length}종 (공장 여섯 곳에 12종씩, 함재기와 지휘기)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -943,6 +998,8 @@ static class Program
         for (int i = 0; i < 5; i++) { if (Math.Abs(90000 - chainRow[i].health - want) > 0.01f) chainOk = false; want *= 0.7f; }
         Check(chainOk && chainRow[5].health == 90000 && chainRow[6].health == 90000,
             $"전격은 가까운 적으로 네 번 건너뛰며 피해가 30% 씩 줄어든다 ({90000 - chainRow[0].health:0.#} → {90000 - chainRow[4].health:0.#})");
+
+        AllUnits();
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

@@ -569,6 +569,8 @@ namespace AbyssDefense.Sim
             float dmg = bl.damage * world.mods.unitMul;
             Splash(u.x, u.y, bl.splash, dmg, true);
             SplashBuildings(u.x, u.y, bl.splash, dmg * u.def.buildingMul);
+            if (bl.slow > 0) SlowAround(u.x, u.y, bl.splash, bl);
+            if (bl.burn > 0) BurnAround(u.x, u.y, bl.splash, bl, true);
             fx.Add(new Fx { kind = FxKind.Explode, x = u.x, y = u.y, r = bl.splash, color = bl.color });
             u.dead = true;
         }
