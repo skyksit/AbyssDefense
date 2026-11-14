@@ -61,7 +61,7 @@ namespace AbyssDefense.Sim
                 extra = new[] { new ItemStack(Content.Steel, 40), new ItemStack(Content.Circuit, 30) } },
             new ResearchDef { key = "support", name = "지원 공방 기술", desc = "지원 공방을 짓고 정비 로봇·수리 드론을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 10, iron = 250, sulfur = 150,
                 extra = new[] { new ItemStack(Content.Steel, 60), new ItemStack(Content.Circuit, 40) } },
-            new ResearchDef { key = "legs", name = "다리 공방 기술", desc = "다리 공방을 짓고 자폭 벌레·등반 로봇·산성 로봇·흡수 로봇·파편 로봇을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 18, iron = 300, sulfur = 250,
+            new ResearchDef { key = "legs", name = "다리 공방 기술", desc = "다리 공방을 짓고 자폭 벌레와 다리 로봇들을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 18, iron = 300, sulfur = 250,
                 extra = new[] { new ItemStack(Content.Steel, 80), new ItemStack(Content.Powder, 60) } },
             new ResearchDef { key = "shipyard", name = "조선소 기술", desc = "물가에 조선소를 짓고 초계정을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 20, iron = 350, sulfur = 200,
                 extra = new[] { new ItemStack(Content.Steel, 120), new ItemStack(Content.Circuit, 80) } },

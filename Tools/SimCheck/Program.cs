@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 30 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 5 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
+        Check(Content.Units.Length == 31 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -815,6 +815,21 @@ static class Program
         Check(ruinCount == 1 && s2g.ruins.Count == 0 && again != null && again.def == Content.RapidTurret && again.Built && s2g.Core.items[Content.Iron] <= ironBefore - 35,
             $"재건 드론은 부서진 속사포를 같은 자리에 다시 짓고 비용을 낸다 (철광 {ironBefore} → {s2g.Core.items[Content.Iron]})");
         Check(s2g.world.BuildAt(rwx, rwy) == null && s2g.world.BuildAt(rwx + 2, rwy) == null, "직접 철거한 건물과 드론이 없을 때 부서진 건물은 다시 짓지 않는다");
+
+        // 화염 거미: 맞은 적은 불타고, 불은 방어력을 무시한다
+        s2f.units.Clear(); s2f.enemies.Clear(); s2f.bullets.Clear();
+        s2f.SpawnUnit(Content.Pyre, shop6);
+        var pyre = s2f.units[0];
+        var plated = new Enemy { def = Content.Shell, x = pyre.x + 2.5f, y = pyre.y, health = 5000, maxHealth = 5000, armor = 500, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        s2f.enemies.Add(plated);
+        for (int i = 0; i < 300 && plated.burnTicks == 0; i++) s2f.Tick();
+        bool lit = plated.burnTicks > 0;
+        s2f.units.Clear(); s2f.bullets.Clear();
+        plated.burnTicks = Content.Pyre.bullet.burnTicks;
+        float burnFrom = plated.health;
+        for (int i = 0; i < Content.Pyre.bullet.burnTicks + 30; i++) s2f.Tick();
+        float burned = burnFrom - plated.health;
+        Check(lit && plated.burnTicks == 0 && Math.Abs(burned - 120) < 0.5f, $"화염 거미에 맞은 적은 4초 동안 방어력과 상관없이 불탄다 (피해 {burned:0.#})");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

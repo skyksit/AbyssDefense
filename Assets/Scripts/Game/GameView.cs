@@ -229,7 +229,7 @@ namespace AbyssDefense
                 sr.enabled = true;
                 sr.sprite = Art.Get("enemy_" + e.def.key);
                 sr.sortingOrder = e.def.flying ? OrderEnemy + 2 : OrderEnemy;
-                sr.color = e.hitFlash > 0 ? new Color(1f, 1f, 1f, 0.6f) : e.slowTicks > 0 ? new Color(0.72f, 1f, 0.55f) : Color.white;   // 둔화 중이면 연두색
+                sr.color = e.hitFlash > 0 ? new Color(1f, 1f, 1f, 0.6f) : e.burnTicks > 0 ? new Color(1f, 0.62f, 0.3f) : e.slowTicks > 0 ? new Color(0.72f, 1f, 0.55f) : Color.white;   // 불타면 주황색, 둔화 중이면 연두색
                 sr.transform.position = new Vector3(e.x, e.y);
                 if (e.vx != 0 || e.vy != 0)
                     sr.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(e.vy, e.vx) * Mathf.Rad2Deg);

@@ -12,6 +12,8 @@ namespace AbyssDefense.Sim
         public int cooldown;
         public int slowTicks;        // 남은 둔화 시간
         public float slowMul = 1;    // 둔화 중의 속도 배수
+        public int burnTicks;        // 남은 불타는 시간
+        public float burnDps;        // 불타는 동안 초당 받는 피해 (방어력 무시)
         public bool dead;
         public int hitFlash;
         public int serial;
@@ -308,6 +310,16 @@ namespace AbyssDefense.Sim
         void UpdateEnemy(Enemy e)
         {
             if (e.dead) return;
+            if (e.burnTicks > 0)
+            {
+                // 불타는 적은 0.25초마다 피해를 입는다
+                if (--e.burnTicks % 15 == 0)
+                {
+                    Damage(e, e.burnDps * 0.25f, true);
+                    fx.Add(new Fx { kind = FxKind.Hit, x = e.x, y = e.y, r = e.def.radius * 0.8f, color = 0xFF922B });
+                    if (e.dead) return;
+                }
+            }
             if (e.cooldown > 0) e.cooldown--;
             if (e.hitFlash > 0) e.hitFlash--;
             e.vx = e.vy = 0;
@@ -486,6 +498,7 @@ namespace AbyssDefense.Sim
                 if (b.hit != null) { if (b.hit.Contains(e)) continue; b.hit.Add(e); }
                 Drain(b, Math.Min(e.health, Armored(b.damage, e.armor)));
                 Damage(e, b.damage);
+                if (d.burn > 0 && !e.dead && (e.burnTicks <= 0 || e.burnDps <= d.burn)) { e.burnDps = d.burn; e.burnTicks = d.burnTicks; }
                 if (d.slow > 0) { if (d.splash > 0) SlowAround(b.x, b.y, d.splash, d); else Slow(e, d); }
                 fx.Add(new Fx { kind = FxKind.Hit, x = b.x, y = b.y, r = 0.25f, color = d.color });
                 if (d.splash > 0) Splash(b.x, b.y, d.splash, b.damage * 0.5f, true);
@@ -548,9 +561,9 @@ namespace AbyssDefense.Sim
             }
         }
 
-        void Damage(Enemy e, float dmg)
+        void Damage(Enemy e, float dmg, bool ignoreArmor = false)
         {
-            e.health -= Armored(dmg, e.armor);
+            e.health -= ignoreArmor ? dmg : Armored(dmg, e.armor);
             e.hitFlash = 5;
             if (e.health > 0 || e.dead) return;
             e.dead = true;
