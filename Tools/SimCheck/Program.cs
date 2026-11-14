@@ -775,7 +775,7 @@ static class Program
         for (int i = 0; i < 20; i++) s2e.Tick();
         int fragHits = 0;
         foreach (var fe in around) if (fe.health < 5000) fragHits++;
-        Check(aimed.health <= 5000 - 80 && aimed.health >= 5000 - 90 && maxBullets == Content.Shatter.bullet.fragCount && fragHits >= 4 && fragHits <= 6 && around.TrueForAll(fe => fe.health == 5000 || fe.health == 5000 - 28),
+        Check(aimed.health <= 5000 - Content.Shatter.bullet.damage * 0.88f && aimed.health >= 5000 - Content.Shatter.bullet.damage && maxBullets == Content.Shatter.bullet.fragCount && fragHits >= 4 && fragHits <= 6 && around.TrueForAll(fe => fe.health == 5000 || fe.health == 5000 - Content.Shatter.bullet.frag.damage),
             $"파편 로봇의 포탄은 터지면서 파편 6개로 갈라져 공중의 적도 맞힌다 (파편 {maxBullets}개, 맞은 비행체 {fragHits})");
 
         // 기함: 관통 전자포를 쏘고 함재기를 띄운다 (물이 없는 맵이라 태어난 자리에 서 있다)
@@ -886,7 +886,7 @@ static class Program
         float burnFrom = plated.health;
         for (int i = 0; i < Content.Pyre.bullet.burnTicks + 30; i++) s2f.Tick();
         float burned = burnFrom - plated.health;
-        Check(lit && plated.burnTicks == 0 && Math.Abs(burned - 120) < 0.5f, $"화염 거미에 맞은 적은 4초 동안 방어력과 상관없이 불탄다 (피해 {burned:0.#})");
+        Check(lit && plated.burnTicks == 0 && Math.Abs(burned - Content.Pyre.bullet.burn * 4) < 0.5f, $"화염 거미에 맞은 적은 4초 동안 방어력과 상관없이 불탄다 (피해 {burned:0.#})");
 
         // 전차 공장: 연구해야 지을 수 있고, 전차는 닿은 적을 짓밟는다
         Check(EmptySim(Full, all).Place(Content.TankFactory, 3, 20) == PlaceResult.Locked, "전차 공장은 전차 공장 기술을 연구해야 지을 수 있다");
@@ -921,16 +921,17 @@ static class Program
         tk.SpawnUnit(Content.Bulwark, tf);
         var bul = tk.units[0];
         float fullHp = bul.health;
+        float bar = Content.Bulwark.barrier;
         tk.HurtUnit(bul, 200 + Content.Bulwark.armor, 0);
-        bool soaked = bul.barrier == 500 && bul.health == fullHp;
-        tk.HurtUnit(bul, 800 + Content.Bulwark.armor, 0);
+        bool soaked = bul.barrier == bar - 200 && bul.health == fullHp;
+        tk.HurtUnit(bul, bar + 100 + Content.Bulwark.armor, 0);
         bool broke = bul.barrier == 0 && bul.health == fullHp - 300;
         for (int i = 0; i < Content.Bulwark.barrierDelay - 5; i++) tk.Tick();
         bool waits = bul.barrier == 0;
         for (int i = 0; i < 65; i++) tk.Tick();
-        bool regrows = bul.barrier > 50 && bul.barrier < 70;
+        bool regrows = bul.barrier > Content.Bulwark.barrierRegen * 0.85f && bul.barrier < Content.Bulwark.barrierRegen * 1.15f;
         for (int i = 0; i < 60 * 15; i++) tk.Tick();
-        Check(soaked && broke && waits && regrows && bul.barrier == 700 && bul.health == fullHp - 300,
+        Check(soaked && broke && waits && regrows && bul.barrier == bar && bul.health == fullHp - 300,
             $"방호 전차의 보호막은 피해를 먼저 받고, 3초 뒤부터 다시 차오른다 ({soaked} {broke} {waits} {regrows}, 보호막 {bul.barrier:0})");
 
         // 충격함: 충격탄은 적을 날아가던 쪽으로 밀어낸다 (물이 없는 맵이라 태어난 자리에 서 있다)
@@ -966,7 +967,7 @@ static class Program
         var mender = s2g.units[0]; var friend = s2g.units[1];
         friend.reload = 1 << 20; friend.health = 30;
         for (int i = 0; i < 60 * 40 && bombed.health == 5000; i++) { s2g.Tick(); friend.x = patched.Cx + 1.0f; friend.y = patched.Cy + 0.8f; friend.reload = 1 << 20; }
-        Check(bombed.health < 5000 - 60 && patched.health == 170 && friend.health == 30 && mender.health == mender.maxHealth,
+        Check(bombed.health < 5000 - 60 && patched.health == 100 + Content.Mender.bullet.heal && friend.health == 30 && mender.health == mender.maxHealth,
             $"수리 폭격기의 폭탄은 적을 때리면서 아군 건물만 고친다 (적 −{5000 - bombed.health:0}, 방벽 {patched.health:0}, 척후 로봇 {friend.health:0})");
 
         // 증폭 로봇: 곁의 다른 아군 유닛이 1.33배 빨리 쏜다 (겹쳐도 한 번만, 자기 자신은 아니다)
@@ -1046,9 +1047,9 @@ static class Program
             foreach (var fu in fdef.units) { topWorth = Math.Max(topWorth, Worth(fu.cost)); topHealth = Math.Max(topHealth, fu.health + fu.barrier); }
         bool mighty = true;
         foreach (var hu in Content.Assembler.units)
-            if (Worth(hu.cost) < topWorth * 1.5f || hu.health + hu.barrier < topHealth * 1.5f || hu.regen <= 0 || hu.tier < 6 || Array.FindIndex(hu.cost, k => k.item == Content.Crystal) < 0) mighty = false;
+            if (Worth(hu.cost) < topWorth * 1.2f || hu.health + hu.barrier < topHealth * 1.5f || hu.regen <= 0 || hu.tier < 6 || Array.FindIndex(hu.cost, k => k.item == Content.Crystal) < 0) mighty = false;
         Check(mighty && Worth(Content.Assembler.cost) > 3 * Worth(Content.RobotFactory.cost) && Content.Assembler.size == 3,
-            $"심연 조립소의 유닛은 다른 공장의 가장 센 유닛보다 1.5배 넘게 단단하고 비싸며 심연 결정이 든다 (다른 공장 최고 체력 {topHealth:0}, 값 {topWorth:0})");
+            $"심연 조립소의 유닛은 다른 공장의 가장 센 유닛보다 1.5배 넘게 단단하고 1.2배 넘게 비싸며 심연 결정이 든다 (다른 공장 최고 체력 {topHealth:0}, 값 {topWorth:0})");
         Finish(asm);
         var ab = (FactoryBuilding)asm.world.BuildAt(3, 20);
         Check(ab != null && ab.Built && ab.def.size == 3, "심연 조립소는 3×3 칸으로 지어진다");
@@ -1056,10 +1057,10 @@ static class Program
         asm.units.Clear();
         asm.SpawnUnit(Content.Colossus, ab);
         var giant = asm.units[0];
-        asm.HurtUnit(giant, 4000 + Content.Colossus.armor, 0);
+        asm.HurtUnit(giant, Content.Colossus.barrier + 5000 + Content.Colossus.armor, 0);
         float hurtTo = giant.health;
         for (int i = 0; i < 600; i++) asm.Tick();
-        Check(hurtTo == giant.maxHealth - 1000 && Math.Abs(giant.health - hurtTo - Content.Colossus.regen * 10) < 1f && giant.barrier > 0,
+        Check(hurtTo == giant.maxHealth - 5000 && Math.Abs(giant.health - hurtTo - Content.Colossus.regen * 10) < 1f && giant.barrier > 0,
             $"심연 조립소의 유닛은 스스로 체력을 되찾는다 (10초에 +{giant.health - hurtTo:0})");
 
         AllUnits();

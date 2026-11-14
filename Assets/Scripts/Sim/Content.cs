@@ -187,16 +187,16 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Heavy = new UnitDef
         {
             key = "heavy", name = "중장 로봇", desc = "두꺼운 장갑과 범위 피해 주포를 가진 3단계 로봇.",
-            tier = 3, health = 1300, armor = 10, speed = 0.016f, radius = 0.48f, range = 5.5f, reloadTicks = 45, color = 0x2C7A7B, tech = Research.Tier3,
-            bullet = new BulletDef { speed = 0.20f, damage = 60, splash = 1.2f, lifeTicks = 36, color = 0xE6FFFA, size = 0.3f },
-            cost = new[] { new ItemStack(Steel, 60), new ItemStack(Circuit, 40), new ItemStack(Alloy, 20) }, buildTicks = 35 * 60, supply = 3,
+            tier = 3, health = 1700, armor = 10, speed = 0.016f, radius = 0.48f, range = 5.5f, reloadTicks = 45, color = 0x2C7A7B, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.20f, damage = 72, splash = 1.2f, lifeTicks = 36, color = 0xE6FFFA, size = 0.3f },
+            cost = new[] { new ItemStack(Steel, 80), new ItemStack(Circuit, 50), new ItemStack(Alloy, 25) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Arcer = new UnitDef
         {
             key = "arcer", name = "전격 로봇", desc = "3단계 로봇. 전격이 맞은 적에서 2.2칸 안의 다른 적으로 네 번까지 건너뛴다. 건너뛸 때마다 피해가 30% 줄어든다.",
-            tier = 3, health = 950, armor = 7, speed = 0.020f, radius = 0.42f, range = 4.8f, reloadTicks = 36, color = 0x3BC9DB, tech = Research.Tier3,
-            bullet = new BulletDef { speed = 0.50f, damage = 48, lifeTicks = 12, chain = 4, chainRange = 2.2f, color = 0xC5F6FA, size = 0.2f },
-            cost = new[] { new ItemStack(Steel, 55), new ItemStack(Circuit, 60), new ItemStack(Alloy, 20) }, buildTicks = 35 * 60, supply = 3,
+            tier = 3, health = 1200, armor = 7, speed = 0.020f, radius = 0.42f, range = 4.8f, reloadTicks = 36, color = 0x3BC9DB, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.50f, damage = 58, lifeTicks = 12, chain = 4, chainRange = 2.2f, color = 0xC5F6FA, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 70), new ItemStack(Circuit, 80), new ItemStack(Alloy, 25) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Recon = new UnitDef
         {
@@ -216,55 +216,55 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Striker = new UnitDef
         {
             key = "striker", name = "강습기", desc = "장갑을 두른 3단계 비행 유닛. 연사가 빠르다.",
-            tier = 3, flying = true, health = 800, armor = 5, speed = 0.035f, radius = 0.44f, range = 4.5f, reloadTicks = 14, color = 0x1C7ED6, tech = Research.Tier3,
-            bullet = new BulletDef { speed = 0.30f, damage = 16, lifeTicks = 20, color = 0xA5D8FF, size = 0.18f },
-            cost = new[] { new ItemStack(Steel, 40), new ItemStack(Circuit, 40), new ItemStack(Alloy, 25) }, buildTicks = 35 * 60, supply = 3,
+            tier = 3, flying = true, health = 1000, armor = 5, speed = 0.035f, radius = 0.44f, range = 4.5f, reloadTicks = 14, color = 0x1C7ED6, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.30f, damage = 19, lifeTicks = 20, color = 0xA5D8FF, size = 0.18f },
+            cost = new[] { new ItemStack(Steel, 50), new ItemStack(Circuit, 50), new ItemStack(Alloy, 30) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Seeker = new UnitDef
         {
             key = "seeker", name = "유도탄기", desc = "멀리서 유도탄을 쏘는 3단계 비행 유닛. 유도탄은 겨눈 적을 쫓아가 작은 범위로 터진다. 장갑은 얇다.",
-            tier = 3, flying = true, health = 520, armor = 3, speed = 0.038f, radius = 0.40f, range = 6.5f, reloadTicks = 55, color = 0x339AF0, tech = Research.Tier3,
-            bullet = new BulletDef { speed = 0.20f, damage = 70, splash = 1.0f, lifeTicks = 55, homing = 0.12f, color = 0xFFD8A8, size = 0.2f },
-            cost = new[] { new ItemStack(Steel, 40), new ItemStack(Circuit, 45), new ItemStack(Powder, 30), new ItemStack(Alloy, 15) }, buildTicks = 35 * 60, supply = 3,
+            tier = 3, flying = true, health = 680, armor = 3, speed = 0.038f, radius = 0.40f, range = 6.5f, reloadTicks = 55, color = 0x339AF0, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.20f, damage = 84, splash = 1.0f, lifeTicks = 55, homing = 0.12f, color = 0xFFD8A8, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 50), new ItemStack(Circuit, 60), new ItemStack(Powder, 40), new ItemStack(Alloy, 20) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Mender = new UnitDef
         {
             key = "mender", name = "수리 폭격기", desc = "3단계 폭격기. 폭탄이 범위 안의 적을 때리면서 같은 범위의 아군 건물을 고친다. 공중은 못 쏜다.",
-            tier = 3, flying = true, health = 900, armor = 6, speed = 0.036f, radius = 0.46f, range = 0.9f, reloadTicks = 70, color = 0x4DD4AC, tech = Research.Tier3,
+            tier = 3, flying = true, health = 1200, armor = 6, speed = 0.036f, radius = 0.46f, range = 0.9f, reloadTicks = 70, color = 0x4DD4AC, tech = Research.Tier3,
             targetAir = false,
-            bullet = new BulletDef { speed = 0.05f, damage = 85, splash = 1.7f, lifeTicks = 30, artillery = true, heal = 70, color = 0xB2F2BB, size = 0.26f },
-            cost = new[] { new ItemStack(Steel, 50), new ItemStack(Circuit, 50), new ItemStack(Powder, 30), new ItemStack(Alloy, 20) }, buildTicks = 38 * 60, supply = 3,
+            bullet = new BulletDef { speed = 0.05f, damage = 100, splash = 1.7f, lifeTicks = 30, artillery = true, heal = 84, color = 0xB2F2BB, size = 0.26f },
+            cost = new[] { new ItemStack(Steel, 65), new ItemStack(Circuit, 65), new ItemStack(Powder, 40), new ItemStack(Alloy, 25) }, buildTicks = 55 * 60, supply = 3,
         };
 
         // 4·5단계
         public static readonly UnitDef Siege = new UnitDef
         {
             key = "siege", name = "공성 로봇", desc = "적 포탑 사거리 밖에서 포격한다. 건물에 강하고 공중은 못 쏜다.",
-            tier = 4, health = 2600, armor = 14, speed = 0.013f, radius = 0.56f, range = 7.5f, reloadTicks = 80, color = 0x285E61, tech = Research.Tier4,
+            tier = 4, health = 4400, armor = 14, speed = 0.013f, radius = 0.56f, range = 7.5f, reloadTicks = 80, color = 0x285E61, tech = Research.Tier4,
             targetAir = false, buildingMul = 2.5f,
-            bullet = new BulletDef { speed = 0.10f, damage = 150, splash = 1.6f, lifeTicks = 90, artillery = true, color = 0xFFE8A3, size = 0.34f },
-            cost = new[] { new ItemStack(Steel, 120), new ItemStack(Circuit, 80), new ItemStack(Powder, 60), new ItemStack(Alloy, 50) }, buildTicks = 60 * 60, supply = 4,
+            bullet = new BulletDef { speed = 0.10f, damage = 220, splash = 1.6f, lifeTicks = 90, artillery = true, color = 0xFFE8A3, size = 0.34f },
+            cost = new[] { new ItemStack(Steel, 190), new ItemStack(Circuit, 130), new ItemStack(Powder, 95), new ItemStack(Alloy, 80) }, buildTicks = 115 * 60, supply = 4,
         };
         public static readonly UnitDef Titan = new UnitDef
         {
             key = "titan", name = "거신 로봇", desc = "가장 두꺼운 장갑과 범위 화력을 가진 5단계 로봇.",
-            tier = 5, health = 6500, armor = 20, speed = 0.011f, radius = 0.72f, range = 6f, reloadTicks = 30, color = 0x1D4044, tech = Research.Tier5,
-            bullet = new BulletDef { speed = 0.22f, damage = 110, splash = 1.4f, lifeTicks = 34, color = 0xB2F5EA, size = 0.36f },
-            cost = new[] { new ItemStack(Steel, 250), new ItemStack(Circuit, 180), new ItemStack(Alloy, 140) }, buildTicks = 110 * 60, supply = 5,
+            tier = 5, health = 14900, armor = 20, speed = 0.011f, radius = 0.72f, range = 6f, reloadTicks = 30, color = 0x1D4044, tech = Research.Tier5,
+            bullet = new BulletDef { speed = 0.22f, damage = 200, splash = 1.4f, lifeTicks = 34, color = 0xB2F5EA, size = 0.36f },
+            cost = new[] { new ItemStack(Steel, 500), new ItemStack(Circuit, 360), new ItemStack(Alloy, 280) }, buildTicks = 285 * 60, supply = 5,
         };
         public static readonly UnitDef Warship = new UnitDef
         {
             key = "warship", name = "전함", desc = "포문이 많은 4단계 비행 유닛. 지상과 공중 모두 쏜다.",
-            tier = 4, flying = true, health = 2400, armor = 10, speed = 0.028f, radius = 0.58f, range = 5.5f, reloadTicks = 10, color = 0x1864AB, tech = Research.Tier4,
-            bullet = new BulletDef { speed = 0.30f, damage = 24, lifeTicks = 24, color = 0xA5D8FF, size = 0.2f },
-            cost = new[] { new ItemStack(Steel, 100), new ItemStack(Circuit, 100), new ItemStack(Alloy, 60) }, buildTicks = 60 * 60, supply = 4,
+            tier = 4, flying = true, health = 4100, armor = 10, speed = 0.028f, radius = 0.58f, range = 5.5f, reloadTicks = 10, color = 0x1864AB, tech = Research.Tier4,
+            bullet = new BulletDef { speed = 0.30f, damage = 35, lifeTicks = 24, color = 0xA5D8FF, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 160), new ItemStack(Circuit, 160), new ItemStack(Alloy, 95) }, buildTicks = 115 * 60, supply = 4,
         };
         public static readonly UnitDef Carrier = new UnitDef
         {
             key = "carrier", name = "모함", desc = "가장 큰 비행 유닛. 멀리서 범위 포격을 퍼붓는다.",
-            tier = 5, flying = true, shape = "carrier", health = 6000, armor = 16, speed = 0.020f, radius = 0.76f, range = 7f, reloadTicks = 36, color = 0x0B4F8A, tech = Research.Tier5,
-            bullet = new BulletDef { speed = 0.24f, damage = 120, splash = 1.5f, lifeTicks = 36, color = 0xD0EBFF, size = 0.36f },
-            cost = new[] { new ItemStack(Steel, 220), new ItemStack(Circuit, 200), new ItemStack(Alloy, 160) }, buildTicks = 110 * 60, supply = 5,
+            tier = 5, flying = true, shape = "carrier", health = 13800, armor = 16, speed = 0.020f, radius = 0.76f, range = 7f, reloadTicks = 36, color = 0x0B4F8A, tech = Research.Tier5,
+            bullet = new BulletDef { speed = 0.24f, damage = 215, splash = 1.5f, lifeTicks = 36, color = 0xD0EBFF, size = 0.36f },
+            cost = new[] { new ItemStack(Steel, 440), new ItemStack(Circuit, 400), new ItemStack(Alloy, 320) }, buildTicks = 285 * 60, supply = 5,
         };
 
         // 지원 공방
@@ -348,29 +348,29 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Leech = new UnitDef
         {
             key = "leech", name = "흡수 로봇", desc = "벽을 타 넘는 3단계 다리 로봇. 가까이서 쏘아 준 피해의 40% 만큼 스스로를 고친다.",
-            tier = 3, legs = true, shape = "legs", health = 1000, armor = 9, speed = 0.022f, radius = 0.46f, range = 3.2f, reloadTicks = 14, color = 0xD9480F, tech = Research.Tier3,
+            tier = 3, legs = true, shape = "legs", health = 1300, armor = 9, speed = 0.022f, radius = 0.46f, range = 3.2f, reloadTicks = 14, color = 0xD9480F, tech = Research.Tier3,
             drain = 0.4f,
-            bullet = new BulletDef { speed = 0.40f, damage = 18, lifeTicks = 10, color = 0xDA77F2, size = 0.16f },
-            cost = new[] { new ItemStack(Steel, 50), new ItemStack(Circuit, 40), new ItemStack(Alloy, 25) }, buildTicks = 35 * 60, supply = 3,
+            bullet = new BulletDef { speed = 0.40f, damage = 22, lifeTicks = 10, color = 0xDA77F2, size = 0.16f },
+            cost = new[] { new ItemStack(Steel, 65), new ItemStack(Circuit, 50), new ItemStack(Alloy, 30) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Shatter = new UnitDef
         {
             key = "shatter", name = "파편 로봇", desc = "벽을 타 넘는 4단계 다리 로봇. 곡사 포탄이 터지면서 파편 6개가 폭발 범위 밖으로 튄다. 파편은 공중의 적도 맞힌다.",
-            tier = 4, legs = true, shape = "legs", health = 2300, armor = 12, speed = 0.016f, radius = 0.56f, range = 6.5f, reloadTicks = 70, color = 0xC2410C, tech = Research.Tier4,
+            tier = 4, legs = true, shape = "legs", health = 3900, armor = 12, speed = 0.016f, radius = 0.56f, range = 6.5f, reloadTicks = 70, color = 0xC2410C, tech = Research.Tier4,
             targetAir = false, buildingMul = 1.5f,
             bullet = new BulletDef
             {
-                speed = 0.11f, damage = 90, splash = 1.5f, lifeTicks = 90, artillery = true, color = 0xFFC078, size = 0.3f, fragCount = 6,
-                frag = new BulletDef { speed = 0.18f, damage = 28, lifeTicks = 12, color = 0xFFE8CC, size = 0.13f },
+                speed = 0.11f, damage = 130, splash = 1.5f, lifeTicks = 90, artillery = true, color = 0xFFC078, size = 0.3f, fragCount = 6,
+                frag = new BulletDef { speed = 0.18f, damage = 41, lifeTicks = 12, color = 0xFFE8CC, size = 0.13f },
             },
-            cost = new[] { new ItemStack(Steel, 110), new ItemStack(Circuit, 80), new ItemStack(Powder, 50), new ItemStack(Alloy, 45) }, buildTicks = 60 * 60, supply = 4,
+            cost = new[] { new ItemStack(Steel, 175), new ItemStack(Circuit, 130), new ItemStack(Powder, 80), new ItemStack(Alloy, 70) }, buildTicks = 115 * 60, supply = 4,
         };
         public static readonly UnitDef Pyre = new UnitDef
         {
             key = "pyre", name = "화염 거미", desc = "벽을 타 넘는 5단계 다리 로봇. 가까이서 꿰뚫는 불길을 뿜어 적을 4초 동안 불태운다. 불은 방어력을 무시한다.",
-            tier = 5, legs = true, shape = "legs", health = 5200, armor = 16, speed = 0.014f, radius = 0.70f, range = 3.6f, reloadTicks = 8, color = 0xA61E4D, tech = Research.Tier5,
-            bullet = new BulletDef { speed = 0.20f, damage = 22, lifeTicks = 20, pierce = 4, burn = 30, burnTicks = 240, color = 0xFF922B, size = 0.24f },
-            cost = new[] { new ItemStack(Steel, 220), new ItemStack(Circuit, 150), new ItemStack(Powder, 120), new ItemStack(Alloy, 130) }, buildTicks = 105 * 60, supply = 5,
+            tier = 5, legs = true, shape = "legs", health = 12000, armor = 16, speed = 0.014f, radius = 0.70f, range = 3.6f, reloadTicks = 8, color = 0xA61E4D, tech = Research.Tier5,
+            bullet = new BulletDef { speed = 0.20f, damage = 40, lifeTicks = 20, pierce = 4, burn = 54, burnTicks = 240, color = 0xFF922B, size = 0.24f },
+            cost = new[] { new ItemStack(Steel, 440), new ItemStack(Circuit, 300), new ItemStack(Powder, 240), new ItemStack(Alloy, 260) }, buildTicks = 275 * 60, supply = 5,
         };
 
         // 전차 공장: 느리고 단단한 지상 유닛. 몸에 닿은 지상의 적을 짓밟는다
@@ -393,34 +393,34 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef HeavyTank = new UnitDef
         {
             key = "heavytank", name = "중전차", desc = "범위 피해 주포를 단 3단계 전차. 공중은 못 쏜다.",
-            tier = 3, shape = "tank", health = 1900, armor = 15, speed = 0.015f, radius = 0.52f, range = 5f, reloadTicks = 55, color = 0x5C6F45, tech = Research.Tier3,
-            targetAir = false, crush = 40,
-            bullet = new BulletDef { speed = 0.22f, damage = 75, splash = 1.1f, lifeTicks = 30, color = 0xE9F5C9, size = 0.28f },
-            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 40), new ItemStack(Alloy, 20) }, buildTicks = 38 * 60, supply = 3,
+            tier = 3, shape = "tank", health = 2500, armor = 15, speed = 0.015f, radius = 0.52f, range = 5f, reloadTicks = 55, color = 0x5C6F45, tech = Research.Tier3,
+            targetAir = false, crush = 48,
+            bullet = new BulletDef { speed = 0.22f, damage = 90, splash = 1.1f, lifeTicks = 30, color = 0xE9F5C9, size = 0.28f },
+            cost = new[] { new ItemStack(Steel, 115), new ItemStack(Circuit, 50), new ItemStack(Alloy, 25) }, buildTicks = 55 * 60, supply = 3,
         };
         public static readonly UnitDef Bulwark = new UnitDef
         {
-            key = "bulwark", name = "방호 전차", desc = "보호막을 두른 3단계 전차. 보호막 700 이 피해를 먼저 받고, 3초 동안 맞지 않으면 다시 차오른다.",
-            tier = 3, shape = "tank", health = 1500, armor = 12, speed = 0.016f, radius = 0.50f, range = 4.2f, reloadTicks = 24, color = 0x5C7F8A, tech = Research.Tier3,
-            barrier = 700, barrierRegen = 60, barrierDelay = 3 * 60, crush = 30,
-            bullet = new BulletDef { speed = 0.26f, damage = 20, lifeTicks = 22, color = 0xC5F6FA, size = 0.17f },
-            cost = new[] { new ItemStack(Steel, 80), new ItemStack(Circuit, 60), new ItemStack(Alloy, 25) }, buildTicks = 38 * 60, supply = 3,
+            key = "bulwark", name = "방호 전차", desc = "보호막을 두른 3단계 전차. 보호막 910 이 피해를 먼저 받고, 3초 동안 맞지 않으면 다시 차오른다.",
+            tier = 3, shape = "tank", health = 2000, armor = 12, speed = 0.016f, radius = 0.50f, range = 4.2f, reloadTicks = 24, color = 0x5C7F8A, tech = Research.Tier3,
+            barrier = 910, barrierRegen = 78, barrierDelay = 3 * 60, crush = 36,
+            bullet = new BulletDef { speed = 0.26f, damage = 24, lifeTicks = 22, color = 0xC5F6FA, size = 0.17f },
+            cost = new[] { new ItemStack(Steel, 105), new ItemStack(Circuit, 80), new ItemStack(Alloy, 30) }, buildTicks = 55 * 60, supply = 3,
         };
         public static readonly UnitDef PiercerTank = new UnitDef
         {
             key = "piercertank", name = "철갑 전차", desc = "4단계 전차. 멀리서 방어력을 무시하는 철갑탄을 쏜다. 느리게 쏘고 공중은 못 쏜다.",
-            tier = 4, shape = "tank", health = 3200, armor = 18, speed = 0.013f, radius = 0.58f, range = 7f, reloadTicks = 100, color = 0x485737, tech = Research.Tier4,
-            targetAir = false, buildingMul = 1.5f, crush = 60,
-            bullet = new BulletDef { speed = 0.45f, damage = 320, lifeTicks = 20, pierceArmor = true, color = 0xFFF3BF, size = 0.26f },
-            cost = new[] { new ItemStack(Steel, 150), new ItemStack(Circuit, 80), new ItemStack(Powder, 40), new ItemStack(Alloy, 60) }, buildTicks = 65 * 60, supply = 4,
+            tier = 4, shape = "tank", health = 5400, armor = 18, speed = 0.013f, radius = 0.58f, range = 7f, reloadTicks = 100, color = 0x485737, tech = Research.Tier4,
+            targetAir = false, buildingMul = 1.5f, crush = 87,
+            bullet = new BulletDef { speed = 0.45f, damage = 465, lifeTicks = 20, pierceArmor = true, color = 0xFFF3BF, size = 0.26f },
+            cost = new[] { new ItemStack(Steel, 240), new ItemStack(Circuit, 130), new ItemStack(Powder, 65), new ItemStack(Alloy, 95) }, buildTicks = 125 * 60, supply = 4,
         };
         public static readonly UnitDef Juggernaut = new UnitDef
         {
             key = "juggernaut", name = "분쇄 전차", desc = "가장 단단한 5단계 전차. 범위 피해 주포를 쏘며 닿은 적을 갈아 버린다.",
-            tier = 5, shape = "tank", health = 8000, armor = 24, speed = 0.010f, radius = 0.76f, range = 5.5f, reloadTicks = 26, color = 0x364228, tech = Research.Tier5,
-            crush = 150,
-            bullet = new BulletDef { speed = 0.22f, damage = 95, splash = 1.3f, lifeTicks = 32, color = 0xE9F5C9, size = 0.34f },
-            cost = new[] { new ItemStack(Steel, 300), new ItemStack(Circuit, 160), new ItemStack(Alloy, 150) }, buildTicks = 115 * 60, supply = 5,
+            tier = 5, shape = "tank", health = 18400, armor = 24, speed = 0.010f, radius = 0.76f, range = 5.5f, reloadTicks = 26, color = 0x364228, tech = Research.Tier5,
+            crush = 270,
+            bullet = new BulletDef { speed = 0.22f, damage = 170, splash = 1.3f, lifeTicks = 32, color = 0xE9F5C9, size = 0.34f },
+            cost = new[] { new ItemStack(Steel, 600), new ItemStack(Circuit, 320), new ItemStack(Alloy, 300) }, buildTicks = 300 * 60, supply = 5,
         };
 
         // 조선소 (해상): 호수 안에서만 움직이지만 사거리가 길다
@@ -441,24 +441,24 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Destroyer = new UnitDef
         {
             key = "destroyer", name = "구축함", desc = "아주 멀리 곡사포를 쏘는 3단계 함정. 공중은 못 쏜다.",
-            tier = 3, naval = true, shape = "boat", health = 2800, armor = 14, speed = 0.016f, radius = 0.56f, range = 9f, reloadTicks = 60, color = 0x0B7285, tech = Research.Tier3,
+            tier = 3, naval = true, shape = "boat", health = 3600, armor = 14, speed = 0.016f, radius = 0.56f, range = 9f, reloadTicks = 60, color = 0x0B7285, tech = Research.Tier3,
             targetAir = false, buildingMul = 1.5f,
-            bullet = new BulletDef { speed = 0.11f, damage = 130, splash = 1.8f, lifeTicks = 100, artillery = true, color = 0xE3FAFC, size = 0.32f },
-            cost = new[] { new ItemStack(Steel, 110), new ItemStack(Circuit, 80), new ItemStack(Alloy, 40) }, buildTicks = 50 * 60, supply = 3,
+            bullet = new BulletDef { speed = 0.11f, damage = 155, splash = 1.8f, lifeTicks = 100, artillery = true, color = 0xE3FAFC, size = 0.32f },
+            cost = new[] { new ItemStack(Steel, 145), new ItemStack(Circuit, 105), new ItemStack(Alloy, 50) }, buildTicks = 70 * 60, supply = 3,
         };
         public static readonly UnitDef Shockboat = new UnitDef
         {
             key = "shockboat", name = "충격함", desc = "3단계 함정. 충격탄이 터지면서 범위 안의 적을 0.9칸 뒤로 밀어낸다. 보스는 절반만 밀린다.",
-            tier = 3, naval = true, shape = "boat", health = 2200, armor = 12, speed = 0.018f, radius = 0.50f, range = 7.5f, reloadTicks = 45, color = 0x22B8CF, tech = Research.Tier3,
-            bullet = new BulletDef { speed = 0.30f, damage = 50, splash = 1.2f, lifeTicks = 30, knockback = 0.9f, color = 0xFFFFFF, size = 0.24f },
-            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 70), new ItemStack(Powder, 40), new ItemStack(Alloy, 30) }, buildTicks = 45 * 60, supply = 3,
+            tier = 3, naval = true, shape = "boat", health = 2900, armor = 12, speed = 0.018f, radius = 0.50f, range = 7.5f, reloadTicks = 45, color = 0x22B8CF, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.30f, damage = 60, splash = 1.2f, lifeTicks = 30, knockback = 0.9f, color = 0xFFFFFF, size = 0.24f },
+            cost = new[] { new ItemStack(Steel, 115), new ItemStack(Circuit, 90), new ItemStack(Powder, 50), new ItemStack(Alloy, 40) }, buildTicks = 65 * 60, supply = 3,
         };
         public static readonly UnitDef Arcship = new UnitDef
         {
             key = "arcship", name = "방전함", desc = "4단계 함정. 포 대신 전류를 뿜어 5.5칸 안의 적 8기를 지상·공중 가리지 않고 한꺼번에 치고, 곁의 아군을 고친다.",
-            tier = 4, naval = true, shape = "boat", health = 4200, armor = 16, speed = 0.014f, radius = 0.62f, range = 5.5f, reloadTicks = 40, color = 0x15AABF, tech = Research.Tier4,
-            fieldDamage = 40, fieldTargets = 8, heal = 8, healRange = 4f,
-            cost = new[] { new ItemStack(Steel, 150), new ItemStack(Circuit, 120), new ItemStack(Alloy, 70) }, buildTicks = 70 * 60, supply = 4,
+            tier = 4, naval = true, shape = "boat", health = 7100, armor = 16, speed = 0.014f, radius = 0.62f, range = 5.5f, reloadTicks = 40, color = 0x15AABF, tech = Research.Tier4,
+            fieldDamage = 58, fieldTargets = 8, heal = 12, healRange = 4f,
+            cost = new[] { new ItemStack(Steel, 240), new ItemStack(Circuit, 190), new ItemStack(Alloy, 110) }, buildTicks = 135 * 60, supply = 4,
         };
         /// 기함이 스스로 띄우는 호위기. 공장에서는 만들 수 없고, 기함을 잃으면 함께 떨어진다
         public static readonly UnitDef Escort = new UnitDef
@@ -471,10 +471,10 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Flagship = new UnitDef
         {
             key = "flagship", name = "기함", desc = "5단계 함정. 사거리 10 의 관통 전자포를 쏘고, 15초마다 함재기를 띄워 둘까지 거느린다.",
-            tier = 5, naval = true, shape = "boat", health = 7000, armor = 20, speed = 0.012f, radius = 0.74f, range = 10f, reloadTicks = 90, color = 0x0C8599, tech = Research.Tier5,
+            tier = 5, naval = true, shape = "boat", health = 16100, armor = 20, speed = 0.012f, radius = 0.74f, range = 10f, reloadTicks = 90, color = 0x0C8599, tech = Research.Tier5,
             buildingMul = 1.5f, spawns = Escort, spawnMax = 2, spawnTicks = 15 * 60,
-            bullet = new BulletDef { speed = 0.5f, damage = 170, lifeTicks = 24, pierce = 5, color = 0xE3FAFC, size = 0.3f },
-            cost = new[] { new ItemStack(Steel, 260), new ItemStack(Circuit, 200), new ItemStack(Alloy, 170) }, buildTicks = 120 * 60, supply = 5,
+            bullet = new BulletDef { speed = 0.5f, damage = 305, lifeTicks = 24, pierce = 5, color = 0xE3FAFC, size = 0.3f },
+            cost = new[] { new ItemStack(Steel, 520), new ItemStack(Circuit, 400), new ItemStack(Alloy, 340) }, buildTicks = 310 * 60, supply = 5,
         };
 
         // ───────── 공장마다 12종이 되도록 더한 유닛 ─────────
@@ -497,25 +497,25 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Breacher = new UnitDef
         {
             key = "breacher", name = "돌파 로봇", desc = "적 건물을 부수는 3단계 로봇. 붙어서 치고 건물에 3배 피해를 준다. 공중은 못 쏜다.",
-            tier = 3, health = 1700, armor = 12, speed = 0.020f, radius = 0.46f, range = 1.8f, reloadTicks = 30, color = 0x0CA678, tech = Research.Tier3,
+            tier = 3, health = 2200, armor = 12, speed = 0.020f, radius = 0.46f, range = 1.8f, reloadTicks = 30, color = 0x0CA678, tech = Research.Tier3,
             targetAir = false, buildingMul = 3f,
-            bullet = new BulletDef { speed = 0.2f, damage = 45, lifeTicks = 12, color = 0xFFE066, size = 0.24f },
-            cost = new[] { new ItemStack(Steel, 80), new ItemStack(Circuit, 30), new ItemStack(Alloy, 20) }, buildTicks = 35 * 60, supply = 3,
+            bullet = new BulletDef { speed = 0.2f, damage = 54, lifeTicks = 12, color = 0xFFE066, size = 0.24f },
+            cost = new[] { new ItemStack(Steel, 105), new ItemStack(Circuit, 40), new ItemStack(Alloy, 25) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Suppressor = new UnitDef
         {
             key = "suppressor", name = "제압 로봇", desc = "쉬지 않고 쏘는 4단계 로봇. 맞은 적은 1초 동안 30% 느려진다.",
-            tier = 4, health = 2400, armor = 12, speed = 0.016f, radius = 0.54f, range = 5.2f, reloadTicks = 6, color = 0x099268, tech = Research.Tier4,
-            bullet = new BulletDef { speed = 0.3f, damage = 16, lifeTicks = 20, slow = 0.7f, slowTicks = 60, color = 0xA9E34B, size = 0.15f },
-            cost = new[] { new ItemStack(Steel, 110), new ItemStack(Circuit, 110), new ItemStack(Alloy, 55) }, buildTicks = 60 * 60, supply = 4,
+            tier = 4, health = 4100, armor = 12, speed = 0.016f, radius = 0.54f, range = 5.2f, reloadTicks = 6, color = 0x099268, tech = Research.Tier4,
+            bullet = new BulletDef { speed = 0.3f, damage = 23, lifeTicks = 20, slow = 0.7f, slowTicks = 60, color = 0xA9E34B, size = 0.15f },
+            cost = new[] { new ItemStack(Steel, 175), new ItemStack(Circuit, 175), new ItemStack(Alloy, 90) }, buildTicks = 115 * 60, supply = 4,
         };
         public static readonly UnitDef Warlord = new UnitDef
         {
             key = "warlord", name = "유도 거신", desc = "보호막을 두르고 범위 유도탄을 쏘는 5단계 로봇.",
-            tier = 5, health = 5200, armor = 16, speed = 0.012f, radius = 0.70f, range = 7.5f, reloadTicks = 40, color = 0x087F5B, tech = Research.Tier5,
-            barrier = 1500, barrierRegen = 80, barrierDelay = 4 * 60,
-            bullet = new BulletDef { speed = 0.2f, damage = 150, splash = 1.4f, lifeTicks = 60, homing = 0.12f, color = 0xFFD8A8, size = 0.3f },
-            cost = new[] { new ItemStack(Steel, 240), new ItemStack(Circuit, 200), new ItemStack(Powder, 80), new ItemStack(Alloy, 140) }, buildTicks = 110 * 60, supply = 5,
+            tier = 5, health = 12000, armor = 16, speed = 0.012f, radius = 0.70f, range = 7.5f, reloadTicks = 40, color = 0x087F5B, tech = Research.Tier5,
+            barrier = 3400, barrierRegen = 185, barrierDelay = 4 * 60,
+            bullet = new BulletDef { speed = 0.2f, damage = 270, splash = 1.4f, lifeTicks = 60, homing = 0.12f, color = 0xFFD8A8, size = 0.3f },
+            cost = new[] { new ItemStack(Steel, 480), new ItemStack(Circuit, 400), new ItemStack(Powder, 160), new ItemStack(Alloy, 280) }, buildTicks = 285 * 60, supply = 5,
         };
 
         // 비행장 (추가)
@@ -538,66 +538,66 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Firebomber = new UnitDef
         {
             key = "firebomber", name = "소이 폭격기", desc = "불타는 폭탄을 떨어뜨리는 3단계 폭격기. 범위 안 지상의 적이 4초 동안 불탄다. 공중은 못 쏜다.",
-            tier = 3, health = 760, armor = 5, speed = 0.038f, radius = 0.44f, range = 0.8f, reloadTicks = 75, color = 0xFF8787, tech = Research.Tier3,
+            tier = 3, health = 990, armor = 5, speed = 0.038f, radius = 0.44f, range = 0.8f, reloadTicks = 75, color = 0xFF8787, tech = Research.Tier3,
             flying = true, targetAir = false,
-            bullet = new BulletDef { speed = 0.05f, damage = 50, splash = 1.8f, lifeTicks = 30, artillery = true, burn = 22, burnTicks = 240, color = 0xFF922B, size = 0.26f },
-            cost = new[] { new ItemStack(Steel, 45), new ItemStack(Circuit, 45), new ItemStack(Powder, 50), new ItemStack(Alloy, 15) }, buildTicks = 36 * 60, supply = 3,
+            bullet = new BulletDef { speed = 0.05f, damage = 60, splash = 1.8f, lifeTicks = 30, artillery = true, burn = 26, burnTicks = 240, color = 0xFF922B, size = 0.26f },
+            cost = new[] { new ItemStack(Steel, 60), new ItemStack(Circuit, 60), new ItemStack(Powder, 65), new ItemStack(Alloy, 20) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Stormwing = new UnitDef
         {
             key = "stormwing", name = "전격기", desc = "적에서 적으로 다섯 번 건너뛰는 전격을 쏘는 4단계 비행 유닛.",
-            tier = 4, health = 1900, armor = 9, speed = 0.030f, radius = 0.56f, range = 5f, reloadTicks = 28, color = 0x3BC9DB, tech = Research.Tier4,
+            tier = 4, health = 3200, armor = 9, speed = 0.030f, radius = 0.56f, range = 5f, reloadTicks = 28, color = 0x3BC9DB, tech = Research.Tier4,
             flying = true,
-            bullet = new BulletDef { speed = 0.5f, damage = 60, lifeTicks = 12, chain = 5, chainRange = 2.4f, color = 0xC5F6FA, size = 0.2f },
-            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 120), new ItemStack(Alloy, 60) }, buildTicks = 60 * 60, supply = 4,
+            bullet = new BulletDef { speed = 0.5f, damage = 87, lifeTicks = 12, chain = 5, chainRange = 2.4f, color = 0xC5F6FA, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 145), new ItemStack(Circuit, 190), new ItemStack(Alloy, 95) }, buildTicks = 115 * 60, supply = 4,
         };
         public static readonly UnitDef Skyfort = new UnitDef
         {
             key = "skyfort", name = "공중 요새", desc = "보호막을 두른 5단계 비행 유닛. 12초마다 함재기를 띄워 셋까지 거느린다.",
-            tier = 5, health = 5000, armor = 15, speed = 0.018f, radius = 0.78f, range = 6f, reloadTicks = 22, color = 0x4263EB, tech = Research.Tier5,
-            flying = true, shape = "carrier", barrier = 2000, barrierRegen = 100, barrierDelay = 4 * 60, spawns = Escort, spawnMax = 3, spawnTicks = 12 * 60,
-            bullet = new BulletDef { speed = 0.3f, damage = 55, lifeTicks = 24, color = 0xDBE4FF, size = 0.22f },
-            cost = new[] { new ItemStack(Steel, 240), new ItemStack(Circuit, 220), new ItemStack(Alloy, 170) }, buildTicks = 115 * 60, supply = 5,
+            tier = 5, health = 11500, armor = 15, speed = 0.018f, radius = 0.78f, range = 6f, reloadTicks = 22, color = 0x4263EB, tech = Research.Tier5,
+            flying = true, shape = "carrier", barrier = 4600, barrierRegen = 230, barrierDelay = 4 * 60, spawns = Escort, spawnMax = 3, spawnTicks = 12 * 60,
+            bullet = new BulletDef { speed = 0.3f, damage = 99, lifeTicks = 24, color = 0xDBE4FF, size = 0.22f },
+            cost = new[] { new ItemStack(Steel, 480), new ItemStack(Circuit, 440), new ItemStack(Alloy, 340) }, buildTicks = 300 * 60, supply = 5,
         };
 
         // 지원 공방 (추가)
         public static readonly UnitDef Medic = new UnitDef
         {
             key = "medic", name = "야전 정비 로봇", desc = "4.5칸 안의 아군 유닛과 건물을 빠르게 고치는 3단계 로봇.",
-            tier = 3, health = 1400, armor = 9, speed = 0.020f, radius = 0.44f, range = 3.2f, reloadTicks = 30, color = 0x51CF66, tech = Research.Tier3,
-            shape = "support", heal = 40, healRange = 4.5f,
-            bullet = new BulletDef { speed = 0.25f, damage = 10, lifeTicks = 16, color = 0xD3F9D8, size = 0.14f },
-            cost = new[] { new ItemStack(Steel, 70), new ItemStack(Circuit, 70), new ItemStack(Alloy, 20) }, buildTicks = 36 * 60, supply = 3,
+            tier = 3, health = 1800, armor = 9, speed = 0.020f, radius = 0.44f, range = 3.2f, reloadTicks = 30, color = 0x51CF66, tech = Research.Tier3,
+            shape = "support", heal = 48, healRange = 4.5f,
+            bullet = new BulletDef { speed = 0.25f, damage = 12, lifeTicks = 16, color = 0xD3F9D8, size = 0.14f },
+            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 90), new ItemStack(Alloy, 25) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef BoostDrone = new UnitDef
         {
             key = "boostdrone", name = "증폭 드론", desc = "날아다니며 4.5칸 안의 다른 아군 유닛을 1.33배 빨리 쏘게 하는 3단계 드론.",
-            tier = 3, health = 420, armor = 2, speed = 0.045f, radius = 0.28f, range = 3.5f, reloadTicks = 30, color = 0xFAB005, tech = Research.Tier3,
+            tier = 3, health = 550, armor = 2, speed = 0.045f, radius = 0.28f, range = 3.5f, reloadTicks = 30, color = 0xFAB005, tech = Research.Tier3,
             flying = true, shape = "drone", boostRange = 4.5f,
-            bullet = new BulletDef { speed = 0.26f, damage = 5, lifeTicks = 16, color = 0xFFF3BF, size = 0.12f },
-            cost = new[] { new ItemStack(Steel, 50), new ItemStack(Circuit, 70), new ItemStack(Alloy, 15) }, buildTicks = 34 * 60, supply = 3,
+            bullet = new BulletDef { speed = 0.26f, damage = 6, lifeTicks = 16, color = 0xFFF3BF, size = 0.12f },
+            cost = new[] { new ItemStack(Steel, 65), new ItemStack(Circuit, 90), new ItemStack(Alloy, 20) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Excavator = new UnitDef
         {
             key = "excavator", name = "굴착 드론", desc = "큰 채굴 드론. 벽을 6초 캐서 철광 30(세 번에 한 번은 황석 15)을 핵으로 나른다. 싸우지 못한다.",
-            tier = 3, health = 420, armor = 3, speed = 0.040f, radius = 0.34f, color = 0xB08968, tech = Research.Tier3,
+            tier = 3, health = 550, armor = 3, speed = 0.040f, radius = 0.34f, color = 0xB08968, tech = Research.Tier3,
             flying = true, shape = "drone", mine = 30, mineTicks = 6 * 60,
-            cost = new[] { new ItemStack(Steel, 60), new ItemStack(Circuit, 50), new ItemStack(Alloy, 15) }, buildTicks = 32 * 60, supply = 3,
+            cost = new[] { new ItemStack(Steel, 80), new ItemStack(Circuit, 65), new ItemStack(Alloy, 20) }, buildTicks = 45 * 60, supply = 3,
         };
         public static readonly UnitDef Aegis = new UnitDef
         {
             key = "aegis", name = "수호 로봇", desc = "4.5칸 안의 아군 유닛이 받는 피해를 절반으로 줄이는 4단계 로봇. 자기도 보호막을 두른다.",
-            tier = 4, health = 2600, armor = 14, speed = 0.016f, radius = 0.54f, range = 3f, reloadTicks = 36, color = 0x2B8A3E, tech = Research.Tier4,
-            shape = "support", shieldRange = 4.5f, shieldMul = 0.5f, barrier = 1200, barrierRegen = 70, barrierDelay = 4 * 60,
-            bullet = new BulletDef { speed = 0.24f, damage = 14, lifeTicks = 16, color = 0xD3F9D8, size = 0.16f },
-            cost = new[] { new ItemStack(Steel, 130), new ItemStack(Circuit, 90), new ItemStack(Alloy, 60) }, buildTicks = 60 * 60, supply = 4,
+            tier = 4, health = 4400, armor = 14, speed = 0.016f, radius = 0.54f, range = 3f, reloadTicks = 36, color = 0x2B8A3E, tech = Research.Tier4,
+            shape = "support", shieldRange = 4.5f, shieldMul = 0.5f, barrier = 2000, barrierRegen = 120, barrierDelay = 4 * 60,
+            bullet = new BulletDef { speed = 0.24f, damage = 20, lifeTicks = 16, color = 0xD3F9D8, size = 0.16f },
+            cost = new[] { new ItemStack(Steel, 210), new ItemStack(Circuit, 145), new ItemStack(Alloy, 95) }, buildTicks = 115 * 60, supply = 4,
         };
         public static readonly UnitDef Hauler = new UnitDef
         {
             key = "hauler", name = "대형 수송기", desc = "걸어가는 유닛을 한도 14칸까지 실어 나르는 4단계 수송기.",
-            tier = 4, health = 2200, armor = 10, speed = 0.034f, radius = 0.80f, color = 0x1B7A36, tech = Research.Tier4,
+            tier = 4, health = 3700, armor = 10, speed = 0.034f, radius = 0.80f, color = 0x1B7A36, tech = Research.Tier4,
             flying = true, shape = "transport", capacity = 14,
-            cost = new[] { new ItemStack(Steel, 140), new ItemStack(Circuit, 90), new ItemStack(Alloy, 40) }, buildTicks = 55 * 60, supply = 4,
+            cost = new[] { new ItemStack(Steel, 225), new ItemStack(Circuit, 145), new ItemStack(Alloy, 65) }, buildTicks = 105 * 60, supply = 4,
         };
 
         // 다리 공방 (추가)
@@ -620,34 +620,34 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Blaster = new UnitDef
         {
             key = "blaster", name = "폭뢰 벌레", desc = "크게 터지는 3단계 벌레. 건물에 3배 피해.",
-            tier = 3, health = 520, armor = 4, speed = 0.040f, radius = 0.36f, range = 0.3f, reloadTicks = 0, color = 0xF59F00, tech = Research.Tier3,
+            tier = 3, health = 680, armor = 4, speed = 0.040f, radius = 0.36f, range = 0.3f, reloadTicks = 0, color = 0xF59F00, tech = Research.Tier3,
             shape = "bug", suicide = true, buildingMul = 3f,
-            bullet = new BulletDef { damage = 420, splash = 2.6f, color = 0xFFD43B },
-            cost = new[] { new ItemStack(Steel, 40), new ItemStack(Powder, 70), new ItemStack(Alloy, 15) }, buildTicks = 26 * 60, supply = 3,
+            bullet = new BulletDef { damage = 505, splash = 2.6f, color = 0xFFD43B },
+            cost = new[] { new ItemStack(Steel, 50), new ItemStack(Powder, 90), new ItemStack(Alloy, 20) }, buildTicks = 35 * 60, supply = 3,
         };
         public static readonly UnitDef Stalker = new UnitDef
         {
             key = "stalker", name = "저격 거미", desc = "벽을 타 넘는 3단계 다리 로봇. 멀리서 방어력을 무시하는 한 발을 쏜다. 공중은 못 쏜다.",
-            tier = 3, health = 700, armor = 6, speed = 0.022f, radius = 0.40f, range = 7.5f, reloadTicks = 85, color = 0xE8590C, tech = Research.Tier3,
+            tier = 3, health = 910, armor = 6, speed = 0.022f, radius = 0.40f, range = 7.5f, reloadTicks = 85, color = 0xE8590C, tech = Research.Tier3,
             legs = true, shape = "legs", targetAir = false,
-            bullet = new BulletDef { speed = 0.5f, damage = 130, lifeTicks = 18, pierceArmor = true, color = 0xFFF3BF, size = 0.2f },
-            cost = new[] { new ItemStack(Steel, 50), new ItemStack(Circuit, 55), new ItemStack(Alloy, 25) }, buildTicks = 36 * 60, supply = 3,
+            bullet = new BulletDef { speed = 0.5f, damage = 155, lifeTicks = 18, pierceArmor = true, color = 0xFFF3BF, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 65), new ItemStack(Circuit, 70), new ItemStack(Alloy, 30) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Sparker = new UnitDef
         {
             key = "sparker", name = "전격 거미", desc = "벽을 타 넘는 4단계 다리 로봇. 적에서 적으로 네 번 건너뛰는 전격을 쏜다.",
-            tier = 4, health = 2100, armor = 11, speed = 0.018f, radius = 0.54f, range = 4.6f, reloadTicks = 24, color = 0xD9480F, tech = Research.Tier4,
+            tier = 4, health = 3600, armor = 11, speed = 0.018f, radius = 0.54f, range = 4.6f, reloadTicks = 24, color = 0xD9480F, tech = Research.Tier4,
             legs = true, shape = "legs",
-            bullet = new BulletDef { speed = 0.5f, damage = 58, lifeTicks = 12, chain = 4, chainRange = 2.4f, color = 0xC5F6FA, size = 0.2f },
-            cost = new[] { new ItemStack(Steel, 100), new ItemStack(Circuit, 120), new ItemStack(Alloy, 50) }, buildTicks = 60 * 60, supply = 4,
+            bullet = new BulletDef { speed = 0.5f, damage = 84, lifeTicks = 12, chain = 4, chainRange = 2.4f, color = 0xC5F6FA, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 160), new ItemStack(Circuit, 190), new ItemStack(Alloy, 80) }, buildTicks = 115 * 60, supply = 4,
         };
         public static readonly UnitDef Devourer = new UnitDef
         {
             key = "devourer", name = "포식 거미", desc = "벽을 타 넘는 5단계 다리 로봇. 범위 피해를 주고, 직격으로 준 피해의 35% 만큼 스스로를 고친다.",
-            tier = 5, health = 6000, armor = 18, speed = 0.013f, radius = 0.72f, range = 4.2f, reloadTicks = 20, color = 0x862E9C, tech = Research.Tier5,
+            tier = 5, health = 13800, armor = 18, speed = 0.013f, radius = 0.72f, range = 4.2f, reloadTicks = 20, color = 0x862E9C, tech = Research.Tier5,
             legs = true, shape = "legs", drain = 0.35f,
-            bullet = new BulletDef { speed = 0.24f, damage = 70, splash = 1.2f, lifeTicks = 20, color = 0xDA77F2, size = 0.26f },
-            cost = new[] { new ItemStack(Steel, 240), new ItemStack(Circuit, 170), new ItemStack(Alloy, 160) }, buildTicks = 110 * 60, supply = 5,
+            bullet = new BulletDef { speed = 0.24f, damage = 125, splash = 1.2f, lifeTicks = 20, color = 0xDA77F2, size = 0.26f },
+            cost = new[] { new ItemStack(Steel, 480), new ItemStack(Circuit, 340), new ItemStack(Alloy, 320) }, buildTicks = 285 * 60, supply = 5,
         };
 
         // 조선소 (추가)
@@ -670,34 +670,34 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Mireship = new UnitDef
         {
             key = "mireship", name = "산성함", desc = "산성 곡사포를 쏘는 3단계 함정. 넓은 범위 지상의 적을 3초 넘게 절반 속도로 늦춘다. 공중은 못 쏜다.",
-            tier = 3, health = 2000, armor = 11, speed = 0.017f, radius = 0.50f, range = 8.5f, reloadTicks = 70, color = 0x82C91E, tech = Research.Tier3,
+            tier = 3, health = 2600, armor = 11, speed = 0.017f, radius = 0.50f, range = 8.5f, reloadTicks = 70, color = 0x82C91E, tech = Research.Tier3,
             naval = true, shape = "boat", targetAir = false,
-            bullet = new BulletDef { speed = 0.11f, damage = 45, splash = 1.9f, lifeTicks = 100, artillery = true, slow = 0.5f, slowTicks = 200, color = 0xA9E34B, size = 0.28f },
-            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 70), new ItemStack(Powder, 30), new ItemStack(Alloy, 25) }, buildTicks = 45 * 60, supply = 3,
+            bullet = new BulletDef { speed = 0.11f, damage = 54, splash = 1.9f, lifeTicks = 100, artillery = true, slow = 0.5f, slowTicks = 200, color = 0xA9E34B, size = 0.28f },
+            cost = new[] { new ItemStack(Steel, 115), new ItemStack(Circuit, 90), new ItemStack(Powder, 40), new ItemStack(Alloy, 30) }, buildTicks = 65 * 60, supply = 3,
         };
         public static readonly UnitDef Wardship = new UnitDef
         {
             key = "wardship", name = "방패함", desc = "5칸 안의 아군 유닛이 받는 피해를 40% 줄이는 3단계 함정. 자기도 보호막을 두른다.",
-            tier = 3, health = 2400, armor = 13, speed = 0.016f, radius = 0.52f, range = 5.5f, reloadTicks = 34, color = 0x15AABF, tech = Research.Tier3,
-            naval = true, shape = "boat", shieldRange = 5f, shieldMul = 0.6f, barrier = 800, barrierRegen = 60, barrierDelay = 4 * 60,
-            bullet = new BulletDef { speed = 0.26f, damage = 22, lifeTicks = 24, color = 0xC5F6FA, size = 0.16f },
-            cost = new[] { new ItemStack(Steel, 110), new ItemStack(Circuit, 70), new ItemStack(Alloy, 35) }, buildTicks = 48 * 60, supply = 3,
+            tier = 3, health = 3100, armor = 13, speed = 0.016f, radius = 0.52f, range = 5.5f, reloadTicks = 34, color = 0x15AABF, tech = Research.Tier3,
+            naval = true, shape = "boat", shieldRange = 5f, shieldMul = 0.6f, barrier = 1000, barrierRegen = 78, barrierDelay = 4 * 60,
+            bullet = new BulletDef { speed = 0.26f, damage = 26, lifeTicks = 24, color = 0xC5F6FA, size = 0.16f },
+            cost = new[] { new ItemStack(Steel, 145), new ItemStack(Circuit, 90), new ItemStack(Alloy, 45) }, buildTicks = 65 * 60, supply = 3,
         };
         public static readonly UnitDef Lancership = new UnitDef
         {
             key = "lancership", name = "철갑함", desc = "아주 멀리서 방어력을 무시하는 철갑탄을 쏘는 4단계 함정. 적 셋까지 꿰뚫는다. 공중은 못 쏜다.",
-            tier = 4, health = 3400, armor = 15, speed = 0.014f, radius = 0.60f, range = 9.5f, reloadTicks = 110, color = 0x1098AD, tech = Research.Tier4,
+            tier = 4, health = 5800, armor = 15, speed = 0.014f, radius = 0.60f, range = 9.5f, reloadTicks = 110, color = 0x1098AD, tech = Research.Tier4,
             naval = true, shape = "boat", targetAir = false, buildingMul = 1.5f,
-            bullet = new BulletDef { speed = 0.5f, damage = 280, lifeTicks = 22, pierce = 2, pierceArmor = true, color = 0xFFF3BF, size = 0.26f },
-            cost = new[] { new ItemStack(Steel, 160), new ItemStack(Circuit, 110), new ItemStack(Powder, 50), new ItemStack(Alloy, 70) }, buildTicks = 70 * 60, supply = 4,
+            bullet = new BulletDef { speed = 0.5f, damage = 405, lifeTicks = 22, pierce = 2, pierceArmor = true, color = 0xFFF3BF, size = 0.26f },
+            cost = new[] { new ItemStack(Steel, 255), new ItemStack(Circuit, 175), new ItemStack(Powder, 80), new ItemStack(Alloy, 110) }, buildTicks = 135 * 60, supply = 4,
         };
         public static readonly UnitDef Infernoship = new UnitDef
         {
             key = "infernoship", name = "화염 전함", desc = "불타는 곡사포를 쏘는 5단계 함정. 포탄이 터지며 파편 8개가 튀고, 범위 안 지상의 적이 불탄다. 공중은 못 겨눈다.",
-            tier = 5, health = 6500, armor = 19, speed = 0.012f, radius = 0.74f, range = 9f, reloadTicks = 55, color = 0xC92A2A, tech = Research.Tier5,
+            tier = 5, health = 14900, armor = 19, speed = 0.012f, radius = 0.74f, range = 9f, reloadTicks = 55, color = 0xC92A2A, tech = Research.Tier5,
             naval = true, shape = "boat", targetAir = false,
-            bullet = new BulletDef { speed = 0.11f, damage = 110, splash = 2.0f, lifeTicks = 100, artillery = true, burn = 35, burnTicks = 240, color = 0xFF922B, size = 0.34f, fragCount = 8, frag = new BulletDef { speed = 0.18f, damage = 30, lifeTicks = 12, color = 0xFFE8CC, size = 0.13f } },
-            cost = new[] { new ItemStack(Steel, 250), new ItemStack(Circuit, 190), new ItemStack(Powder, 120), new ItemStack(Alloy, 160) }, buildTicks = 118 * 60, supply = 5,
+            bullet = new BulletDef { speed = 0.11f, damage = 200, splash = 2.0f, lifeTicks = 100, artillery = true, burn = 63, burnTicks = 240, color = 0xFF922B, size = 0.34f, fragCount = 8, frag = new BulletDef { speed = 0.18f, damage = 54, lifeTicks = 12, color = 0xFFE8CC, size = 0.13f } },
+            cost = new[] { new ItemStack(Steel, 500), new ItemStack(Circuit, 380), new ItemStack(Powder, 240), new ItemStack(Alloy, 320) }, buildTicks = 305 * 60, supply = 5,
         };
 
         // 전차 공장 (추가)
@@ -720,33 +720,33 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Howitzer = new UnitDef
         {
             key = "howitzer", name = "자주포", desc = "아주 멀리 곡사포를 쏘는 3단계 전차. 장갑이 얇고 공중은 못 쏜다. 적 건물에 1.5배.",
-            tier = 3, health = 1100, armor = 9, speed = 0.014f, radius = 0.50f, range = 8.5f, reloadTicks = 90, color = 0x6B705C, tech = Research.Tier3,
-            shape = "tank", targetAir = false, buildingMul = 1.5f, crush = 25,
-            bullet = new BulletDef { speed = 0.11f, damage = 120, splash = 1.8f, lifeTicks = 100, artillery = true, color = 0xFFE8A3, size = 0.32f },
-            cost = new[] { new ItemStack(Steel, 80), new ItemStack(Circuit, 50), new ItemStack(Powder, 40), new ItemStack(Alloy, 20) }, buildTicks = 40 * 60, supply = 3,
+            tier = 3, health = 1400, armor = 9, speed = 0.014f, radius = 0.50f, range = 8.5f, reloadTicks = 90, color = 0x6B705C, tech = Research.Tier3,
+            shape = "tank", targetAir = false, buildingMul = 1.5f, crush = 30,
+            bullet = new BulletDef { speed = 0.11f, damage = 145, splash = 1.8f, lifeTicks = 100, artillery = true, color = 0xFFE8A3, size = 0.32f },
+            cost = new[] { new ItemStack(Steel, 105), new ItemStack(Circuit, 65), new ItemStack(Powder, 50), new ItemStack(Alloy, 25) }, buildTicks = 55 * 60, supply = 3,
         };
         public static readonly UnitDef Ramtank = new UnitDef
         {
             key = "ramtank", name = "충각 전차", desc = "빠르게 달려들어 짓밟는 3단계 전차. 충격탄으로 적을 밀어낸다.",
-            tier = 3, health = 2100, armor = 14, speed = 0.024f, radius = 0.50f, range = 2.6f, reloadTicks = 40, color = 0x8D6E63, tech = Research.Tier3,
-            shape = "tank", crush = 90,
-            bullet = new BulletDef { speed = 0.26f, damage = 40, splash = 0.8f, lifeTicks = 12, knockback = 0.7f, color = 0xFFFFFF, size = 0.22f },
-            cost = new[] { new ItemStack(Steel, 100), new ItemStack(Circuit, 40), new ItemStack(Alloy, 25) }, buildTicks = 38 * 60, supply = 3,
+            tier = 3, health = 2700, armor = 14, speed = 0.024f, radius = 0.50f, range = 2.6f, reloadTicks = 40, color = 0x8D6E63, tech = Research.Tier3,
+            shape = "tank", crush = 110,
+            bullet = new BulletDef { speed = 0.26f, damage = 48, splash = 0.8f, lifeTicks = 12, knockback = 0.7f, color = 0xFFFFFF, size = 0.22f },
+            cost = new[] { new ItemStack(Steel, 130), new ItemStack(Circuit, 50), new ItemStack(Alloy, 30) }, buildTicks = 55 * 60, supply = 3,
         };
         public static readonly UnitDef Workshop = new UnitDef
         {
             key = "workshop", name = "정비 전차", desc = "3.5칸 안의 아군 유닛과 건물을 고치는 3단계 전차.",
-            tier = 3, health = 1700, armor = 13, speed = 0.016f, radius = 0.50f, range = 3.4f, reloadTicks = 30, color = 0x5C940D, tech = Research.Tier3,
-            shape = "tank", heal = 25, healRange = 3.5f, crush = 30,
-            bullet = new BulletDef { speed = 0.26f, damage = 12, lifeTicks = 16, color = 0xD3F9D8, size = 0.15f },
-            cost = new[] { new ItemStack(Steel, 80), new ItemStack(Circuit, 60), new ItemStack(Alloy, 20) }, buildTicks = 38 * 60, supply = 3,
+            tier = 3, health = 2200, armor = 13, speed = 0.016f, radius = 0.50f, range = 3.4f, reloadTicks = 30, color = 0x5C940D, tech = Research.Tier3,
+            shape = "tank", heal = 30, healRange = 3.5f, crush = 36,
+            bullet = new BulletDef { speed = 0.26f, damage = 14, lifeTicks = 16, color = 0xD3F9D8, size = 0.15f },
+            cost = new[] { new ItemStack(Steel, 105), new ItemStack(Circuit, 80), new ItemStack(Alloy, 25) }, buildTicks = 55 * 60, supply = 3,
         };
         public static readonly UnitDef Teslatank = new UnitDef
         {
             key = "teslatank", name = "방전 전차", desc = "포 대신 전류로 4칸 안의 적 6기를 한꺼번에 치는 4단계 전차.",
-            tier = 4, health = 3000, armor = 17, speed = 0.013f, radius = 0.58f, range = 4f, reloadTicks = 40, color = 0x3D5A80, tech = Research.Tier4,
-            shape = "tank", fieldDamage = 45, fieldTargets = 6, crush = 60,
-            cost = new[] { new ItemStack(Steel, 140), new ItemStack(Circuit, 130), new ItemStack(Alloy, 60) }, buildTicks = 65 * 60, supply = 4,
+            tier = 4, health = 5100, armor = 17, speed = 0.013f, radius = 0.58f, range = 4f, reloadTicks = 40, color = 0x3D5A80, tech = Research.Tier4,
+            shape = "tank", fieldDamage = 65, fieldTargets = 6, crush = 87,
+            cost = new[] { new ItemStack(Steel, 225), new ItemStack(Circuit, 210), new ItemStack(Alloy, 95) }, buildTicks = 125 * 60, supply = 4,
         };
 
         // 부양 공방: 떠서 달려 호수를 가로지르는 유닛. 빠르고 얇다
@@ -789,108 +789,108 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef Bumper = new UnitDef
         {
             key = "bumper", name = "부양 충격", desc = "충격탄으로 적을 밀어내는 3단계 부양 유닛.",
-            tier = 3, hover = true, shape = "hover", health = 900, armor = 7, speed = 0.034f, radius = 0.42f, range = 4f, reloadTicks = 36, color = 0x74C0FC, tech = Research.Tier3,
-            bullet = new BulletDef { speed = 0.26f, damage = 34, splash = 1.0f, lifeTicks = 18, knockback = 0.8f, color = 0xFFFFFF, size = 0.2f },
-            cost = new[] { new ItemStack(Steel, 55), new ItemStack(Circuit, 45), new ItemStack(Powder, 20), new ItemStack(Alloy, 15) }, buildTicks = 34 * 60, supply = 3,
+            tier = 3, hover = true, shape = "hover", health = 1200, armor = 7, speed = 0.034f, radius = 0.42f, range = 4f, reloadTicks = 36, color = 0x74C0FC, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.26f, damage = 41, splash = 1.0f, lifeTicks = 18, knockback = 0.8f, color = 0xFFFFFF, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 70), new ItemStack(Circuit, 60), new ItemStack(Powder, 25), new ItemStack(Alloy, 20) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Homer = new UnitDef
         {
             key = "homer", name = "부양 유도탄", desc = "멀리서 유도탄을 쏘는 3단계 부양 유닛.",
-            tier = 3, hover = true, shape = "hover", health = 760, armor = 5, speed = 0.034f, radius = 0.42f, range = 6.5f, reloadTicks = 50, color = 0xFFD8A8, tech = Research.Tier3,
-            bullet = new BulletDef { speed = 0.2f, damage = 62, splash = 1.0f, lifeTicks = 55, homing = 0.12f, color = 0xFFD8A8, size = 0.2f },
-            cost = new[] { new ItemStack(Steel, 45), new ItemStack(Circuit, 55), new ItemStack(Powder, 30), new ItemStack(Alloy, 15) }, buildTicks = 36 * 60, supply = 3,
+            tier = 3, hover = true, shape = "hover", health = 990, armor = 5, speed = 0.034f, radius = 0.42f, range = 6.5f, reloadTicks = 50, color = 0xFFD8A8, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.2f, damage = 74, splash = 1.0f, lifeTicks = 55, homing = 0.12f, color = 0xFFD8A8, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 60), new ItemStack(Circuit, 70), new ItemStack(Powder, 40), new ItemStack(Alloy, 20) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Screen = new UnitDef
         {
             key = "screen", name = "부양 방패", desc = "3.5칸 안의 아군 유닛이 받는 피해를 35% 줄이는 3단계 부양 유닛. 자기도 보호막을 두른다.",
-            tier = 3, hover = true, shape = "hover", health = 1100, armor = 8, speed = 0.032f, radius = 0.44f, range = 3f, reloadTicks = 36, color = 0x69DB7C, tech = Research.Tier3,
-            shieldRange = 3.5f, shieldMul = 0.65f, barrier = 500, barrierRegen = 50, barrierDelay = 4 * 60,
-            bullet = new BulletDef { speed = 0.24f, damage = 10, lifeTicks = 16, color = 0xD3F9D8, size = 0.14f },
-            cost = new[] { new ItemStack(Steel, 70), new ItemStack(Circuit, 50), new ItemStack(Alloy, 20) }, buildTicks = 36 * 60, supply = 3,
+            tier = 3, hover = true, shape = "hover", health = 1400, armor = 8, speed = 0.032f, radius = 0.44f, range = 3f, reloadTicks = 36, color = 0x69DB7C, tech = Research.Tier3,
+            shieldRange = 3.5f, shieldMul = 0.65f, barrier = 650, barrierRegen = 65, barrierDelay = 4 * 60,
+            bullet = new BulletDef { speed = 0.24f, damage = 12, lifeTicks = 16, color = 0xD3F9D8, size = 0.14f },
+            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 65), new ItemStack(Alloy, 25) }, buildTicks = 50 * 60, supply = 3,
         };
         public static readonly UnitDef Jolt = new UnitDef
         {
             key = "jolt", name = "부양 전격", desc = "적에서 적으로 네 번 건너뛰는 전격을 쏘는 4단계 부양 유닛.",
-            tier = 4, hover = true, shape = "hover", health = 1900, armor = 10, speed = 0.030f, radius = 0.54f, range = 4.8f, reloadTicks = 26, color = 0x3BC9DB, tech = Research.Tier4,
-            bullet = new BulletDef { speed = 0.5f, damage = 56, lifeTicks = 12, chain = 4, chainRange = 2.4f, color = 0xC5F6FA, size = 0.2f },
-            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 120), new ItemStack(Alloy, 55) }, buildTicks = 60 * 60, supply = 4,
+            tier = 4, hover = true, shape = "hover", health = 3200, armor = 10, speed = 0.030f, radius = 0.54f, range = 4.8f, reloadTicks = 26, color = 0x3BC9DB, tech = Research.Tier4,
+            bullet = new BulletDef { speed = 0.5f, damage = 81, lifeTicks = 12, chain = 4, chainRange = 2.4f, color = 0xC5F6FA, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 145), new ItemStack(Circuit, 190), new ItemStack(Alloy, 90) }, buildTicks = 115 * 60, supply = 4,
         };
         public static readonly UnitDef Lobber = new UnitDef
         {
             key = "lobber", name = "부양 포격", desc = "곡사 포탄이 터지며 파편 6개가 튀는 4단계 부양 유닛. 공중은 못 겨눈다.",
-            tier = 4, hover = true, shape = "hover", health = 1700, armor = 9, speed = 0.028f, radius = 0.54f, range = 7.5f, reloadTicks = 75, color = 0xFFC078, tech = Research.Tier4,
+            tier = 4, hover = true, shape = "hover", health = 2900, armor = 9, speed = 0.028f, radius = 0.54f, range = 7.5f, reloadTicks = 75, color = 0xFFC078, tech = Research.Tier4,
             targetAir = false, buildingMul = 1.5f,
-            bullet = new BulletDef { speed = 0.11f, damage = 85, splash = 1.5f, lifeTicks = 90, artillery = true, color = 0xFFC078, size = 0.3f, fragCount = 6, frag = new BulletDef { speed = 0.18f, damage = 26, lifeTicks = 12, color = 0xFFE8CC, size = 0.13f } },
-            cost = new[] { new ItemStack(Steel, 100), new ItemStack(Circuit, 80), new ItemStack(Powder, 50), new ItemStack(Alloy, 45) }, buildTicks = 62 * 60, supply = 4,
+            bullet = new BulletDef { speed = 0.11f, damage = 125, splash = 1.5f, lifeTicks = 90, artillery = true, color = 0xFFC078, size = 0.3f, fragCount = 6, frag = new BulletDef { speed = 0.18f, damage = 38, lifeTicks = 12, color = 0xFFE8CC, size = 0.13f } },
+            cost = new[] { new ItemStack(Steel, 160), new ItemStack(Circuit, 130), new ItemStack(Powder, 80), new ItemStack(Alloy, 70) }, buildTicks = 120 * 60, supply = 4,
         };
         public static readonly UnitDef Seeder = new UnitDef
         {
             key = "seeder", name = "산성 기뢰 부설기", desc = "싸우지 않고 4초마다 큰 산성 지뢰를 깐다 (여덟 개까지). 터지면 범위 안의 적이 3초 동안 절반 속도로 느려진다.",
-            tier = 4, hover = true, shape = "hover", health = 1500, armor = 8, speed = 0.032f, radius = 0.50f, color = 0xA9E34B, tech = Research.Tier4,
-            mineEvery = 4 * 60, mineMax = 8, minelay = new BulletDef { damage = 190, splash = 1.9f, slow = 0.5f, slowTicks = 180, color = 0xA9E34B },
-            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 70), new ItemStack(Powder, 80), new ItemStack(Alloy, 35) }, buildTicks = 58 * 60, supply = 4,
+            tier = 4, hover = true, shape = "hover", health = 2600, armor = 8, speed = 0.032f, radius = 0.50f, color = 0xA9E34B, tech = Research.Tier4,
+            mineEvery = 4 * 60, mineMax = 8, minelay = new BulletDef { damage = 275, splash = 1.9f, slow = 0.5f, slowTicks = 180, color = 0xA9E34B },
+            cost = new[] { new ItemStack(Steel, 145), new ItemStack(Circuit, 110), new ItemStack(Powder, 130), new ItemStack(Alloy, 55) }, buildTicks = 110 * 60, supply = 4,
         };
         public static readonly UnitDef Leviathan = new UnitDef
         {
             key = "leviathan", name = "부양 요새", desc = "보호막을 두르고 범위 포를 빠르게 쏘는 5단계 부양 유닛.",
-            tier = 5, hover = true, shape = "hover", health = 5200, armor = 15, speed = 0.022f, radius = 0.72f, range = 6f, reloadTicks = 16, color = 0x12B886, tech = Research.Tier5,
-            barrier = 1500, barrierRegen = 80, barrierDelay = 4 * 60,
-            bullet = new BulletDef { speed = 0.3f, damage = 60, splash = 1.0f, lifeTicks = 22, color = 0xC3FAE8, size = 0.24f },
-            cost = new[] { new ItemStack(Steel, 240), new ItemStack(Circuit, 190), new ItemStack(Alloy, 150) }, buildTicks = 110 * 60, supply = 5,
+            tier = 5, hover = true, shape = "hover", health = 12000, armor = 15, speed = 0.022f, radius = 0.72f, range = 6f, reloadTicks = 16, color = 0x12B886, tech = Research.Tier5,
+            barrier = 3400, barrierRegen = 185, barrierDelay = 4 * 60,
+            bullet = new BulletDef { speed = 0.3f, damage = 110, splash = 1.0f, lifeTicks = 22, color = 0xC3FAE8, size = 0.24f },
+            cost = new[] { new ItemStack(Steel, 480), new ItemStack(Circuit, 380), new ItemStack(Alloy, 300) }, buildTicks = 285 * 60, supply = 5,
         };
 
         // 심연 조립소: 6·7단계의 첨단 유닛. 다른 공장의 5단계보다 훨씬 강하고, 심연 결정까지 드는 큰 비용이 든다. 모두 스스로 체력을 되찾는다
         public static readonly UnitDef Colossus = new UnitDef
         {
-            key = "colossus", name = "심연 거신", desc = "6단계 로봇. 보호막 3000 을 두르고 큰 범위 포를 쏜다. 스스로 체력을 되찾는다.",
-            tier = 6, health = 14000, armor = 28, speed = 0.010f, radius = 0.90f, range = 7f, reloadTicks = 22, color = 0x7048E8, tech = Research.Assembler,
-            barrier = 3000, barrierRegen = 150, barrierDelay = 5 * 60, regen = 40,
-            bullet = new BulletDef { speed = 0.26f, damage = 210, splash = 1.6f, lifeTicks = 30, color = 0xD0BFFF, size = 0.4f },
-            cost = new[] { new ItemStack(Steel, 420), new ItemStack(Circuit, 380), new ItemStack(Alloy, 320), new ItemStack(Crystal, 160) }, buildTicks = 160 * 60, supply = 6,
+            key = "colossus", name = "심연 거신", desc = "6단계 로봇. 보호막 9000 을 두르고 큰 범위 포를 쏜다. 스스로 체력을 되찾는다.",
+            tier = 6, health = 42000, armor = 28, speed = 0.010f, radius = 0.90f, range = 7f, reloadTicks = 22, color = 0x7048E8, tech = Research.Assembler,
+            barrier = 9000, barrierRegen = 450, barrierDelay = 5 * 60, regen = 120,
+            bullet = new BulletDef { speed = 0.26f, damage = 460, splash = 1.6f, lifeTicks = 30, color = 0xD0BFFF, size = 0.4f },
+            cost = new[] { new ItemStack(Steel, 525), new ItemStack(Circuit, 475), new ItemStack(Alloy, 400), new ItemStack(Crystal, 200) }, buildTicks = 360 * 60, supply = 6,
         };
         public static readonly UnitDef Mothership = new UnitDef
         {
-            key = "mothership", name = "심연 모함", desc = "6단계 비행 유닛. 보호막 3000, 건너뛰는 전격, 8초마다 띄우는 함재기 다섯. 스스로 체력을 되찾는다.",
-            tier = 6, flying = true, shape = "carrier", health = 12000, armor = 22, speed = 0.016f, radius = 0.95f, range = 7f, reloadTicks = 14, color = 0x5F3DC4, tech = Research.Assembler,
-            barrier = 3000, barrierRegen = 150, barrierDelay = 5 * 60, regen = 35, spawns = Escort, spawnMax = 5, spawnTicks = 8 * 60,
-            bullet = new BulletDef { speed = 0.5f, damage = 90, lifeTicks = 16, chain = 4, chainRange = 2.6f, color = 0xE5DBFF, size = 0.24f },
-            cost = new[] { new ItemStack(Steel, 400), new ItemStack(Circuit, 420), new ItemStack(Alloy, 320), new ItemStack(Crystal, 160) }, buildTicks = 160 * 60, supply = 6,
+            key = "mothership", name = "심연 모함", desc = "6단계 비행 유닛. 보호막 9000, 건너뛰는 전격, 8초마다 띄우는 함재기 다섯. 스스로 체력을 되찾는다.",
+            tier = 6, flying = true, shape = "carrier", health = 36000, armor = 22, speed = 0.016f, radius = 0.95f, range = 7f, reloadTicks = 14, color = 0x5F3DC4, tech = Research.Assembler,
+            barrier = 9000, barrierRegen = 450, barrierDelay = 5 * 60, regen = 105, spawns = Escort, spawnMax = 5, spawnTicks = 8 * 60,
+            bullet = new BulletDef { speed = 0.5f, damage = 200, lifeTicks = 16, chain = 4, chainRange = 2.6f, color = 0xE5DBFF, size = 0.24f },
+            cost = new[] { new ItemStack(Steel, 500), new ItemStack(Circuit, 525), new ItemStack(Alloy, 400), new ItemStack(Crystal, 200) }, buildTicks = 360 * 60, supply = 6,
         };
         public static readonly UnitDef Ravager = new UnitDef
         {
             key = "ravager", name = "심연 거미", desc = "벽을 타 넘는 6단계 다리 유닛. 사거리 8.5 의 곡사 포탄이 범위 안을 불태우고 파편 10개로 갈라진다. 공중은 못 겨눈다. 스스로 체력을 되찾는다.",
-            tier = 6, legs = true, shape = "legs", health = 13000, armor = 24, speed = 0.012f, radius = 0.88f, range = 8.5f, reloadTicks = 70, color = 0x9C36B5, tech = Research.Assembler,
-            targetAir = false, buildingMul = 2f, regen = 40,
+            tier = 6, legs = true, shape = "legs", health = 39000, armor = 24, speed = 0.012f, radius = 0.88f, range = 8.5f, reloadTicks = 70, color = 0x9C36B5, tech = Research.Assembler,
+            targetAir = false, buildingMul = 2f, regen = 120,
             bullet = new BulletDef
             {
-                speed = 0.11f, damage = 320, splash = 2.2f, lifeTicks = 100, artillery = true, burn = 40, burnTicks = 240, color = 0xF783AC, size = 0.4f, fragCount = 10,
-                frag = new BulletDef { speed = 0.18f, damage = 45, lifeTicks = 14, color = 0xFFDEEB, size = 0.15f },
+                speed = 0.11f, damage = 705, splash = 2.2f, lifeTicks = 100, artillery = true, burn = 88, burnTicks = 240, color = 0xF783AC, size = 0.4f, fragCount = 10,
+                frag = new BulletDef { speed = 0.18f, damage = 99, lifeTicks = 14, color = 0xFFDEEB, size = 0.15f },
             },
-            cost = new[] { new ItemStack(Steel, 420), new ItemStack(Circuit, 360), new ItemStack(Powder, 150), new ItemStack(Alloy, 320), new ItemStack(Crystal, 160) }, buildTicks = 160 * 60, supply = 6,
+            cost = new[] { new ItemStack(Steel, 525), new ItemStack(Circuit, 450), new ItemStack(Powder, 190), new ItemStack(Alloy, 400), new ItemStack(Crystal, 200) }, buildTicks = 360 * 60, supply = 6,
         };
         public static readonly UnitDef Doomtank = new UnitDef
         {
-            key = "doomtank", name = "종말 전차", desc = "7단계 전차. 사거리 9 에서 방어력을 무시하고 넷까지 꿰뚫는 철갑탄 900 을 쏘고, 닿은 적을 초당 400 으로 짓밟는다. 공중은 못 쏜다. 스스로 체력을 되찾는다.",
-            tier = 7, shape = "tank", health = 30000, armor = 36, speed = 0.009f, radius = 1.0f, range = 9f, reloadTicks = 80, color = 0x343A40, tech = Research.Transcend,
-            targetAir = false, buildingMul = 2f, crush = 400, regen = 80,
-            bullet = new BulletDef { speed = 0.5f, damage = 900, lifeTicks = 20, pierce = 3, pierceArmor = true, color = 0xFFF3BF, size = 0.4f },
-            cost = new[] { new ItemStack(Steel, 720), new ItemStack(Circuit, 600), new ItemStack(Alloy, 560), new ItemStack(Crystal, 360) }, buildTicks = 240 * 60, supply = 7,
+            key = "doomtank", name = "종말 전차", desc = "7단계 전차. 사거리 9 에서 방어력을 무시하고 넷까지 꿰뚫는 철갑탄 2340 을 쏘고, 닿은 적을 초당 1040 으로 짓밟는다. 공중은 못 쏜다. 스스로 체력을 되찾는다.",
+            tier = 7, shape = "tank", health = 105000, armor = 36, speed = 0.009f, radius = 1.0f, range = 9f, reloadTicks = 80, color = 0x343A40, tech = Research.Transcend,
+            targetAir = false, buildingMul = 2f, crush = 1040, regen = 280,
+            bullet = new BulletDef { speed = 0.5f, damage = 2340, lifeTicks = 20, pierce = 3, pierceArmor = true, color = 0xFFF3BF, size = 0.4f },
+            cost = new[] { new ItemStack(Steel, 865), new ItemStack(Circuit, 720), new ItemStack(Alloy, 670), new ItemStack(Crystal, 430) }, buildTicks = 420 * 60, supply = 7,
         };
         public static readonly UnitDef Bastion = new UnitDef
         {
-            key = "bastion", name = "심연 요새", desc = "떠서 다니는 7단계 유닛. 보호막 6000, 6칸 안의 적 12기를 한꺼번에 치는 전류, 6칸 안 아군의 수리와 피해 −40%. 스스로 체력을 되찾는다.",
-            tier = 7, hover = true, shape = "hover", health = 22000, armor = 26, speed = 0.016f, radius = 0.95f, range = 6f, reloadTicks = 30, color = 0x1098AD, tech = Research.Transcend,
-            fieldDamage = 120, fieldTargets = 12, heal = 40, healRange = 6f, shieldRange = 6f, shieldMul = 0.6f,
-            barrier = 6000, barrierRegen = 250, barrierDelay = 5 * 60, regen = 60,
-            cost = new[] { new ItemStack(Steel, 680), new ItemStack(Circuit, 640), new ItemStack(Alloy, 560), new ItemStack(Crystal, 360) }, buildTicks = 240 * 60, supply = 7,
+            key = "bastion", name = "심연 요새", desc = "떠서 다니는 7단계 유닛. 보호막 21000, 6칸 안의 적 12기를 한꺼번에 치는 전류, 6칸 안 아군의 수리와 피해 −40%. 스스로 체력을 되찾는다.",
+            tier = 7, hover = true, shape = "hover", health = 77000, armor = 26, speed = 0.016f, radius = 0.95f, range = 6f, reloadTicks = 30, color = 0x1098AD, tech = Research.Transcend,
+            fieldDamage = 310, fieldTargets = 12, heal = 105, healRange = 6f, shieldRange = 6f, shieldMul = 0.6f,
+            barrier = 21000, barrierRegen = 875, barrierDelay = 5 * 60, regen = 210,
+            cost = new[] { new ItemStack(Steel, 815), new ItemStack(Circuit, 770), new ItemStack(Alloy, 670), new ItemStack(Crystal, 430) }, buildTicks = 420 * 60, supply = 7,
         };
         public static readonly UnitDef Nemesis = new UnitDef
         {
-            key = "nemesis", name = "천벌기", desc = "7단계 비행 유닛. 사거리 9 에서 범위 유도탄 260 을 잇달아 쏘고, 직격한 적을 불태운다. 스스로 체력을 되찾는다.",
-            tier = 7, flying = true, shape = "carrier", health = 20000, armor = 28, speed = 0.018f, radius = 1.0f, range = 9f, reloadTicks = 24, color = 0xC2255C, tech = Research.Transcend,
-            regen = 60,
-            bullet = new BulletDef { speed = 0.22f, damage = 260, splash = 1.8f, lifeTicks = 60, homing = 0.14f, burn = 30, burnTicks = 180, color = 0xFFDEEB, size = 0.34f },
-            cost = new[] { new ItemStack(Steel, 680), new ItemStack(Circuit, 660), new ItemStack(Alloy, 560), new ItemStack(Crystal, 360) }, buildTicks = 240 * 60, supply = 7,
+            key = "nemesis", name = "천벌기", desc = "7단계 비행 유닛. 사거리 9 에서 범위 유도탄 675 를 잇달아 쏘고, 직격한 적을 불태운다. 스스로 체력을 되찾는다.",
+            tier = 7, flying = true, shape = "carrier", health = 70000, armor = 28, speed = 0.018f, radius = 1.0f, range = 9f, reloadTicks = 24, color = 0xC2255C, tech = Research.Transcend,
+            regen = 210,
+            bullet = new BulletDef { speed = 0.22f, damage = 675, splash = 1.8f, lifeTicks = 60, homing = 0.14f, burn = 78, burnTicks = 180, color = 0xFFDEEB, size = 0.34f },
+            cost = new[] { new ItemStack(Steel, 815), new ItemStack(Circuit, 790), new ItemStack(Alloy, 670), new ItemStack(Crystal, 430) }, buildTicks = 420 * 60, supply = 7,
         };
 
         /// 핵에서 나오는 코어 유닛. 플레이어가 갈 곳을 찍어 주고, 곁의 건설을 빠르게 한다
