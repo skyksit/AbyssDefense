@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 40 && Content.TankFactory.units.Length == 6 && Content.Shipyard.units.Length == 6 && Content.SupportShop.units.Length == 7 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 7, $"유닛 {Content.Units.Length}종 (비행·지원 7종, 나머지 공장 6종)");
+        Check(Content.Units.Length == 41 && Content.TankFactory.units.Length == 6 && Content.Shipyard.units.Length == 6 && Content.SupportShop.units.Length == 7 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 7 && Content.Airfield.units.Length == 7, $"유닛 {Content.Units.Length}종 (로봇·비행·지원 7종, 나머지 공장 6종)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -927,6 +927,22 @@ static class Program
         }
         float boostRatio = (90000 - nearDummy.health) / (90000 - farDummy.health);
         Check(boostRatio > 1.28f && boostRatio < 1.38f, $"증폭 로봇 곁의 유닛은 1.33배 빨리 쏜다 (피해 비율 {boostRatio:0.00})");
+
+        // 전격 로봇: 전격이 가까운 적으로 건너뛰며 피해가 줄어든다
+        s2g.units.Clear(); s2g.enemies.Clear(); s2g.bullets.Clear(); s2g.ruins.Clear();
+        s2g.SpawnUnit(Content.Arcer, shop7);
+        var arcer = s2g.units[0];
+        arcer.x = 4; arcer.y = 30; s2g.SetRally(shop7, 4, 30); arcer.ox = arcer.oy = 0;
+        var chainRow = new List<Enemy>();
+        for (int i = 0; i < 7; i++) chainRow.Add(Dummy(7 + i * 1.5f, 30));
+        chainRow[6].x += 3;   // 마지막 하나는 건너뛸 수 없게 떨어뜨린다
+        s2g.enemies.AddRange(chainRow);
+        for (int i = 0; i < 200 && chainRow[0].health == 90000; i++) s2g.Tick();
+        arcer.reload = 1 << 20;
+        bool chainOk = true; float want = Content.Arcer.bullet.damage;
+        for (int i = 0; i < 5; i++) { if (Math.Abs(90000 - chainRow[i].health - want) > 0.01f) chainOk = false; want *= 0.7f; }
+        Check(chainOk && chainRow[5].health == 90000 && chainRow[6].health == 90000,
+            $"전격은 가까운 적으로 네 번 건너뛰며 피해가 30% 씩 줄어든다 ({90000 - chainRow[0].health:0.#} → {90000 - chainRow[4].health:0.#})");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

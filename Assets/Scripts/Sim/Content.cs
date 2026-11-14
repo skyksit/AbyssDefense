@@ -24,6 +24,8 @@ namespace AbyssDefense.Sim
         public int lifeTicks;
         public bool artillery;       // 목표 지점까지 날아가 터진다 (지상만)
         public int pierce;           // 관통 수 (0 = 첫 적에서 사라짐)
+        public int chain;            // 전격: 맞은 적에서 가까운 다른 적으로 이만큼 더 건너뛴다 (건너뛸 때마다 피해 ×0.7)
+        public float chainRange;     // 건너뛰는 거리
         public float heal;           // 터질 때 범위 안의 아군 건물을 이만큼 고친다 (곡사탄)
         public float knockback;      // 맞은 적(범위 피해가 있으면 범위 안의 적 모두)을 탄이 날아가던 쪽으로 이만큼 밀어낸다. 보스는 절반
         public bool pierceArmor;     // 철갑탄: 직격한 적과 적 건물의 방어력을 무시한다
@@ -185,6 +187,13 @@ namespace AbyssDefense.Sim
             tier = 3, health = 1300, armor = 10, speed = 0.016f, radius = 0.48f, range = 5.5f, reloadTicks = 45, color = 0x2C7A7B, tech = Research.Tier3,
             bullet = new BulletDef { speed = 0.20f, damage = 60, splash = 1.2f, lifeTicks = 36, color = 0xE6FFFA, size = 0.3f },
             cost = new[] { new ItemStack(Steel, 60), new ItemStack(Circuit, 40), new ItemStack(Alloy, 20) }, buildTicks = 35 * 60, supply = 3,
+        };
+        public static readonly UnitDef Arcer = new UnitDef
+        {
+            key = "arcer", name = "전격 로봇", desc = "3단계 로봇. 전격이 맞은 적에서 2.2칸 안의 다른 적으로 네 번까지 건너뛴다. 건너뛸 때마다 피해가 30% 줄어든다.",
+            tier = 3, health = 950, armor = 7, speed = 0.020f, radius = 0.42f, range = 4.8f, reloadTicks = 36, color = 0x3BC9DB, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.50f, damage = 48, lifeTicks = 12, chain = 4, chainRange = 2.2f, color = 0xC5F6FA, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 55), new ItemStack(Circuit, 60), new ItemStack(Alloy, 20) }, buildTicks = 35 * 60, supply = 3,
         };
         public static readonly UnitDef Recon = new UnitDef
         {
@@ -476,7 +485,7 @@ namespace AbyssDefense.Sim
 
         public static readonly UnitDef[] Units =
         {
-            Scout, Assault, Skimmer, Heavy, Siege, Titan, Recon, Bomber, Striker, Seeker, Mender, Warship, Carrier,
+            Scout, Assault, Skimmer, Heavy, Arcer, Siege, Titan, Recon, Bomber, Striker, Seeker, Mender, Warship, Carrier,
             Mechanic, Guardian, Booster, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Pyre, Patrol, Gunboat, Destroyer, Shockboat, Arcship, Flagship, Escort, ArmoredCar, LightTank, HeavyTank, Bulwark, PiercerTank, Juggernaut, Commander,
         };
 
@@ -534,7 +543,7 @@ namespace AbyssDefense.Sim
             key = "robotfactory", name = "로봇 공장", desc = "핵의 자원으로 공격 로봇을 만든다.",
             kind = BlockKind.Factory, size = 2, health = 500, color = 0x38B2AC, tech = Research.RobotFactory,
             cost = new[] { new ItemStack(Iron, 120), new ItemStack(Steel, 40) },
-            units = new[] { Scout, Assault, Skimmer, Heavy, Siege, Titan },
+            units = new[] { Scout, Assault, Skimmer, Heavy, Arcer, Siege, Titan },
         };
 
         public static readonly BlockDef Airfield = new BlockDef

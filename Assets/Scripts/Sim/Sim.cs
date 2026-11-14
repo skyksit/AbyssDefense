@@ -504,6 +504,7 @@ namespace AbyssDefense.Sim
                 fx.Add(new Fx { kind = FxKind.Hit, x = b.x, y = b.y, r = 0.25f, color = d.color });
                 if (d.splash > 0) Splash(b.x, b.y, d.splash, b.damage * 0.5f, true);
                 if (d.knockback > 0) Knock(b, e);
+                if (d.chain > 0) Chain(b, e);
                 if (b.hit == null || b.hit.Count > d.pierce) { b.dead = true; return; }
             }
             // 유닛이 적 건물을 겨눠 쏜 탄은 그 건물에 닿으면 맞는다
@@ -526,6 +527,35 @@ namespace AbyssDefense.Sim
             if (o == null || o.dead || dealt <= 0 || o.health >= o.maxHealth) return;
             o.health = Math.Min(o.maxHealth, o.health + dealt * o.def.drain);
             fx.Add(new Fx { kind = FxKind.Spawn, x = o.x, y = o.y, r = o.def.radius * 1.6f, color = b.def.color });
+        }
+
+        readonly List<Enemy> chainHit = new List<Enemy>();
+
+        /// 전격: 맞은 적에서 가장 가까운 다른 적으로 건너뛰며 줄어든 피해를 준다 (지상·공중 가리지 않는다)
+        void Chain(Bullet b, Enemy first)
+        {
+            var d = b.def;
+            chainHit.Clear(); chainHit.Add(first);
+            var cur = first;
+            float dmg = b.damage;
+            for (int j = 0; j < d.chain; j++)
+            {
+                Enemy next = null; float bd = d.chainRange * d.chainRange;
+                for (int i = 0; i < enemies.Count; i++)
+                {
+                    var e = enemies[i];
+                    if (e.dead || chainHit.Contains(e)) continue;
+                    float dx = e.x - cur.x, dy = e.y - cur.y, dd = dx * dx + dy * dy;
+                    if (dd <= bd) { bd = dd; next = e; }
+                }
+                if (next == null) break;
+                dmg *= 0.7f;
+                chainHit.Add(next);
+                Damage(next, dmg);
+                fx.Add(new Fx { kind = FxKind.Hit, x = next.x, y = next.y, r = 0.3f, color = d.color });
+                cur = next;
+            }
+            chainHit.Clear();
         }
 
         /// 수리 폭탄: 범위 안의 다 지어진 아군 건물을 고친다 (유닛은 고치지 않는다)

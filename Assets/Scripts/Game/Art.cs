@@ -458,6 +458,7 @@ namespace AbyssDefense
                 if (u.tier >= 2) { c.Fill(Box(m + r * 0.7f, m + r * 0.3f, r * 0.45f, 2.5f, 1), lite); c.Fill(Box(m + r * 0.7f, m - r * 0.3f, r * 0.45f, 2.5f, 1), lite); }
                 if (u.tier != 2) c.Fill(Box(m + r * 0.7f, m, r * 0.5f, u.tier >= 3 ? 4.5f : 2.5f, 1), lite);
                 c.Fill(Circle(m - r * 0.1f, m, r * 0.26f), lite);
+                if (u.bullet != null && u.bullet.chain > 0) { c.Fill(Ring(m - r * 0.1f, m, r * 0.4f, 2), Color.white); c.Fill(Circle(m + r * 1.0f, m, 2.5f), Color.white); }   // 전격 로봇: 코일 고리와 포구의 불꽃
                 if (u.tier >= 4) { c.Fill(Box(m - r * 0.45f, m + r * 0.42f, r * 0.2f, r * 0.12f, 2), lite); c.Fill(Box(m - r * 0.45f, m - r * 0.42f, r * 0.2f, r * 0.12f, 2), lite); }
                 if (u.tier >= 5) c.Fill(Ring(m - r * 0.1f, m, r * 0.42f, 1.6f), Color.white);
                 if (shape == "support" && u.boostRange > 0) { c.Fill(Poly(m + r * 0.3f, m, m - r * 0.35f, m + r * 0.3f, m - r * 0.35f, m - r * 0.3f), Color.white); }   // 증폭 로봇: 앞을 가리키는 세모
