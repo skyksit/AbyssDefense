@@ -257,6 +257,15 @@ namespace AbyssDefense
                 if (u.cargo != null) for (int k = 0; k < u.cargo.Count; k++) bars.Quad(u.x - 0.3f + k * 0.2f, u.y - u.def.radius - 0.1f, 0.14f, 0.14f, Art.C(u.cargo[k].def.color), 45);
             }
 
+            // 지뢰: 어두운 마름모 안에 지뢰 색의 점 (아직 터질 수 없는 동안은 흐리다)
+            foreach (var mn in sim.mines)
+            {
+                var mc = Art.C(mn.def.color);
+                if (mn.arm > 0) mc.a = 0.45f;
+                bars.Quad(mn.x, mn.y, 0.34f, 0.34f, new Color(0.08f, 0.08f, 0.1f, mc.a), 45);
+                bars.Quad(mn.x, mn.y, 0.16f, 0.16f, mc, 45);
+            }
+
             // 탄
             foreach (var bl in sim.bullets)
             {

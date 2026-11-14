@@ -33,6 +33,16 @@ namespace AbyssDefense.Sim
         public List<Enemy> hit;      // 관통탄이 이미 맞힌 적
     }
 
+    /// 기뢰 부설기가 깔아 둔 지뢰. 지상의 적이 밟으면 터진다
+    public sealed class Mine
+    {
+        public BulletDef def;
+        public float x, y, damage;
+        public int arm;              // 이 틱이 지나야 터질 수 있다
+        public Unit owner;
+        public bool dead;
+    }
+
     public enum FxKind { Hit, Explode, EnemyDeath, Spawn, BuildDestroyed, EnemyAttack, Shoot }
 
     public struct Fx
@@ -209,6 +219,7 @@ namespace AbyssDefense.Sim
             UpdateCommander();
             for (int i = 0; i < enemies.Count; i++) UpdateEnemy(enemies[i]);
             for (int i = 0; i < bullets.Count; i++) UpdateBullet(bullets[i]);
+            UpdateMines();
 
             enemies.RemoveAll(e => e.dead);
             units.RemoveAll(u => u.dead);
@@ -530,6 +541,35 @@ namespace AbyssDefense.Sim
             fx.Add(new Fx { kind = FxKind.Spawn, x = o.x, y = o.y, r = o.def.radius * 1.6f, color = b.def.color });
         }
 
+        public readonly List<Mine> mines = new List<Mine>();
+        public const float MineTrigger = 0.55f;
+        public const int MineArmTicks = 30;
+
+        /// 지뢰: 지상의 적이 밟으면 터져 범위 안 지상의 적을 때린다 (둔화·화상이 있으면 함께 건다)
+        void UpdateMines()
+        {
+            for (int k = 0; k < mines.Count; k++)
+            {
+                var m = mines[k];
+                if (m.arm > 0) { m.arm--; continue; }
+                bool hit = false;
+                for (int i = 0; i < enemies.Count && !hit; i++)
+                {
+                    var e = enemies[i];
+                    if (e.dead || e.def.flying) continue;
+                    float dx = e.x - m.x, dy = e.y - m.y, lim = MineTrigger + e.def.radius;
+                    hit = dx * dx + dy * dy <= lim * lim;
+                }
+                if (!hit) continue;
+                m.dead = true;
+                Splash(m.x, m.y, m.def.splash, m.damage, false);
+                if (m.def.slow > 0) SlowAround(m.x, m.y, m.def.splash, m.def);
+                if (m.def.burn > 0) BurnAround(m.x, m.y, m.def.splash, m.def, false);
+                fx.Add(new Fx { kind = FxKind.Explode, x = m.x, y = m.y, r = m.def.splash, color = m.def.color });
+            }
+            mines.RemoveAll(m => m.dead);
+        }
+
         readonly List<Enemy> chainHit = new List<Enemy>();
 
         /// 전격: 맞은 적에서 가장 가까운 다른 적으로 건너뛰며 줄어든 피해를 준다 (지상·공중 가리지 않는다)
@@ -639,7 +679,7 @@ namespace AbyssDefense.Sim
             for (int i = 0; i < enemies.Count; i++)
             {
                 var e = enemies[i];
-                if (e.dead || (e.def.flying && d.artillery)) continue;
+                if (e.dead || (e.def.flying && (d.artillery || d.speed <= 0))) continue;   // 곡사탄과 지뢰는 지상만
                 float dx = e.x - x, dy = e.y - y, lim = rad + e.def.radius;
                 if (dx * dx + dy * dy <= lim * lim) Slow(e, d);
             }

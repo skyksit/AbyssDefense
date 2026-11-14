@@ -194,6 +194,14 @@ namespace AbyssDefense
                             c.Fill(Box(m, m, 17, 6, 2), Color.white);
                             c.Fill(Box(m, m, 6, 17, 2), Color.white);
                         }
+                        else if (d == Content.HoverShop)
+                        {
+                            // 둥근 치마와 그 위의 몸
+                            c.Fill(Ring(m, m, 26, 4), Shade(col, 0.85f));
+                            c.Fill(Circle(m, m, 18), Shade(col, 0.6f));
+                            c.Fill(Box(m, m, 13, 9, 3), col);
+                            c.Fill(Box(m + 12, m, 10, 2.5f, 1), Lite(col, 0.7f));
+                        }
                         else if (d == Content.TankFactory)
                         {
                             // 두 줄의 무한궤도와 포탑
@@ -410,8 +418,10 @@ namespace AbyssDefense
                 c.Fill(Ring(m, m, r * 0.95f, 2), dark);
                 c.Fill(Box(m, m, r * 0.62f, r * 0.46f, 5), dark);
                 c.Fill(Box(m, m, r * 0.62f - 3, r * 0.46f - 3, 4), col);
-                c.Fill(Box(m + r * 0.6f, m, r * 0.45f, 2.5f, 1), lite);
-                c.Fill(Circle(m - r * 0.1f, m, r * 0.2f), lite);
+                if (u.minelay != null) { for (int i = -1; i <= 1; i++) c.Fill(Circle(m - r * 0.55f, m + i * r * 0.32f, r * 0.12f), C(u.minelay.color)); }   // 기뢰 부설기: 뒤에 실은 지뢰
+                else c.Fill(Box(m + r * 0.6f, m, r * 0.45f, u.tier >= 4 ? 4f : 2.5f, 1), lite);
+                c.Fill(Circle(m - r * 0.1f, m, r * 0.2f), u.bullet != null ? C(u.bullet.color) : lite);
+                if (u.barrier > 0) c.Fill(Ring(m, m, r * 1.05f, 2), Color.white);
             }
             else if (shape == "commander")
             {

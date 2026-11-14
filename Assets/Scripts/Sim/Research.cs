@@ -31,7 +31,7 @@ namespace AbyssDefense.Sim
     {
         public const int Damage = 0, Health = 1, Loadout = 2, Mortar = 3, Core = 4, Range = 5, Mining = 6, Ammo = 7, Bounty = 8, Lance = 9, Build = 10,
             RobotFactory = 11, Airfield = 12, Tier2 = 13, Tier3 = 14, Command = 15, UnitPower = 16,
-            Support = 17, Legs = 18, Shipyard = 19, Tier4 = 20, Tier5 = 21, Tank = 22;
+            Support = 17, Legs = 18, Shipyard = 19, Tier4 = 20, Tier5 = 21, Tank = 22, Hover = 23;
         public const int BaseUnitCap = 4;
 
         public static readonly ResearchDef[] Defs =
@@ -71,6 +71,8 @@ namespace AbyssDefense.Sim
                 extra = new[] { new ItemStack(Content.Circuit, 400), new ItemStack(Content.Alloy, 350) } },
             new ResearchDef { key = "tank", name = "전차 공장 기술", desc = "전차 공장을 짓고 장갑차를 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 14, iron = 300, sulfur = 150,
                 extra = new[] { new ItemStack(Content.Steel, 100) } },
+            new ResearchDef { key = "hover", name = "부양 공방 기술", desc = "부양 공방을 짓고 부양 척후·부양 정비를 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 22, iron = 350, sulfur = 200,
+                extra = new[] { new ItemStack(Content.Steel, 100), new ItemStack(Content.Circuit, 80) } },
         };
 
         static Research()
@@ -100,6 +102,7 @@ namespace AbyssDefense.Sim
             Link(Support, RobotFactory, "icon_supportshop");
             Link(Legs, RobotFactory, "icon_legshop");
             Link(Tank, RobotFactory, "icon_tankfactory");
+            Link(Hover, RobotFactory, "icon_hovershop");
         }
 
         static void Link(int id, int parent, string icon) { Defs[id].parent = parent; Defs[id].icon = icon; }

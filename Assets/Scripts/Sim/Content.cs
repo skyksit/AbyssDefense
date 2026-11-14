@@ -96,6 +96,8 @@ namespace AbyssDefense.Sim
         public float crush;              // (전차) 몸에 닿은 지상의 적을 짓밟는다: 초당 이만큼의 피해 (방어력을 무시한다)
         public UnitDef spawns;           // (기함) 이 유닛을 스스로 띄운다. 띄운 유닛은 한도를 차지하지 않고 곁을 지킨다
         public int spawnMax, spawnTicks; // 한 번에 거느리는 수, 하나를 띄우는 데 걸리는 틱
+        public BulletDef minelay;        // (기뢰 부설기) 깔고 다니는 지뢰: 지상의 적이 밟으면 이 피해·범위·둔화로 터진다
+        public int mineEvery, mineMax;   // 지뢰 하나를 까는 데 걸리는 틱, 한 대가 깔아 둘 수 있는 수
         public bool rebuild;             // (재건 드론) 적에게 부서진 아군 건물의 자리로 가서 같은 건물을 다시 놓는다
         public int mine;                 // (채굴 드론) 벽에서 한 번에 캐 오는 양. 세 번에 한 번은 황석을 절반만큼 캔다
         public int mineTicks;            // 한 번 캐는 데 걸리는 틱
@@ -746,6 +748,96 @@ namespace AbyssDefense.Sim
             cost = new[] { new ItemStack(Steel, 140), new ItemStack(Circuit, 130), new ItemStack(Alloy, 60) }, buildTicks = 65 * 60, supply = 4,
         };
 
+        // 부양 공방: 떠서 달려 호수를 가로지르는 유닛. 빠르고 얇다
+        public static readonly UnitDef Dart = new UnitDef
+        {
+            key = "dart", name = "부양 척후", desc = "값싸고 아주 빠른 1단계 부양 유닛.",
+            tier = 1, hover = true, shape = "hover", health = 110, armor = 1, speed = 0.046f, radius = 0.26f, range = 3f, reloadTicks = 20, color = 0x96F2D7,
+            bullet = new BulletDef { speed = 0.27f, damage = 7, lifeTicks = 16, color = 0xC3FAE8, size = 0.13f },
+            cost = new[] { new ItemStack(Iron, 25), new ItemStack(Circuit, 10) }, buildTicks = 8 * 60, supply = 1,
+        };
+        public static readonly UnitDef Patch = new UnitDef
+        {
+            key = "patch", name = "부양 정비", desc = "3칸 안의 아군 유닛과 건물을 고치는 1단계 부양 유닛.",
+            tier = 1, hover = true, shape = "hover", health = 180, armor = 1, speed = 0.040f, radius = 0.28f, range = 3f, reloadTicks = 30, color = 0x8CE99A,
+            heal = 10, healRange = 3f,
+            bullet = new BulletDef { speed = 0.25f, damage = 4, lifeTicks = 16, color = 0xD3F9D8, size = 0.12f },
+            cost = new[] { new ItemStack(Iron, 35), new ItemStack(Circuit, 15) }, buildTicks = 12 * 60, supply = 1,
+        };
+        public static readonly UnitDef Minelayer = new UnitDef
+        {
+            key = "minelayer", name = "기뢰 부설기", desc = "싸우지 않고 돌아다니며 5초마다 지뢰를 깐다 (다섯 개까지). 지상의 적이 밟으면 터진다.",
+            tier = 2, hover = true, shape = "hover", health = 340, armor = 3, speed = 0.040f, radius = 0.32f, color = 0xFFA94D, tech = Research.Tier2,
+            mineEvery = 5 * 60, mineMax = 5, minelay = new BulletDef { damage = 70, splash = 1.4f, color = 0xFFA94D },
+            cost = new[] { new ItemStack(Steel, 30), new ItemStack(Circuit, 20), new ItemStack(Powder, 25) }, buildTicks = 18 * 60, supply = 2,
+        };
+        public static readonly UnitDef Lancer = new UnitDef
+        {
+            key = "lancer", name = "부양 포수", desc = "사거리가 긴 2단계 부양 유닛.",
+            tier = 2, hover = true, shape = "hover", health = 360, armor = 4, speed = 0.038f, radius = 0.32f, range = 4.5f, reloadTicks = 28, color = 0x38D9A9, tech = Research.Tier2,
+            bullet = new BulletDef { speed = 0.3f, damage = 24, lifeTicks = 18, color = 0xC3FAE8, size = 0.16f },
+            cost = new[] { new ItemStack(Steel, 30), new ItemStack(Circuit, 25) }, buildTicks = 16 * 60, supply = 2,
+        };
+        public static readonly UnitDef Scorch = new UnitDef
+        {
+            key = "scorch", name = "부양 화염", desc = "빠르게 붙어 불길을 뿜는 2단계 부양 유닛. 맞은 적은 3초 동안 불탄다.",
+            tier = 2, hover = true, shape = "hover", health = 420, armor = 4, speed = 0.042f, radius = 0.32f, range = 2.3f, reloadTicks = 8, color = 0xFF8787, tech = Research.Tier2,
+            bullet = new BulletDef { speed = 0.18f, damage = 6, lifeTicks = 14, pierce = 2, burn = 14, burnTicks = 180, color = 0xFF922B, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 30), new ItemStack(Circuit, 15), new ItemStack(Powder, 15) }, buildTicks = 16 * 60, supply = 2,
+        };
+        public static readonly UnitDef Bumper = new UnitDef
+        {
+            key = "bumper", name = "부양 충격", desc = "충격탄으로 적을 밀어내는 3단계 부양 유닛.",
+            tier = 3, hover = true, shape = "hover", health = 900, armor = 7, speed = 0.034f, radius = 0.42f, range = 4f, reloadTicks = 36, color = 0x74C0FC, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.26f, damage = 34, splash = 1.0f, lifeTicks = 18, knockback = 0.8f, color = 0xFFFFFF, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 55), new ItemStack(Circuit, 45), new ItemStack(Powder, 20), new ItemStack(Alloy, 15) }, buildTicks = 34 * 60, supply = 3,
+        };
+        public static readonly UnitDef Homer = new UnitDef
+        {
+            key = "homer", name = "부양 유도탄", desc = "멀리서 유도탄을 쏘는 3단계 부양 유닛.",
+            tier = 3, hover = true, shape = "hover", health = 760, armor = 5, speed = 0.034f, radius = 0.42f, range = 6.5f, reloadTicks = 50, color = 0xFFD8A8, tech = Research.Tier3,
+            bullet = new BulletDef { speed = 0.2f, damage = 62, splash = 1.0f, lifeTicks = 55, homing = 0.12f, color = 0xFFD8A8, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 45), new ItemStack(Circuit, 55), new ItemStack(Powder, 30), new ItemStack(Alloy, 15) }, buildTicks = 36 * 60, supply = 3,
+        };
+        public static readonly UnitDef Screen = new UnitDef
+        {
+            key = "screen", name = "부양 방패", desc = "3.5칸 안의 아군 유닛이 받는 피해를 35% 줄이는 3단계 부양 유닛. 자기도 보호막을 두른다.",
+            tier = 3, hover = true, shape = "hover", health = 1100, armor = 8, speed = 0.032f, radius = 0.44f, range = 3f, reloadTicks = 36, color = 0x69DB7C, tech = Research.Tier3,
+            shieldRange = 3.5f, shieldMul = 0.65f, barrier = 500, barrierRegen = 50, barrierDelay = 4 * 60,
+            bullet = new BulletDef { speed = 0.24f, damage = 10, lifeTicks = 16, color = 0xD3F9D8, size = 0.14f },
+            cost = new[] { new ItemStack(Steel, 70), new ItemStack(Circuit, 50), new ItemStack(Alloy, 20) }, buildTicks = 36 * 60, supply = 3,
+        };
+        public static readonly UnitDef Jolt = new UnitDef
+        {
+            key = "jolt", name = "부양 전격", desc = "적에서 적으로 네 번 건너뛰는 전격을 쏘는 4단계 부양 유닛.",
+            tier = 4, hover = true, shape = "hover", health = 1900, armor = 10, speed = 0.030f, radius = 0.54f, range = 4.8f, reloadTicks = 26, color = 0x3BC9DB, tech = Research.Tier4,
+            bullet = new BulletDef { speed = 0.5f, damage = 56, lifeTicks = 12, chain = 4, chainRange = 2.4f, color = 0xC5F6FA, size = 0.2f },
+            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 120), new ItemStack(Alloy, 55) }, buildTicks = 60 * 60, supply = 4,
+        };
+        public static readonly UnitDef Lobber = new UnitDef
+        {
+            key = "lobber", name = "부양 포격", desc = "곡사 포탄이 터지며 파편 6개가 튀는 4단계 부양 유닛. 공중은 못 겨눈다.",
+            tier = 4, hover = true, shape = "hover", health = 1700, armor = 9, speed = 0.028f, radius = 0.54f, range = 7.5f, reloadTicks = 75, color = 0xFFC078, tech = Research.Tier4,
+            targetAir = false, buildingMul = 1.5f,
+            bullet = new BulletDef { speed = 0.11f, damage = 85, splash = 1.5f, lifeTicks = 90, artillery = true, color = 0xFFC078, size = 0.3f, fragCount = 6, frag = new BulletDef { speed = 0.18f, damage = 26, lifeTicks = 12, color = 0xFFE8CC, size = 0.13f } },
+            cost = new[] { new ItemStack(Steel, 100), new ItemStack(Circuit, 80), new ItemStack(Powder, 50), new ItemStack(Alloy, 45) }, buildTicks = 62 * 60, supply = 4,
+        };
+        public static readonly UnitDef Seeder = new UnitDef
+        {
+            key = "seeder", name = "산성 기뢰 부설기", desc = "싸우지 않고 4초마다 큰 산성 지뢰를 깐다 (여덟 개까지). 터지면 범위 안의 적이 3초 동안 절반 속도로 느려진다.",
+            tier = 4, hover = true, shape = "hover", health = 1500, armor = 8, speed = 0.032f, radius = 0.50f, color = 0xA9E34B, tech = Research.Tier4,
+            mineEvery = 4 * 60, mineMax = 8, minelay = new BulletDef { damage = 190, splash = 1.9f, slow = 0.5f, slowTicks = 180, color = 0xA9E34B },
+            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 70), new ItemStack(Powder, 80), new ItemStack(Alloy, 35) }, buildTicks = 58 * 60, supply = 4,
+        };
+        public static readonly UnitDef Leviathan = new UnitDef
+        {
+            key = "leviathan", name = "부양 요새", desc = "보호막을 두르고 범위 포를 빠르게 쏘는 5단계 부양 유닛.",
+            tier = 5, hover = true, shape = "hover", health = 5200, armor = 15, speed = 0.022f, radius = 0.72f, range = 6f, reloadTicks = 16, color = 0x12B886, tech = Research.Tier5,
+            barrier = 1500, barrierRegen = 80, barrierDelay = 4 * 60,
+            bullet = new BulletDef { speed = 0.3f, damage = 60, splash = 1.0f, lifeTicks = 22, color = 0xC3FAE8, size = 0.24f },
+            cost = new[] { new ItemStack(Steel, 240), new ItemStack(Circuit, 190), new ItemStack(Alloy, 150) }, buildTicks = 110 * 60, supply = 5,
+        };
+
         /// 핵에서 나오는 코어 유닛. 플레이어가 갈 곳을 찍어 주고, 곁의 건설을 빠르게 한다
         public static readonly UnitDef Commander = new UnitDef
         {
@@ -762,6 +854,7 @@ namespace AbyssDefense.Sim
             Torch, Sniper, Breacher, Suppressor, Warlord, Interceptor, Thumper, Firebomber, Stormwing, Skyfort,
             Medic, BoostDrone, Excavator, Aegis, Hauler, Hopper, Slimebug, Blaster, Stalker, Sparker, Devourer,
             Tender, Missileboat, Mireship, Wardship, Lancership, Infernoship, Flametank, Flaktank, Howitzer, Ramtank, Workshop, Teslatank,
+            Dart, Patch, Minelayer, Lancer, Scorch, Bumper, Homer, Screen, Jolt, Lobber, Seeder, Leviathan,
             Commander,
         };
 
@@ -854,6 +947,14 @@ namespace AbyssDefense.Sim
             units = new[] { ArmoredCar, Flametank, Flaktank, LightTank, Howitzer, Ramtank, Workshop, HeavyTank, Bulwark, Teslatank, PiercerTank, Juggernaut },
         };
 
+        public static readonly BlockDef HoverShop = new BlockDef
+        {
+            key = "hovershop", name = "부양 공방", desc = "떠서 달리는 유닛을 만든다. 빠르고 얇으며 호수를 가로지른다.",
+            kind = BlockKind.Factory, size = 2, health = 450, color = 0x38D9A9, tech = Research.Hover,
+            cost = new[] { new ItemStack(Iron, 120), new ItemStack(Steel, 50), new ItemStack(Circuit, 40) },
+            units = new[] { Dart, Patch, Minelayer, Lancer, Scorch, Bumper, Homer, Screen, Jolt, Lobber, Seeder, Leviathan },
+        };
+
         public static readonly BlockDef Shipyard = new BlockDef
         {
             key = "shipyard", name = "조선소", desc = "물가에만 지을 수 있다. 호수 위를 다니는 함정을 만든다.",
@@ -884,9 +985,9 @@ namespace AbyssDefense.Sim
             bounty = new[] { new ItemStack(Iron, 3) },
         };
 
-        public static readonly BlockDef[] Blocks = { Core, Wall, RapidTurret, MortarTurret, CrystalTurret, SteelWall, RobotFactory, Airfield, EnemyCore, EnemyTurret, EnemyWall, SupportShop, LegShop, Shipyard, TankFactory };
+        public static readonly BlockDef[] Blocks = { Core, Wall, RapidTurret, MortarTurret, CrystalTurret, SteelWall, RobotFactory, Airfield, EnemyCore, EnemyTurret, EnemyWall, SupportShop, LegShop, Shipyard, TankFactory, HoverShop };
         /// 건설 바에 나오는 순서
-        public static readonly BlockDef[] Buildable = { RapidTurret, Wall, MortarTurret, CrystalTurret, RobotFactory, Airfield, SupportShop, LegShop, TankFactory, Shipyard, SteelWall };
+        public static readonly BlockDef[] Buildable = { RapidTurret, Wall, MortarTurret, CrystalTurret, RobotFactory, Airfield, SupportShop, LegShop, TankFactory, HoverShop, Shipyard, SteelWall };
 
         // ───────── 적 ─────────
 

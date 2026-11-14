@@ -528,19 +528,20 @@ static class Program
     static void AllUnits()
     {
         var lvAll = new int[Research.Defs.Length];
-        foreach (int id in new[] { Research.RobotFactory, Research.Airfield, Research.Support, Research.Legs, Research.Shipyard, Research.Tank, Research.Tier2, Research.Tier3, Research.Tier4, Research.Tier5 }) lvAll[id] = 1;
+        foreach (int id in new[] { Research.RobotFactory, Research.Airfield, Research.Support, Research.Legs, Research.Shipyard, Research.Tank, Research.Hover, Research.Tier2, Research.Tier3, Research.Tier4, Research.Tier5 }) lvAll[id] = 1;
         var mods = Research.Mods(lvAll);
         var keys = new HashSet<string>(); var names = new HashSet<string>();
         bool unique = true, sane = true, fights = true; string bad = "";
         foreach (var u in Content.Units) { if (!keys.Add(u.key) || !names.Add(u.name)) { unique = false; bad += " " + u.key; } }
         int made = 0;
-        foreach (var fdef in new[] { Content.RobotFactory, Content.Airfield, Content.SupportShop, Content.LegShop, Content.TankFactory, Content.Shipyard })
+        foreach (var fdef in new[] { Content.RobotFactory, Content.Airfield, Content.SupportShop, Content.LegShop, Content.TankFactory, Content.HoverShop, Content.Shipyard })
         {
             int lastTier = 0;
             foreach (var u in fdef.units)
             {
                 made++;
                 bool weapon = u.bullet != null || u.fieldDamage > 0;
+                bool lays = u.minelay != null;
                 if (u.tier < lastTier || u.supply != u.tier || u.cost.Length == 0 || u.buildTicks <= 0 || u.health <= 0 || u.speed <= 0 || string.IsNullOrEmpty(u.desc)
                     || (weapon && !u.suicide && (u.range <= 0 || u.reloadTicks <= 0)) || (weapon && !u.targetAir && !u.targetGround)
                     || (u.bullet != null && !u.suicide && !u.bullet.artillery && u.bullet.speed * u.bullet.lifeTicks < u.range) || (u.tier >= 2 && u != Content.Climber && u.tech < 0))
@@ -568,12 +569,12 @@ static class Program
                 }
                 float dealt = 180000 - ground.health - air.health;
                 if (weapon && dealt <= 0) { fights = false; bad += " 못때림:" + u.key; }
-                if (!weapon && dealt > 0) { fights = false; bad += " 때림:" + u.key; }
+                if (!weapon && !lays && dealt > 0) { fights = false; bad += " 때림:" + u.key; }
                 if (unit.dead != u.suicide) { fights = false; bad += " 생사:" + u.key; }
             }
         }
         Check(unique, "유닛의 key 와 이름은 겹치지 않는다" + bad);
-        Check(made == 72 && sane, "공장 유닛 72종의 정의가 말이 된다 (단계 순, 한도 = 단계, 비용·연구·사거리)" + bad);
+        Check(made == 84 && sane, "공장 유닛 84종의 정의가 말이 된다 (단계 순, 한도 = 단계, 비용·연구·사거리)" + bad);
         Check(fights, "무기가 있는 유닛은 모두 겨눌 수 있는 적에게 피해를 주고, 없는 유닛은 주지 않는다" + bad);
     }
 
@@ -581,8 +582,8 @@ static class Program
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
         bool twelve = true;
-        foreach (var fb in new[] { Content.RobotFactory, Content.Airfield, Content.SupportShop, Content.LegShop, Content.TankFactory, Content.Shipyard }) if (fb.units.Length != 12) twelve = false;
-        Check(Content.Units.Length == 74 && twelve, $"유닛 {Content.Units.Length}종 (공장 여섯 곳에 12종씩, 함재기와 지휘기)");
+        foreach (var fb in new[] { Content.RobotFactory, Content.Airfield, Content.SupportShop, Content.LegShop, Content.TankFactory, Content.HoverShop, Content.Shipyard }) if (fb.units.Length != 12) twelve = false;
+        Check(Content.Units.Length == 86 && twelve, $"유닛 {Content.Units.Length}종 (공장 일곱 곳에 12종씩, 함재기와 지휘기)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -998,6 +999,37 @@ static class Program
         for (int i = 0; i < 5; i++) { if (Math.Abs(90000 - chainRow[i].health - want) > 0.01f) chainOk = false; want *= 0.7f; }
         Check(chainOk && chainRow[5].health == 90000 && chainRow[6].health == 90000,
             $"전격은 가까운 적으로 네 번 건너뛰며 피해가 30% 씩 줄어든다 ({90000 - chainRow[0].health:0.#} → {90000 - chainRow[4].health:0.#})");
+
+        // 부양 공방과 지뢰
+        Check(EmptySim(Full, all).Place(Content.HoverShop, 3, 20) == PlaceResult.Locked, "부양 공방은 부양 공방 기술을 연구해야 지을 수 있다");
+        var hv = EmptySim(Full, Mods(Research.Hover, 1, Research.Tier2, 1));
+        Check(hv.Place(Content.HoverShop, 3, 20) == PlaceResult.Ok && Content.Dart.hover && Content.Leviathan.hover, "부양 공방의 유닛은 모두 떠서 다닌다");
+        Finish(hv);
+        var hs = (FactoryBuilding)hv.world.BuildAt(3, 20);
+        hs.product = -1; hs.making = null;
+        hv.units.Clear();
+        hv.SetRally(hs, 12.5f, 30.5f);
+        hv.SpawnUnit(Content.Minelayer, hs);
+        var layer = hv.units[0];
+        layer.x = 12.5f; layer.y = 30.5f;
+        for (int i = 0; i < 60 * 60; i++) hv.Tick();
+        bool spread = false;
+        foreach (var mn in hv.mines) if (Math.Abs(mn.x - hv.mines[0].x) + Math.Abs(mn.y - hv.mines[0].y) > 0.5f) spread = true;
+        Check(hv.mines.Count == Content.Minelayer.mineMax && spread, $"기뢰 부설기는 돌아다니며 지뢰를 다섯 개까지 깐다 ({hv.mines.Count}개)");
+        var firstMine = hv.mines[0];
+        var overhead = new Enemy { def = Content.Flyer, x = firstMine.x, y = firstMine.y, health = 5000, maxHealth = 5000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        hv.enemies.Add(overhead);
+        hv.Tick();
+        bool flyerSafe = hv.mines.Contains(firstMine) && overhead.health == 5000;
+        var stepper = new Enemy { def = Content.Walker, x = firstMine.x + 0.3f, y = firstMine.y, health = 5000, maxHealth = 5000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        hv.enemies.Add(stepper);
+        hv.Tick();
+        Check(flyerSafe && !hv.mines.Contains(firstMine) && stepper.health < 5000 - 50 && overhead.health == 5000,
+            $"지뢰는 지상의 적이 밟으면 터지고 비행체는 밟지 않는다 (피해 {5000 - stepper.health:0})");
+        hv.HurtUnit(layer, 99999, 0);
+        int leftMines = hv.mines.Count;
+        hv.Tick();
+        Check(hv.mines.Count == leftMines && leftMines > 0, "부설기를 잃어도 깔아 둔 지뢰는 남는다");
 
         AllUnits();
 

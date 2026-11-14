@@ -21,6 +21,7 @@ namespace AbyssDefense.Sim
         public bool dead;
         public Unit carrier;             // 나를 싣고 가는 수송기
         public List<Unit> cargo;         // (수송기) 싣고 있는 유닛
+        public int layTimer;             // (기뢰 부설기) 다음 지뢰를 깔기까지 쌓인 틱
         public Unit parent;              // (함재기) 나를 띄운 기함
         public int spawnTimer;           // (기함) 다음 함재기를 띄우기까지 쌓인 틱
         public int navalGoal = -1, navalTick;   // (해상) 지금 가고 있는 물 칸
@@ -362,6 +363,7 @@ namespace AbyssDefense.Sim
             }
 
             if (d.capacity > 0) { UpdateTransport(u, attack, ax, ay); return; }
+            if (d.minelay != null) { UpdateMinelayer(u, attack, ax, ay); return; }
             if (d.rebuild) { UpdateRebuilder(u); return; }
             if (d.mine > 0) { UpdateMiner(u); return; }
             if (d.bullet == null && d.fieldDamage <= 0) { UpdateRepairer(u); return; }
@@ -621,6 +623,26 @@ namespace AbyssDefense.Sim
             if (u.tbuild != null) { gx = u.tbuild.Cx; gy = u.tbuild.Cy; stop = u.def.healRange * 0.5f; }
             float dx = gx - u.x, dy = gy - u.y;
             if (dx * dx + dy * dy > stop * stop) MoveUnit(u, gx, gy);
+        }
+
+        /// 기뢰 부설기: 싸우지 않는다. 방어면 집결 지점 둘레, 공격이면 적 출현 지점 앞을 돌아다니며 발밑에 지뢰를 깐다
+        void UpdateMinelayer(Unit u, bool attack, float ax, float ay)
+        {
+            var d = u.def;
+            // 지뢰가 한곳에 쌓이지 않게 지키는 곳 둘레를 옮겨 다닌다
+            if (--u.retarget <= 0) { u.retarget = 150; u.ox = rng.Range(-2.2f, 2.2f); u.oy = rng.Range(-2.2f, 2.2f); }
+            float gx = (attack ? ax : u.rallyX) + u.ox, gy = (attack ? ay : u.rallyY) + u.oy;
+            if (!world.In((int)gx, (int)gy) || Blocks(d, (int)gx, (int)gy)) { gx = attack ? ax : u.rallyX; gy = attack ? ay : u.rallyY; }
+            if (!Near(u, gx, gy, 0.2f)) MoveUnit(u, gx, gy);
+
+            if (++u.layTimer < d.mineEvery) return;
+            int mine = 0;
+            for (int i = 0; i < mines.Count; i++) if (mines[i].owner == u) mine++;
+            int tx = (int)u.x, ty = (int)u.y;
+            if (mine >= d.mineMax || !world.In(tx, ty) || world.Solid(tx, ty) || world.tiles[world.Idx(tx, ty)].build != null) { u.layTimer = d.mineEvery; return; }
+            u.layTimer = 0;
+            mines.Add(new Mine { def = d.minelay, x = u.x, y = u.y, damage = d.minelay.damage * world.mods.unitMul, arm = MineArmTicks, owner = u });
+            fx.Add(new Fx { kind = FxKind.Spawn, x = u.x, y = u.y, r = 0.4f, color = d.minelay.color });
         }
 
         /// 아군 건물이 적에게 부서졌다: 살아 있는 재건 드론이 있으면 그 자리를 적어 둔다 (철거한 건물은 적지 않는다)
