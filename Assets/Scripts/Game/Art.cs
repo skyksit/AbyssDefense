@@ -399,6 +399,7 @@ namespace AbyssDefense
                 c.Fill(Circle(m - r * 0.12f, m, r * 0.26f), lite);
                 c.Fill(Box(m + r * 0.6f, m, r * 0.55f, u.tier >= 3 ? 4f : 2.5f, 1), lite);
                 if (u.tier >= 5) { c.Fill(Box(m + r * 0.5f, m + r * 0.3f, r * 0.4f, 2.5f, 1), lite); c.Fill(Box(m + r * 0.5f, m - r * 0.3f, r * 0.4f, 2.5f, 1), lite); }
+                if (u.barrier > 0) c.Fill(Ring(m, m, r * 1.05f, 2), Color.white);   // 방호 전차: 둘레의 보호막 고리
                 if (u.bullet != null && u.bullet.pierceArmor) c.Fill(Box(m + r * 1.1f, m, r * 0.1f, 5f, 1), Color.white);   // 철갑 전차: 포구 제동기
             }
             else if (shape == "hover")

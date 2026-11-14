@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 36 && Content.TankFactory.units.Length == 5 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
+        Check(Content.Units.Length == 37 && Content.TankFactory.units.Length == 6 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -858,6 +858,23 @@ static class Program
         tk.enemies.Add(thick);
         for (int i = 0; i < 90 && thick.health == 5000; i++) tk.Tick();
         Check(thick.health == 5000 - Content.PiercerTank.bullet.damage, $"철갑탄은 방어력을 무시한다 (피해 {5000 - thick.health:0})");
+
+        // 방호 전차: 보호막이 피해를 먼저 받고, 맞지 않으면 다시 차오른다
+        tk.units.Clear(); tk.enemies.Clear(); tk.bullets.Clear();
+        tk.SpawnUnit(Content.Bulwark, tf);
+        var bul = tk.units[0];
+        float fullHp = bul.health;
+        tk.HurtUnit(bul, 200 + Content.Bulwark.armor, 0);
+        bool soaked = bul.barrier == 500 && bul.health == fullHp;
+        tk.HurtUnit(bul, 800 + Content.Bulwark.armor, 0);
+        bool broke = bul.barrier == 0 && bul.health == fullHp - 300;
+        for (int i = 0; i < Content.Bulwark.barrierDelay - 5; i++) tk.Tick();
+        bool waits = bul.barrier == 0;
+        for (int i = 0; i < 65; i++) tk.Tick();
+        bool regrows = bul.barrier > 50 && bul.barrier < 70;
+        for (int i = 0; i < 60 * 15; i++) tk.Tick();
+        Check(soaked && broke && waits && regrows && bul.barrier == 700 && bul.health == fullHp - 300,
+            $"방호 전차의 보호막은 피해를 먼저 받고, 3초 뒤부터 다시 차오른다 ({soaked} {broke} {waits} {regrows}, 보호막 {bul.barrier:0})");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

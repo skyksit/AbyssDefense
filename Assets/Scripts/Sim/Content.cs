@@ -85,6 +85,9 @@ namespace AbyssDefense.Sim
         public int capacity;             // (수송기) 실을 수 있는 유닛의 한도 합
         public float fieldDamage;        // (방전) 탄 대신 사거리 안의 적 여럿을 한꺼번에 친다. 한 번에 한 적에게 주는 피해
         public int fieldTargets;         // (방전) 한 번에 치는 적의 수 (가까운 순)
+        public float barrier;            // 자기 보호막: 받는 피해를 체력보다 먼저 이만큼 대신 받는다
+        public float barrierRegen;       // 보호막이 초당 차오르는 양
+        public int barrierDelay;         // 마지막으로 맞은 뒤 이 틱이 지나야 차오르기 시작한다
         public float crush;              // (전차) 몸에 닿은 지상의 적을 짓밟는다: 초당 이만큼의 피해 (방어력을 무시한다)
         public UnitDef spawns;           // (기함) 이 유닛을 스스로 띄운다. 띄운 유닛은 한도를 차지하지 않고 곁을 지킨다
         public int spawnMax, spawnTicks; // 한 번에 거느리는 수, 하나를 띄우는 데 걸리는 틱
@@ -364,6 +367,14 @@ namespace AbyssDefense.Sim
             bullet = new BulletDef { speed = 0.22f, damage = 75, splash = 1.1f, lifeTicks = 30, color = 0xE9F5C9, size = 0.28f },
             cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 40), new ItemStack(Alloy, 20) }, buildTicks = 38 * 60, supply = 3,
         };
+        public static readonly UnitDef Bulwark = new UnitDef
+        {
+            key = "bulwark", name = "방호 전차", desc = "보호막을 두른 3단계 전차. 보호막 700 이 피해를 먼저 받고, 3초 동안 맞지 않으면 다시 차오른다.",
+            tier = 3, shape = "tank", health = 1500, armor = 12, speed = 0.016f, radius = 0.50f, range = 4.2f, reloadTicks = 24, color = 0x5C7F8A, tech = Research.Tier3,
+            barrier = 700, barrierRegen = 60, barrierDelay = 3 * 60, crush = 30,
+            bullet = new BulletDef { speed = 0.26f, damage = 20, lifeTicks = 22, color = 0xC5F6FA, size = 0.17f },
+            cost = new[] { new ItemStack(Steel, 80), new ItemStack(Circuit, 60), new ItemStack(Alloy, 25) }, buildTicks = 38 * 60, supply = 3,
+        };
         public static readonly UnitDef PiercerTank = new UnitDef
         {
             key = "piercertank", name = "철갑 전차", desc = "4단계 전차. 멀리서 방어력을 무시하는 철갑탄을 쏜다. 느리게 쏘고 공중은 못 쏜다.",
@@ -440,7 +451,7 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef[] Units =
         {
             Scout, Assault, Skimmer, Heavy, Siege, Titan, Recon, Bomber, Striker, Seeker, Warship, Carrier,
-            Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Pyre, Patrol, Gunboat, Destroyer, Arcship, Flagship, Escort, ArmoredCar, LightTank, HeavyTank, PiercerTank, Juggernaut, Commander,
+            Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Pyre, Patrol, Gunboat, Destroyer, Arcship, Flagship, Escort, ArmoredCar, LightTank, HeavyTank, Bulwark, PiercerTank, Juggernaut, Commander,
         };
 
         // ───────── 건물 ─────────
@@ -529,7 +540,7 @@ namespace AbyssDefense.Sim
             key = "tankfactory", name = "전차 공장", desc = "느리고 단단한 전차를 만든다. 전차는 닿은 적을 짓밟는다.",
             kind = BlockKind.Factory, size = 2, health = 600, color = 0x74875A, tech = Research.Tank,
             cost = new[] { new ItemStack(Iron, 140), new ItemStack(Steel, 80) },
-            units = new[] { ArmoredCar, LightTank, HeavyTank, PiercerTank, Juggernaut },
+            units = new[] { ArmoredCar, LightTank, HeavyTank, Bulwark, PiercerTank, Juggernaut },
         };
 
         public static readonly BlockDef Shipyard = new BlockDef

@@ -250,7 +250,7 @@ namespace AbyssDefense
                 sr.enabled = true;
                 sr.sprite = Art.Get("unit_" + u.def.key);
                 sr.sortingOrder = u.def.flying ? OrderEnemy + 3 : OrderEnemy + 1;
-                sr.color = u.hitFlash > 0 ? new Color(1f, 0.6f, 0.6f) : Color.white;
+                sr.color = u.hitFlash > 0 ? new Color(1f, 0.6f, 0.6f) : u.barrier > 0 ? new Color(0.75f, 0.93f, 1f) : Color.white;   // 보호막이 남아 있으면 하늘색
                 sr.transform.position = new Vector3(u.x, u.y);
                 sr.transform.rotation = Quaternion.Euler(0, 0, u.aim * Mathf.Rad2Deg);
                 if (u.health < u.maxHealth) HealthBar(u.x, u.y + u.def.radius + 0.14f, Mathf.Max(0.6f, u.def.radius * 2), u.health / u.maxHealth);

@@ -9,6 +9,8 @@ namespace AbyssDefense.Sim
         public UnitDef def;
         public float x, y, vx, vy;
         public float health, maxHealth;
+        public float barrier, maxBarrier;   // 자기 보호막 (피해를 체력보다 먼저 받는다)
+        public int barrierWait;             // 보호막이 다시 차오르기까지 남은 틱
         public float aim;                // 그림용: 보고 있는 방향 (라디안)
         public int reload, retarget, hitFlash, serial;
         public Enemy target;
@@ -203,6 +205,7 @@ namespace AbyssDefense.Sim
                 if (wt >= 0) { u.x = wt % world.W + 0.5f; u.y = wt / world.W + 0.5f; }
             }
             u.maxHealth = u.health = def.health * world.mods.unitMul;
+            u.maxBarrier = u.barrier = def.barrier * world.mods.unitMul;
             u.rallyX = home.rallyX; u.rallyY = home.rallyY;
             u.ox = rng.Range(-0.9f, 0.9f); u.oy = rng.Range(-0.9f, 0.9f);
             if (def.capacity > 0) u.cargo = new List<Unit>();
@@ -311,6 +314,11 @@ namespace AbyssDefense.Sim
             if (u.dead) return;
             if (u.reload > 0) u.reload--;
             if (u.hitFlash > 0) u.hitFlash--;
+            if (u.barrier < u.maxBarrier)
+            {
+                if (u.barrierWait > 0) u.barrierWait--;
+                else u.barrier = Math.Min(u.maxBarrier, u.barrier + u.def.barrierRegen * world.mods.unitMul / 60f);
+            }
             u.vx = u.vy = 0;
             if (u.carrier != null)
             {
@@ -956,7 +964,15 @@ namespace AbyssDefense.Sim
         public void HurtUnit(Unit u, float dmg, uint color)
         {
             if (u.dead) return;
-            u.health -= Armored(dmg * ShieldMul(u), u.def.armor);
+            float hit = Armored(dmg * ShieldMul(u), u.def.armor);
+            if (u.maxBarrier > 0)
+            {
+                // 자기 보호막이 먼저 받는다. 맞으면 다시 차오르는 것이 미뤄진다
+                float soak = Math.Min(u.barrier, hit);
+                u.barrier -= soak; hit -= soak;
+                u.barrierWait = u.def.barrierDelay;
+            }
+            u.health -= hit;
             u.hitFlash = 6;
             fx.Add(new Fx { kind = FxKind.EnemyAttack, x = u.x, y = u.y, r = 0.35f, color = color });
             if (u.health > 0) return;
