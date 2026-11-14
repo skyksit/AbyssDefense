@@ -313,6 +313,7 @@ namespace AbyssDefense.Sim
         {
             if (u.dead) return;
             if (u.reload > 0) u.reload--;
+            if (u.reload > 0 && (tick + u.serial) % 3 == 0 && Boosted(u)) u.reload--;
             if (u.hitFlash > 0) u.hitFlash--;
             if (u.barrier < u.maxBarrier)
             {
@@ -770,6 +771,19 @@ namespace AbyssDefense.Sim
             float px = t >= 0 ? t % world.W + 0.5f : u.x, py = t >= 0 ? t / world.W + 0.5f : u.y;
             foreach (var c in u.cargo) { c.carrier = null; c.x = px; c.y = py; }
             u.cargo.Clear();
+        }
+
+        /// 증폭 유닛 곁에 있는가 (자기 자신은 증폭하지 못한다)
+        bool Boosted(Unit u)
+        {
+            for (int i = 0; i < units.Count; i++)
+            {
+                var s = units[i];
+                if (s == u || s.dead || s.carrier != null || s.def.boostRange <= 0) continue;
+                float dx = s.x - u.x, dy = s.y - u.y;
+                if (dx * dx + dy * dy <= s.def.boostRange * s.def.boostRange) return true;
+            }
+            return false;
         }
 
         /// 방패 유닛의 보호막 안에 있으면 받는 피해가 줄어든다 (겹쳐도 한 번만)

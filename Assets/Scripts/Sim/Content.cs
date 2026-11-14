@@ -87,6 +87,7 @@ namespace AbyssDefense.Sim
         public int capacity;             // (수송기) 실을 수 있는 유닛의 한도 합
         public float fieldDamage;        // (방전) 탄 대신 사거리 안의 적 여럿을 한꺼번에 친다. 한 번에 한 적에게 주는 피해
         public int fieldTargets;         // (방전) 한 번에 치는 적의 수 (가까운 순)
+        public float boostRange;         // (증폭) 이 거리 안의 다른 아군 유닛은 3틱에 한 번 재장전이 한 틱 더 줄어든다 (연사 약 1.33배, 겹쳐도 한 번만)
         public float barrier;            // 자기 보호막: 받는 피해를 체력보다 먼저 이만큼 대신 받는다
         public float barrierRegen;       // 보호막이 초당 차오르는 양
         public int barrierDelay;         // 마지막으로 맞은 뒤 이 틱이 지나야 차오르기 시작한다
@@ -270,6 +271,14 @@ namespace AbyssDefense.Sim
             shieldRange = 3f, shieldMul = 0.65f,
             bullet = new BulletDef { speed = 0.22f, damage = 8, lifeTicks = 16, color = 0xD3F9D8, size = 0.15f },
             cost = new[] { new ItemStack(Steel, 50), new ItemStack(Circuit, 30) }, buildTicks = 22 * 60, supply = 2,
+        };
+        public static readonly UnitDef Booster = new UnitDef
+        {
+            key = "booster", name = "증폭 로봇", desc = "3.5칸 안의 다른 아군 유닛이 1.33배 빨리 쏘게 한다. 여럿이 겹쳐도 효과는 한 번이다.",
+            tier = 2, shape = "support", health = 600, armor = 6, speed = 0.022f, radius = 0.38f, range = 3f, reloadTicks = 34, color = 0xFFD43B, tech = Research.Tier2,
+            boostRange = 3.5f,
+            bullet = new BulletDef { speed = 0.24f, damage = 8, lifeTicks = 16, color = 0xFFF3BF, size = 0.14f },
+            cost = new[] { new ItemStack(Steel, 45), new ItemStack(Circuit, 45) }, buildTicks = 22 * 60, supply = 2,
         };
         public static readonly UnitDef RepairDrone = new UnitDef
         {
@@ -468,7 +477,7 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef[] Units =
         {
             Scout, Assault, Skimmer, Heavy, Siege, Titan, Recon, Bomber, Striker, Seeker, Mender, Warship, Carrier,
-            Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Pyre, Patrol, Gunboat, Destroyer, Shockboat, Arcship, Flagship, Escort, ArmoredCar, LightTank, HeavyTank, Bulwark, PiercerTank, Juggernaut, Commander,
+            Mechanic, Guardian, Booster, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Pyre, Patrol, Gunboat, Destroyer, Shockboat, Arcship, Flagship, Escort, ArmoredCar, LightTank, HeavyTank, Bulwark, PiercerTank, Juggernaut, Commander,
         };
 
         // ───────── 건물 ─────────
@@ -538,10 +547,10 @@ namespace AbyssDefense.Sim
 
         public static readonly BlockDef SupportShop = new BlockDef
         {
-            key = "supportshop", name = "지원 공방", desc = "수리·보호막·수송·채굴·재건 유닛을 만든다.",
+            key = "supportshop", name = "지원 공방", desc = "수리·보호막·증폭·수송·채굴·재건 유닛을 만든다.",
             kind = BlockKind.Factory, size = 2, health = 450, color = 0x37B24D, tech = Research.Support,
             cost = new[] { new ItemStack(Iron, 100), new ItemStack(Steel, 40), new ItemStack(Circuit, 30) },
-            units = new[] { Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder },
+            units = new[] { Mechanic, Guardian, Booster, RepairDrone, Transport, Miner, Rebuilder },
         };
 
         public static readonly BlockDef LegShop = new BlockDef

@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 39 && Content.TankFactory.units.Length == 6 && Content.Shipyard.units.Length == 6 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 7, $"유닛 {Content.Units.Length}종 (비행 7종, 나머지 공장 6종)");
+        Check(Content.Units.Length == 40 && Content.TankFactory.units.Length == 6 && Content.Shipyard.units.Length == 6 && Content.SupportShop.units.Length == 7 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 7, $"유닛 {Content.Units.Length}종 (비행·지원 7종, 나머지 공장 6종)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -911,6 +911,22 @@ static class Program
         for (int i = 0; i < 60 * 40 && bombed.health == 5000; i++) { s2g.Tick(); friend.x = patched.Cx + 1.0f; friend.y = patched.Cy + 0.8f; friend.reload = 1 << 20; }
         Check(bombed.health < 5000 - 60 && patched.health == 170 && friend.health == 30 && mender.health == mender.maxHealth,
             $"수리 폭격기의 폭탄은 적을 때리면서 아군 건물만 고친다 (적 −{5000 - bombed.health:0}, 방벽 {patched.health:0}, 척후 로봇 {friend.health:0})");
+
+        // 증폭 로봇: 곁의 다른 아군 유닛이 1.33배 빨리 쏜다 (겹쳐도 한 번만, 자기 자신은 아니다)
+        s2g.units.Clear(); s2g.enemies.Clear(); s2g.bullets.Clear(); s2g.ruins.Clear();
+        s2g.SpawnUnit(Content.Scout, shop7); s2g.SpawnUnit(Content.Scout, shop7); s2g.SpawnUnit(Content.Booster, shop7); s2g.SpawnUnit(Content.Booster, shop7);
+        var fastScout = s2g.units[0]; var plainScout = s2g.units[1];
+        Enemy Dummy(float x, float y) => new Enemy { def = Content.Walker, x = x, y = y, health = 90000, maxHealth = 90000, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        var nearDummy = Dummy(6, 30); var farDummy = Dummy(22, 30);
+        s2g.enemies.Add(nearDummy); s2g.enemies.Add(farDummy);
+        for (int i = 0; i < 60 * 30; i++)
+        {
+            fastScout.x = 4; fastScout.y = 30; plainScout.x = 20; plainScout.y = 30;
+            for (int k = 2; k < 4; k++) { s2g.units[k].x = 4; s2g.units[k].y = 31 + (k - 2) * 0.5f; s2g.units[k].reload = 1 << 20; }
+            s2g.Tick();
+        }
+        float boostRatio = (90000 - nearDummy.health) / (90000 - farDummy.health);
+        Check(boostRatio > 1.28f && boostRatio < 1.38f, $"증폭 로봇 곁의 유닛은 1.33배 빨리 쏜다 (피해 비율 {boostRatio:0.00})");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);

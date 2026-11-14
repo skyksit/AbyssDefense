@@ -460,7 +460,8 @@ namespace AbyssDefense
                 c.Fill(Circle(m - r * 0.1f, m, r * 0.26f), lite);
                 if (u.tier >= 4) { c.Fill(Box(m - r * 0.45f, m + r * 0.42f, r * 0.2f, r * 0.12f, 2), lite); c.Fill(Box(m - r * 0.45f, m - r * 0.42f, r * 0.2f, r * 0.12f, 2), lite); }
                 if (u.tier >= 5) c.Fill(Ring(m - r * 0.1f, m, r * 0.42f, 1.6f), Color.white);
-                if (shape == "support") { c.Fill(Box(m - r * 0.1f, m, r * 0.34f, r * 0.1f, 1), Color.white); c.Fill(Box(m - r * 0.1f, m, r * 0.1f, r * 0.34f, 1), Color.white); }
+                if (shape == "support" && u.boostRange > 0) { c.Fill(Poly(m + r * 0.3f, m, m - r * 0.35f, m + r * 0.3f, m - r * 0.35f, m - r * 0.3f), Color.white); }   // 증폭 로봇: 앞을 가리키는 세모
+                else if (shape == "support") { c.Fill(Box(m - r * 0.1f, m, r * 0.34f, r * 0.1f, 1), Color.white); c.Fill(Box(m - r * 0.1f, m, r * 0.1f, r * 0.34f, 1), Color.white); }
             }
             return c.ToSprite();
         }

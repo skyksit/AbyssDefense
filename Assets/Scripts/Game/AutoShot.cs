@@ -285,7 +285,7 @@ namespace AbyssDefense
             while (robo == null || !robo.Built || !sup.Built || !leg.Built || (yard != null && !yard.Built)) yield return null;
             gm.SetSpeed(1);
             foreach (var ud in new[] { Content.Skimmer, Content.Siege, Content.Titan }) s30.SpawnUnit(ud, robo);
-            foreach (var ud in new[] { Content.Mechanic, Content.Guardian, Content.RepairDrone, Content.Transport, Content.Miner, Content.Rebuilder, Content.Seeker, Content.Mender, Content.Warship, Content.Carrier }) s30.SpawnUnit(ud, sup);
+            foreach (var ud in new[] { Content.Mechanic, Content.Guardian, Content.Booster, Content.RepairDrone, Content.Transport, Content.Miner, Content.Rebuilder, Content.Seeker, Content.Mender, Content.Warship, Content.Carrier }) s30.SpawnUnit(ud, sup);
             foreach (var ud in new[] { Content.Bug, Content.Climber, Content.Spitter, Content.Leech, Content.Shatter, Content.Pyre }) s30.SpawnUnit(ud, leg);
             if (yard != null) foreach (var ud in new[] { Content.Patrol, Content.Gunboat, Content.Destroyer, Content.Shockboat, Content.Arcship, Content.Flagship }) s30.SpawnUnit(ud, yard);
             // 핵을 탭하고 다른 곳을 탭하면 지휘기가 그리로 간다
@@ -300,7 +300,7 @@ namespace AbyssDefense
             play.SelectFactory(robo);
             yield return Shot("28_new_units");
             var cm = s30.commander;
-            Note($"new units: shipyard placed {yard != null}, units {s30.units.Count} (expect 25 with shipyard, plus any escorts the flagship has launched), commander mode after tapping core {cmdMode} (expect True), command point {s30.commandX:0.0},{s30.commandY:0.0} (expect {s30.Core.Cx - 2.5f:0.0},{s30.Core.Cy + 5.5f:0.0}), commander there {cm != null && Mathf.Abs(cm.x - s30.commandX) < 0.6f && Mathf.Abs(cm.y - s30.commandY) < 0.6f}");
+            Note($"new units: shipyard placed {yard != null}, units {s30.units.Count} (expect 26 with shipyard, plus any escorts the flagship has launched), commander mode after tapping core {cmdMode} (expect True), command point {s30.commandX:0.0},{s30.commandY:0.0} (expect {s30.Core.Cx - 2.5f:0.0},{s30.Core.Cy + 5.5f:0.0}), commander there {cm != null && Mathf.Abs(cm.x - s30.commandX) < 0.6f && Mathf.Abs(cm.y - s30.commandY) < 0.6f}");
             if (yard != null)
             {
                 play.Cancel();
