@@ -194,6 +194,15 @@ namespace AbyssDefense
                             c.Fill(Box(m, m, 17, 6, 2), Color.white);
                             c.Fill(Box(m, m, 6, 17, 2), Color.white);
                         }
+                        else if (d == Content.TankFactory)
+                        {
+                            // 두 줄의 무한궤도와 포탑
+                            c.Fill(Box(m, m + 20, 26, 7, 3), Shade(col, 0.5f));
+                            c.Fill(Box(m, m - 20, 26, 7, 3), Shade(col, 0.5f));
+                            c.Fill(Box(m, m, 20, 14, 4), col);
+                            c.Fill(Circle(m - 4, m, 9), Lite(col, 0.5f));
+                            c.Fill(Box(m + 16, m, 14, 3, 1), Lite(col, 0.7f));
+                        }
                         else if (d == Content.LegShop)
                         {
                             for (int i = 0; i < 6; i++)
@@ -378,6 +387,19 @@ namespace AbyssDefense
                     else if (u.rebuild) { c.Fill(Box(m, m, r * 0.26f, r * 0.26f, 1), Color.white); c.Fill(Box(m, m, r * 0.14f, r * 0.14f, 1), col); }   // 재건 드론: 건설 터 모양의 네모 테
                     else { c.Fill(Box(m, m, r * 0.26f, 2, 1), Color.white); c.Fill(Box(m, m, 2, r * 0.26f, 1), Color.white); }
                 }
+            }
+            else if (shape == "tank")
+            {
+                // 두 줄의 무한궤도 위에 얹힌 차체와 포탑, 앞으로 뻗은 포신
+                c.Fill(Box(m, m + r * 0.7f, r * 0.95f, r * 0.26f, 3), dark);
+                c.Fill(Box(m, m - r * 0.7f, r * 0.95f, r * 0.26f, 3), dark);
+                c.Fill(Box(m, m, r * 0.8f, r * 0.58f, 4), Shade(col, 0.7f));
+                c.Fill(Box(m, m, r * 0.8f - 3, r * 0.58f - 3, 3), col);
+                c.Fill(Circle(m - r * 0.12f, m, r * 0.36f), dark);
+                c.Fill(Circle(m - r * 0.12f, m, r * 0.26f), lite);
+                c.Fill(Box(m + r * 0.6f, m, r * 0.55f, u.tier >= 3 ? 4f : 2.5f, 1), lite);
+                if (u.tier >= 5) { c.Fill(Box(m + r * 0.5f, m + r * 0.3f, r * 0.4f, 2.5f, 1), lite); c.Fill(Box(m + r * 0.5f, m - r * 0.3f, r * 0.4f, 2.5f, 1), lite); }
+                if (u.bullet != null && u.bullet.pierceArmor) c.Fill(Box(m + r * 1.1f, m, r * 0.1f, 5f, 1), Color.white);   // 철갑 전차: 포구 제동기
             }
             else if (shape == "hover")
             {

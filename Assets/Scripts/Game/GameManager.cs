@@ -159,7 +159,13 @@ namespace AbyssDefense
             int n = Content.Items.Length;
             while (save.abysses.Count < Content.Abysses.Length) save.abysses.Add(new AbyssSave());
             save.research = Fit(save.research, Research.Defs.Length, new int[0]);
-            if (save.researchPaid == null || save.researchPaid.Length != Research.Defs.Length * n) save.researchPaid = new int[Research.Defs.Length * n];
+            if (save.researchPaid == null || save.researchPaid.Length != Research.Defs.Length * n)
+            {
+                // 연구가 뒤에 늘어난 예전 세이브는 미리 넣어 둔 양을 그대로 옮긴다 (자원 종류가 달라졌으면 비운다)
+                var paid = new int[Research.Defs.Length * n];
+                if (save.researchPaid != null && save.researchPaid.Length % n == 0) Array.Copy(save.researchPaid, paid, Math.Min(paid.Length, save.researchPaid.Length));
+                save.researchPaid = paid;
+            }
             // 자원 종류가 늘어난 예전 세이브는 있던 값을 그대로 옮긴다
             save.stock = Fit(save.stock, n, new double[] { 500, 150 });
             save.loadout = Fit(save.loadout, n, new[] { 400, 100 });

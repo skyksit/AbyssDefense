@@ -24,6 +24,7 @@ namespace AbyssDefense.Sim
         public int lifeTicks;
         public bool artillery;       // 목표 지점까지 날아가 터진다 (지상만)
         public int pierce;           // 관통 수 (0 = 첫 적에서 사라짐)
+        public bool pierceArmor;     // 철갑탄: 직격한 적과 적 건물의 방어력을 무시한다
         public float burn;           // 맞은 적을 불태운다: 초당 이만큼의 피해 (방어력을 무시한다)
         public int burnTicks;        // 불타는 시간
         public float homing;         // 겨눈 적을 쫓아 틱마다 이만큼(라디안)까지 방향을 튼다 (0 = 곧게 난다)
@@ -75,7 +76,7 @@ namespace AbyssDefense.Sim
         public bool legs;                // 다리로 지형 벽을 타 넘는다 (지상의 적에게는 맞는다)
         public bool naval;               // 물 위만 다닌다
         public bool hover;               // 떠서 다닌다: 땅과 호수를 모두 지난다 (지형 벽은 못 넘는다)
-        public string shape;             // 그림 종류: mech, air, support, drone, bug, legs, boat, carrier, commander
+        public string shape;             // 그림 종류: mech, air, support, drone, bug, legs, boat, carrier, commander, hover, tank
         public float buildingMul = 1;    // 적 건물에 주는 피해 배수
         public bool suicide;             // 붙어서 터진다 (bullet 의 피해·범위를 쓴다)
         public float drain;              // 탄이 맞혀서 준 피해의 이 비율만큼 자기 체력을 되찾는다
@@ -84,6 +85,7 @@ namespace AbyssDefense.Sim
         public int capacity;             // (수송기) 실을 수 있는 유닛의 한도 합
         public float fieldDamage;        // (방전) 탄 대신 사거리 안의 적 여럿을 한꺼번에 친다. 한 번에 한 적에게 주는 피해
         public int fieldTargets;         // (방전) 한 번에 치는 적의 수 (가까운 순)
+        public float crush;              // (전차) 몸에 닿은 지상의 적을 짓밟는다: 초당 이만큼의 피해 (방어력을 무시한다)
         public UnitDef spawns;           // (기함) 이 유닛을 스스로 띄운다. 띄운 유닛은 한도를 차지하지 않고 곁을 지킨다
         public int spawnMax, spawnTicks; // 한 번에 거느리는 수, 하나를 띄우는 데 걸리는 틱
         public bool rebuild;             // (재건 드론) 적에게 부서진 아군 건물의 자리로 가서 같은 건물을 다시 놓는다
@@ -337,6 +339,48 @@ namespace AbyssDefense.Sim
             cost = new[] { new ItemStack(Steel, 220), new ItemStack(Circuit, 150), new ItemStack(Powder, 120), new ItemStack(Alloy, 130) }, buildTicks = 105 * 60, supply = 5,
         };
 
+        // 전차 공장: 느리고 단단한 지상 유닛. 몸에 닿은 지상의 적을 짓밟는다
+        public static readonly UnitDef ArmoredCar = new UnitDef
+        {
+            key = "armoredcar", name = "장갑차", desc = "값싼 1단계 전차. 작지만 장갑이 있고, 닿은 적을 짓밟는다.",
+            tier = 1, shape = "tank", health = 260, armor = 5, speed = 0.026f, radius = 0.32f, range = 3.4f, reloadTicks = 22, color = 0x94A37A,
+            crush = 10,
+            bullet = new BulletDef { speed = 0.26f, damage = 10, lifeTicks = 18, color = 0xE9F5C9, size = 0.14f },
+            cost = new[] { new ItemStack(Iron, 35), new ItemStack(Steel, 10) }, buildTicks = 10 * 60, supply = 1,
+        };
+        public static readonly UnitDef LightTank = new UnitDef
+        {
+            key = "lighttank", name = "경전차", desc = "2단계 전차. 같은 단계의 로봇보다 느리지만 훨씬 단단하다.",
+            tier = 2, shape = "tank", health = 620, armor = 9, speed = 0.022f, radius = 0.40f, range = 4.2f, reloadTicks = 30, color = 0x74875A, tech = Research.Tier2,
+            crush = 20,
+            bullet = new BulletDef { speed = 0.26f, damage = 26, lifeTicks = 22, color = 0xE9F5C9, size = 0.18f },
+            cost = new[] { new ItemStack(Steel, 45), new ItemStack(Circuit, 20) }, buildTicks = 18 * 60, supply = 2,
+        };
+        public static readonly UnitDef HeavyTank = new UnitDef
+        {
+            key = "heavytank", name = "중전차", desc = "범위 피해 주포를 단 3단계 전차. 공중은 못 쏜다.",
+            tier = 3, shape = "tank", health = 1900, armor = 15, speed = 0.015f, radius = 0.52f, range = 5f, reloadTicks = 55, color = 0x5C6F45, tech = Research.Tier3,
+            targetAir = false, crush = 40,
+            bullet = new BulletDef { speed = 0.22f, damage = 75, splash = 1.1f, lifeTicks = 30, color = 0xE9F5C9, size = 0.28f },
+            cost = new[] { new ItemStack(Steel, 90), new ItemStack(Circuit, 40), new ItemStack(Alloy, 20) }, buildTicks = 38 * 60, supply = 3,
+        };
+        public static readonly UnitDef PiercerTank = new UnitDef
+        {
+            key = "piercertank", name = "철갑 전차", desc = "4단계 전차. 멀리서 방어력을 무시하는 철갑탄을 쏜다. 느리게 쏘고 공중은 못 쏜다.",
+            tier = 4, shape = "tank", health = 3200, armor = 18, speed = 0.013f, radius = 0.58f, range = 7f, reloadTicks = 100, color = 0x485737, tech = Research.Tier4,
+            targetAir = false, buildingMul = 1.5f, crush = 60,
+            bullet = new BulletDef { speed = 0.45f, damage = 320, lifeTicks = 20, pierceArmor = true, color = 0xFFF3BF, size = 0.26f },
+            cost = new[] { new ItemStack(Steel, 150), new ItemStack(Circuit, 80), new ItemStack(Powder, 40), new ItemStack(Alloy, 60) }, buildTicks = 65 * 60, supply = 4,
+        };
+        public static readonly UnitDef Juggernaut = new UnitDef
+        {
+            key = "juggernaut", name = "분쇄 전차", desc = "가장 단단한 5단계 전차. 범위 피해 주포를 쏘며 닿은 적을 갈아 버린다.",
+            tier = 5, shape = "tank", health = 8000, armor = 24, speed = 0.010f, radius = 0.76f, range = 5.5f, reloadTicks = 26, color = 0x364228, tech = Research.Tier5,
+            crush = 150,
+            bullet = new BulletDef { speed = 0.22f, damage = 95, splash = 1.3f, lifeTicks = 32, color = 0xE9F5C9, size = 0.34f },
+            cost = new[] { new ItemStack(Steel, 300), new ItemStack(Circuit, 160), new ItemStack(Alloy, 150) }, buildTicks = 115 * 60, supply = 5,
+        };
+
         // 조선소 (해상): 호수 안에서만 움직이지만 사거리가 길다
         public static readonly UnitDef Patrol = new UnitDef
         {
@@ -396,7 +440,7 @@ namespace AbyssDefense.Sim
         public static readonly UnitDef[] Units =
         {
             Scout, Assault, Skimmer, Heavy, Siege, Titan, Recon, Bomber, Striker, Seeker, Warship, Carrier,
-            Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Pyre, Patrol, Gunboat, Destroyer, Arcship, Flagship, Escort, Commander,
+            Mechanic, Guardian, RepairDrone, Transport, Miner, Rebuilder, Bug, Climber, Spitter, Leech, Shatter, Pyre, Patrol, Gunboat, Destroyer, Arcship, Flagship, Escort, ArmoredCar, LightTank, HeavyTank, PiercerTank, Juggernaut, Commander,
         };
 
         // ───────── 건물 ─────────
@@ -480,6 +524,14 @@ namespace AbyssDefense.Sim
             units = new[] { Bug, Climber, Spitter, Leech, Shatter, Pyre },
         };
 
+        public static readonly BlockDef TankFactory = new BlockDef
+        {
+            key = "tankfactory", name = "전차 공장", desc = "느리고 단단한 전차를 만든다. 전차는 닿은 적을 짓밟는다.",
+            kind = BlockKind.Factory, size = 2, health = 600, color = 0x74875A, tech = Research.Tank,
+            cost = new[] { new ItemStack(Iron, 140), new ItemStack(Steel, 80) },
+            units = new[] { ArmoredCar, LightTank, HeavyTank, PiercerTank, Juggernaut },
+        };
+
         public static readonly BlockDef Shipyard = new BlockDef
         {
             key = "shipyard", name = "조선소", desc = "물가에만 지을 수 있다. 호수 위를 다니는 함정을 만든다.",
@@ -510,9 +562,9 @@ namespace AbyssDefense.Sim
             bounty = new[] { new ItemStack(Iron, 3) },
         };
 
-        public static readonly BlockDef[] Blocks = { Core, Wall, RapidTurret, MortarTurret, CrystalTurret, SteelWall, RobotFactory, Airfield, EnemyCore, EnemyTurret, EnemyWall, SupportShop, LegShop, Shipyard };
+        public static readonly BlockDef[] Blocks = { Core, Wall, RapidTurret, MortarTurret, CrystalTurret, SteelWall, RobotFactory, Airfield, EnemyCore, EnemyTurret, EnemyWall, SupportShop, LegShop, Shipyard, TankFactory };
         /// 건설 바에 나오는 순서
-        public static readonly BlockDef[] Buildable = { RapidTurret, Wall, MortarTurret, CrystalTurret, RobotFactory, Airfield, SupportShop, LegShop, Shipyard, SteelWall };
+        public static readonly BlockDef[] Buildable = { RapidTurret, Wall, MortarTurret, CrystalTurret, RobotFactory, Airfield, SupportShop, LegShop, TankFactory, Shipyard, SteelWall };
 
         // ───────── 적 ─────────
 

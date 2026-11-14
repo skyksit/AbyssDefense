@@ -497,7 +497,7 @@ namespace AbyssDefense.Sim
                 if (dx * dx + dy * dy > lim * lim) continue;
                 if (b.hit != null) { if (b.hit.Contains(e)) continue; b.hit.Add(e); }
                 Drain(b, Math.Min(e.health, Armored(b.damage, e.armor)));
-                Damage(e, b.damage);
+                Damage(e, b.damage, d.pierceArmor);
                 if (d.burn > 0 && !e.dead && (e.burnTicks <= 0 || e.burnDps <= d.burn)) { e.burnDps = d.burn; e.burnTicks = d.burnTicks; }
                 if (d.slow > 0) { if (d.splash > 0) SlowAround(b.x, b.y, d.splash, d); else Slow(e, d); }
                 fx.Add(new Fx { kind = FxKind.Hit, x = b.x, y = b.y, r = 0.25f, color = d.color });
@@ -508,7 +508,7 @@ namespace AbyssDefense.Sim
             if (b.build != null && !b.build.dead && b.build.DistTo(b.x, b.y) <= 0.05f)
             {
                 Drain(b, Math.Min(b.build.health, Armored(b.damage, b.build.def.armor)));
-                HurtBuilding(b.build, b.damage);
+                HurtBuilding(b.build, b.damage, d.pierceArmor);
                 fx.Add(new Fx { kind = FxKind.Hit, x = b.x, y = b.y, r = 0.25f, color = d.color });
                 if (d.splash > 0) SplashBuildings(b.x, b.y, d.splash, b.damage * 0.5f, b.build);
                 b.dead = true;

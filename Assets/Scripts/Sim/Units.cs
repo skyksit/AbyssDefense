@@ -336,6 +336,7 @@ namespace AbyssDefense.Sim
             if (d.spawns != null) UpdateHangar(u);
 
             if (d.heal > 0 && (tick + u.serial) % 30 == 0) HealAround(u);
+            if (d.crush > 0 && (tick + u.serial) % 15 == 0) Crush(u);
 
             // 지키는 곳: 방어면 집결 지점, 공격이면 가장 가까운 출현 지점
             float ax = u.rallyX, ay = u.rallyY;
@@ -474,6 +475,21 @@ namespace AbyssDefense.Sim
         }
 
         // ───────── 특수 유닛 ─────────
+
+        /// 전차: 몸에 닿은(반 칸 안으로 붙은) 지상의 적을 짓밟는다 (0.25초마다, 방어력 무시)
+        void Crush(Unit u)
+        {
+            float dmg = u.def.crush * 0.25f * world.mods.unitMul;
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var e = enemies[i];
+                if (e.dead || e.def.flying) continue;
+                float dx = e.x - u.x, dy = e.y - u.y, lim = u.def.radius + e.def.radius + 0.5f;
+                if (dx * dx + dy * dy > lim * lim) continue;
+                Damage(e, dmg, true);
+                fx.Add(new Fx { kind = FxKind.Hit, x = e.x, y = e.y, r = 0.3f, color = u.def.color });
+            }
+        }
 
         /// 기함: 거느린 함재기가 모자라면 시간이 찰 때마다 하나씩 띄운다
         void UpdateHangar(Unit u)
@@ -764,9 +780,9 @@ namespace AbyssDefense.Sim
         // ───────── 적 건물 ─────────
 
         /// 적 건물에 피해를 준다 (부서지는 처리는 틱 끝에서)
-        void HurtBuilding(Building b, float dmg)
+        void HurtBuilding(Building b, float dmg, bool ignoreArmor = false)
         {
-            b.health -= Armored(dmg, b.def.armor);
+            b.health -= ignoreArmor ? dmg : Armored(dmg, b.def.armor);
             b.hitFlash = 6;
         }
 

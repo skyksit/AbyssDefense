@@ -527,7 +527,7 @@ static class Program
     static void NewUnits()
     {
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
-        Check(Content.Units.Length == 31 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
+        Check(Content.Units.Length == 36 && Content.TankFactory.units.Length == 5 && Content.Shipyard.units.Length == 5 && Content.SupportShop.units.Length == 6 && Content.LegShop.units.Length == 6 && Content.RobotFactory.units.Length == 6 && Content.Airfield.units.Length == 6, $"유닛 {Content.Units.Length}종 (로봇·비행 각 6종)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -830,6 +830,34 @@ static class Program
         for (int i = 0; i < Content.Pyre.bullet.burnTicks + 30; i++) s2f.Tick();
         float burned = burnFrom - plated.health;
         Check(lit && plated.burnTicks == 0 && Math.Abs(burned - 120) < 0.5f, $"화염 거미에 맞은 적은 4초 동안 방어력과 상관없이 불탄다 (피해 {burned:0.#})");
+
+        // 전차 공장: 연구해야 지을 수 있고, 전차는 닿은 적을 짓밟는다
+        Check(EmptySim(Full, all).Place(Content.TankFactory, 3, 20) == PlaceResult.Locked, "전차 공장은 전차 공장 기술을 연구해야 지을 수 있다");
+        var tk = EmptySim(Full, Mods(Research.Tank, 1, Research.Tier2, 1, Research.Tier3, 1, Research.Tier4, 1));
+        Check(tk.Place(Content.TankFactory, 3, 20) == PlaceResult.Ok && tk.IsUnlocked(Content.ArmoredCar) && tk.IsUnlocked(Content.PiercerTank) && !tk.IsUnlocked(Content.Juggernaut), "전차도 단계마다 기체 개량 연구가 필요하다");
+        Finish(tk);
+        var tf = (FactoryBuilding)tk.world.BuildAt(3, 20);
+        tf.product = -1; tf.making = null;
+        tk.units.Clear();
+        tk.SpawnUnit(Content.LightTank, tf);
+        var tank = tk.units[0];
+        tank.x = tf.rallyX; tank.y = tf.rallyY; tank.ox = tank.oy = 0; tank.reload = 1 << 20;
+        Enemy Armored(EnemyDef def, float dx) => new Enemy { def = def, x = tank.x + dx, y = tank.y, health = 5000, maxHealth = 5000, armor = 500, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        var touching = Armored(Content.Walker, 0.9f); var apart = Armored(Content.Walker, 2.5f); var above = Armored(Content.Flyer, 0.5f);
+        tk.enemies.AddRange(new[] { touching, apart, above });
+        for (int i = 0; i < 240; i++) { tk.Tick(); tank.reload = 1 << 20; }
+        Check(Math.Abs(5000 - touching.health - Content.LightTank.crush * 4) < 0.5f && apart.health == 5000 && above.health == 5000,
+            $"전차는 닿은 지상의 적만 방어력과 상관없이 짓밟는다 (4초에 {5000 - touching.health:0.#})");
+
+        // 철갑 전차: 철갑탄은 방어력을 무시한다
+        tk.units.Clear(); tk.enemies.Clear(); tk.bullets.Clear();
+        tk.SpawnUnit(Content.PiercerTank, tf);
+        var piercer = tk.units[0];
+        piercer.x = tf.rallyX; piercer.y = tf.rallyY; piercer.ox = piercer.oy = 0;
+        var thick = new Enemy { def = Content.Shell, x = piercer.x + 5, y = piercer.y, health = 5000, maxHealth = 5000, armor = 500, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        tk.enemies.Add(thick);
+        for (int i = 0; i < 90 && thick.health == 5000; i++) tk.Tick();
+        Check(thick.health == 5000 - Content.PiercerTank.bullet.damage, $"철갑탄은 방어력을 무시한다 (피해 {5000 - thick.health:0})");
 
         // 정비 로봇: 유닛과 건물을 고친다
         var s3 = EmptySim(Full, all);
