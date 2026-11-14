@@ -194,6 +194,19 @@ namespace AbyssDefense
                             c.Fill(Box(m, m, 17, 6, 2), Color.white);
                             c.Fill(Box(m, m, 6, 17, 2), Color.white);
                         }
+                        else if (d == Content.Assembler)
+                        {
+                            // 큰 조립 틀: 겹고리와 네 개의 팔, 가운데의 결정
+                            c.Fill(Ring(m, m, m * 0.62f, 5), Lite(col, 0.4f));
+                            c.Fill(Ring(m, m, m * 0.40f, 3), Shade(col, 0.9f));
+                            for (int i = 0; i < 4; i++)
+                            {
+                                float a = i * Mathf.PI / 2 + Mathf.PI / 4;
+                                c.Fill(Circle(m + Mathf.Cos(a) * m * 0.62f, m + Mathf.Sin(a) * m * 0.62f, 7), Lite(col, 0.7f));
+                            }
+                            c.Fill(Poly(m + 14, m, m, m + 14, m - 14, m, m, m - 14), C(0x9C6BFF));
+                            c.Fill(Poly(m + 7, m, m, m + 7, m - 7, m, m, m - 7), Color.white);
+                        }
                         else if (d == Content.HoverShop)
                         {
                             // 둥근 치마와 그 위의 몸

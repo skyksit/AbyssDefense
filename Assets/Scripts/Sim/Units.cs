@@ -316,6 +316,7 @@ namespace AbyssDefense.Sim
             if (u.reload > 0) u.reload--;
             if (u.reload > 0 && (tick + u.serial) % 3 == 0 && Boosted(u)) u.reload--;
             if (u.hitFlash > 0) u.hitFlash--;
+            if (u.def.regen > 0 && u.health < u.maxHealth) u.health = Math.Min(u.maxHealth, u.health + u.def.regen * world.mods.unitMul / 60f);
             if (u.barrier < u.maxBarrier)
             {
                 if (u.barrierWait > 0) u.barrierWait--;

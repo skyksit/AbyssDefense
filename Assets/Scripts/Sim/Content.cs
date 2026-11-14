@@ -89,6 +89,7 @@ namespace AbyssDefense.Sim
         public int capacity;             // (수송기) 실을 수 있는 유닛의 한도 합
         public float fieldDamage;        // (방전) 탄 대신 사거리 안의 적 여럿을 한꺼번에 친다. 한 번에 한 적에게 주는 피해
         public int fieldTargets;         // (방전) 한 번에 치는 적의 수 (가까운 순)
+        public float regen;              // 자가 수복: 초당 이만큼 스스로 체력을 되찾는다
         public float boostRange;         // (증폭) 이 거리 안의 다른 아군 유닛은 3틱에 한 번 재장전이 한 틱 더 줄어든다 (연사 약 1.33배, 겹쳐도 한 번만)
         public float barrier;            // 자기 보호막: 받는 피해를 체력보다 먼저 이만큼 대신 받는다
         public float barrierRegen;       // 보호막이 초당 차오르는 양
@@ -838,6 +839,60 @@ namespace AbyssDefense.Sim
             cost = new[] { new ItemStack(Steel, 240), new ItemStack(Circuit, 190), new ItemStack(Alloy, 150) }, buildTicks = 110 * 60, supply = 5,
         };
 
+        // 심연 조립소: 6·7단계의 첨단 유닛. 다른 공장의 5단계보다 훨씬 강하고, 심연 결정까지 드는 큰 비용이 든다. 모두 스스로 체력을 되찾는다
+        public static readonly UnitDef Colossus = new UnitDef
+        {
+            key = "colossus", name = "심연 거신", desc = "6단계 로봇. 보호막 3000 을 두르고 큰 범위 포를 쏜다. 스스로 체력을 되찾는다.",
+            tier = 6, health = 14000, armor = 28, speed = 0.010f, radius = 0.90f, range = 7f, reloadTicks = 22, color = 0x7048E8, tech = Research.Assembler,
+            barrier = 3000, barrierRegen = 150, barrierDelay = 5 * 60, regen = 40,
+            bullet = new BulletDef { speed = 0.26f, damage = 210, splash = 1.6f, lifeTicks = 30, color = 0xD0BFFF, size = 0.4f },
+            cost = new[] { new ItemStack(Steel, 420), new ItemStack(Circuit, 380), new ItemStack(Alloy, 320), new ItemStack(Crystal, 160) }, buildTicks = 160 * 60, supply = 6,
+        };
+        public static readonly UnitDef Mothership = new UnitDef
+        {
+            key = "mothership", name = "심연 모함", desc = "6단계 비행 유닛. 보호막 3000, 건너뛰는 전격, 8초마다 띄우는 함재기 다섯. 스스로 체력을 되찾는다.",
+            tier = 6, flying = true, shape = "carrier", health = 12000, armor = 22, speed = 0.016f, radius = 0.95f, range = 7f, reloadTicks = 14, color = 0x5F3DC4, tech = Research.Assembler,
+            barrier = 3000, barrierRegen = 150, barrierDelay = 5 * 60, regen = 35, spawns = Escort, spawnMax = 5, spawnTicks = 8 * 60,
+            bullet = new BulletDef { speed = 0.5f, damage = 90, lifeTicks = 16, chain = 4, chainRange = 2.6f, color = 0xE5DBFF, size = 0.24f },
+            cost = new[] { new ItemStack(Steel, 400), new ItemStack(Circuit, 420), new ItemStack(Alloy, 320), new ItemStack(Crystal, 160) }, buildTicks = 160 * 60, supply = 6,
+        };
+        public static readonly UnitDef Ravager = new UnitDef
+        {
+            key = "ravager", name = "심연 거미", desc = "벽을 타 넘는 6단계 다리 유닛. 사거리 8.5 의 곡사 포탄이 범위 안을 불태우고 파편 10개로 갈라진다. 공중은 못 겨눈다. 스스로 체력을 되찾는다.",
+            tier = 6, legs = true, shape = "legs", health = 13000, armor = 24, speed = 0.012f, radius = 0.88f, range = 8.5f, reloadTicks = 70, color = 0x9C36B5, tech = Research.Assembler,
+            targetAir = false, buildingMul = 2f, regen = 40,
+            bullet = new BulletDef
+            {
+                speed = 0.11f, damage = 320, splash = 2.2f, lifeTicks = 100, artillery = true, burn = 40, burnTicks = 240, color = 0xF783AC, size = 0.4f, fragCount = 10,
+                frag = new BulletDef { speed = 0.18f, damage = 45, lifeTicks = 14, color = 0xFFDEEB, size = 0.15f },
+            },
+            cost = new[] { new ItemStack(Steel, 420), new ItemStack(Circuit, 360), new ItemStack(Powder, 150), new ItemStack(Alloy, 320), new ItemStack(Crystal, 160) }, buildTicks = 160 * 60, supply = 6,
+        };
+        public static readonly UnitDef Doomtank = new UnitDef
+        {
+            key = "doomtank", name = "종말 전차", desc = "7단계 전차. 사거리 9 에서 방어력을 무시하고 넷까지 꿰뚫는 철갑탄 900 을 쏘고, 닿은 적을 초당 400 으로 짓밟는다. 공중은 못 쏜다. 스스로 체력을 되찾는다.",
+            tier = 7, shape = "tank", health = 30000, armor = 36, speed = 0.009f, radius = 1.0f, range = 9f, reloadTicks = 80, color = 0x343A40, tech = Research.Transcend,
+            targetAir = false, buildingMul = 2f, crush = 400, regen = 80,
+            bullet = new BulletDef { speed = 0.5f, damage = 900, lifeTicks = 20, pierce = 3, pierceArmor = true, color = 0xFFF3BF, size = 0.4f },
+            cost = new[] { new ItemStack(Steel, 720), new ItemStack(Circuit, 600), new ItemStack(Alloy, 560), new ItemStack(Crystal, 360) }, buildTicks = 240 * 60, supply = 7,
+        };
+        public static readonly UnitDef Bastion = new UnitDef
+        {
+            key = "bastion", name = "심연 요새", desc = "떠서 다니는 7단계 유닛. 보호막 6000, 6칸 안의 적 12기를 한꺼번에 치는 전류, 6칸 안 아군의 수리와 피해 −40%. 스스로 체력을 되찾는다.",
+            tier = 7, hover = true, shape = "hover", health = 22000, armor = 26, speed = 0.016f, radius = 0.95f, range = 6f, reloadTicks = 30, color = 0x1098AD, tech = Research.Transcend,
+            fieldDamage = 120, fieldTargets = 12, heal = 40, healRange = 6f, shieldRange = 6f, shieldMul = 0.6f,
+            barrier = 6000, barrierRegen = 250, barrierDelay = 5 * 60, regen = 60,
+            cost = new[] { new ItemStack(Steel, 680), new ItemStack(Circuit, 640), new ItemStack(Alloy, 560), new ItemStack(Crystal, 360) }, buildTicks = 240 * 60, supply = 7,
+        };
+        public static readonly UnitDef Nemesis = new UnitDef
+        {
+            key = "nemesis", name = "천벌기", desc = "7단계 비행 유닛. 사거리 9 에서 범위 유도탄 260 을 잇달아 쏘고, 직격한 적을 불태운다. 스스로 체력을 되찾는다.",
+            tier = 7, flying = true, shape = "carrier", health = 20000, armor = 28, speed = 0.018f, radius = 1.0f, range = 9f, reloadTicks = 24, color = 0xC2255C, tech = Research.Transcend,
+            regen = 60,
+            bullet = new BulletDef { speed = 0.22f, damage = 260, splash = 1.8f, lifeTicks = 60, homing = 0.14f, burn = 30, burnTicks = 180, color = 0xFFDEEB, size = 0.34f },
+            cost = new[] { new ItemStack(Steel, 680), new ItemStack(Circuit, 660), new ItemStack(Alloy, 560), new ItemStack(Crystal, 360) }, buildTicks = 240 * 60, supply = 7,
+        };
+
         /// 핵에서 나오는 코어 유닛. 플레이어가 갈 곳을 찍어 주고, 곁의 건설을 빠르게 한다
         public static readonly UnitDef Commander = new UnitDef
         {
@@ -855,6 +910,7 @@ namespace AbyssDefense.Sim
             Medic, BoostDrone, Excavator, Aegis, Hauler, Hopper, Slimebug, Blaster, Stalker, Sparker, Devourer,
             Tender, Missileboat, Mireship, Wardship, Lancership, Infernoship, Flametank, Flaktank, Howitzer, Ramtank, Workshop, Teslatank,
             Dart, Patch, Minelayer, Lancer, Scorch, Bumper, Homer, Screen, Jolt, Lobber, Seeder, Leviathan,
+            Colossus, Mothership, Ravager, Doomtank, Bastion, Nemesis,
             Commander,
         };
 
@@ -955,6 +1011,14 @@ namespace AbyssDefense.Sim
             units = new[] { Dart, Patch, Minelayer, Lancer, Scorch, Bumper, Homer, Screen, Jolt, Lobber, Seeder, Leviathan },
         };
 
+        public static readonly BlockDef Assembler = new BlockDef
+        {
+            key = "assembler", name = "심연 조립소", desc = "가장 강한 6·7단계 유닛을 조립한다. 짓는 데도 유닛에도 심연 결정까지 드는 큰 비용이 든다.",
+            kind = BlockKind.Factory, size = 3, health = 2500, armor = 6, color = 0x7048E8, tech = Research.Assembler,
+            cost = new[] { new ItemStack(Iron, 600), new ItemStack(Steel, 400), new ItemStack(Circuit, 300), new ItemStack(Alloy, 200), new ItemStack(Crystal, 150) },
+            units = new[] { Colossus, Mothership, Ravager, Doomtank, Bastion, Nemesis },
+        };
+
         public static readonly BlockDef Shipyard = new BlockDef
         {
             key = "shipyard", name = "조선소", desc = "물가에만 지을 수 있다. 호수 위를 다니는 함정을 만든다.",
@@ -985,9 +1049,9 @@ namespace AbyssDefense.Sim
             bounty = new[] { new ItemStack(Iron, 3) },
         };
 
-        public static readonly BlockDef[] Blocks = { Core, Wall, RapidTurret, MortarTurret, CrystalTurret, SteelWall, RobotFactory, Airfield, EnemyCore, EnemyTurret, EnemyWall, SupportShop, LegShop, Shipyard, TankFactory, HoverShop };
+        public static readonly BlockDef[] Blocks = { Core, Wall, RapidTurret, MortarTurret, CrystalTurret, SteelWall, RobotFactory, Airfield, EnemyCore, EnemyTurret, EnemyWall, SupportShop, LegShop, Shipyard, TankFactory, HoverShop, Assembler };
         /// 건설 바에 나오는 순서
-        public static readonly BlockDef[] Buildable = { RapidTurret, Wall, MortarTurret, CrystalTurret, RobotFactory, Airfield, SupportShop, LegShop, TankFactory, HoverShop, Shipyard, SteelWall };
+        public static readonly BlockDef[] Buildable = { RapidTurret, Wall, MortarTurret, CrystalTurret, RobotFactory, Airfield, SupportShop, LegShop, TankFactory, HoverShop, Shipyard, Assembler, SteelWall };
 
         // ───────── 적 ─────────
 

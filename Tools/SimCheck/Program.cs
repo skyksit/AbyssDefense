@@ -528,13 +528,13 @@ static class Program
     static void AllUnits()
     {
         var lvAll = new int[Research.Defs.Length];
-        foreach (int id in new[] { Research.RobotFactory, Research.Airfield, Research.Support, Research.Legs, Research.Shipyard, Research.Tank, Research.Hover, Research.Tier2, Research.Tier3, Research.Tier4, Research.Tier5 }) lvAll[id] = 1;
+        foreach (int id in new[] { Research.RobotFactory, Research.Airfield, Research.Support, Research.Legs, Research.Shipyard, Research.Tank, Research.Hover, Research.Assembler, Research.Transcend, Research.Tier2, Research.Tier3, Research.Tier4, Research.Tier5 }) lvAll[id] = 1;
         var mods = Research.Mods(lvAll);
         var keys = new HashSet<string>(); var names = new HashSet<string>();
         bool unique = true, sane = true, fights = true; string bad = "";
         foreach (var u in Content.Units) { if (!keys.Add(u.key) || !names.Add(u.name)) { unique = false; bad += " " + u.key; } }
         int made = 0;
-        foreach (var fdef in new[] { Content.RobotFactory, Content.Airfield, Content.SupportShop, Content.LegShop, Content.TankFactory, Content.HoverShop, Content.Shipyard })
+        foreach (var fdef in new[] { Content.RobotFactory, Content.Airfield, Content.SupportShop, Content.LegShop, Content.TankFactory, Content.HoverShop, Content.Shipyard, Content.Assembler })
         {
             int lastTier = 0;
             foreach (var u in fdef.units)
@@ -574,7 +574,7 @@ static class Program
             }
         }
         Check(unique, "유닛의 key 와 이름은 겹치지 않는다" + bad);
-        Check(made == 84 && sane, "공장 유닛 84종의 정의가 말이 된다 (단계 순, 한도 = 단계, 비용·연구·사거리)" + bad);
+        Check(made == 90 && sane, "공장 유닛 90종의 정의가 말이 된다 (단계 순, 한도 = 단계, 비용·연구·사거리)" + bad);
         Check(fights, "무기가 있는 유닛은 모두 겨눌 수 있는 적에게 피해를 주고, 없는 유닛은 주지 않는다" + bad);
     }
 
@@ -583,7 +583,8 @@ static class Program
         Console.WriteLine("새 유닛 (지원·다리·해상·수송·지휘기)");
         bool twelve = true;
         foreach (var fb in new[] { Content.RobotFactory, Content.Airfield, Content.SupportShop, Content.LegShop, Content.TankFactory, Content.HoverShop, Content.Shipyard }) if (fb.units.Length != 12) twelve = false;
-        Check(Content.Units.Length == 86 && twelve, $"유닛 {Content.Units.Length}종 (공장 일곱 곳에 12종씩, 함재기와 지휘기)");
+        if (Content.Assembler.units.Length != 6) twelve = false;
+        Check(Content.Units.Length == 92 && twelve, $"유닛 {Content.Units.Length}종 (공장 일곱 곳에 12종씩, 심연 조립소에 6종, 함재기와 지휘기)");
         var all = Mods(Research.RobotFactory, 1, Research.Airfield, 1, Research.Support, 1, Research.Legs, 1, Research.Shipyard, 1, Research.Tier2, 1, Research.Tier3, 1);
         var lockedSim = EmptySim(Full, all);
         lockedSim.Place(Content.RobotFactory, 3, 20);
@@ -1030,6 +1031,36 @@ static class Program
         int leftMines = hv.mines.Count;
         hv.Tick();
         Check(hv.mines.Count == leftMines && leftMines > 0, "부설기를 잃어도 깔아 둔 지뢰는 남는다");
+
+        // 심연 조립소: 연구 두 단계로 열리고, 유닛은 다른 공장의 5단계보다 훨씬 강하고 비싸며 스스로 체력을 되찾는다
+        var noTech = EmptySim(Full, Mods(Research.RobotFactory, 1, Research.Tier2, 1, Research.Tier3, 1, Research.Tier4, 1, Research.Tier5, 1));
+        var asmMods = Mods(Research.Assembler, 1);
+        var richLoad = new[] { 5000, 5000, 5000, 5000, 5000, 5000, 5000 };
+        var asm = EmptySim(richLoad, asmMods);
+        Check(noTech.Place(Content.Assembler, 3, 20) == PlaceResult.Locked && asm.Place(Content.Assembler, 3, 20) == PlaceResult.Ok
+            && asm.IsUnlocked(Content.Colossus) && !asm.IsUnlocked(Content.Doomtank) && EmptySim(Full, Mods(Research.Assembler, 1, Research.Transcend, 1)).IsUnlocked(Content.Doomtank),
+            "심연 조립소와 6단계는 심연 조립 기술로, 7단계는 초월 개량으로 열린다");
+        float Worth(ItemStack[] c) { float t = 0; foreach (var k in c) t += k.amount * (k.item == Content.Iron || k.item == Content.Sulfur ? 1 : k.item == Content.Alloy || k.item == Content.Crystal ? 4 : 2); return t; }
+        float topWorth = 0, topHealth = 0;
+        foreach (var fdef in new[] { Content.RobotFactory, Content.Airfield, Content.SupportShop, Content.LegShop, Content.TankFactory, Content.HoverShop, Content.Shipyard })
+            foreach (var fu in fdef.units) { topWorth = Math.Max(topWorth, Worth(fu.cost)); topHealth = Math.Max(topHealth, fu.health + fu.barrier); }
+        bool mighty = true;
+        foreach (var hu in Content.Assembler.units)
+            if (Worth(hu.cost) < topWorth * 1.5f || hu.health + hu.barrier < topHealth * 1.5f || hu.regen <= 0 || hu.tier < 6 || Array.FindIndex(hu.cost, k => k.item == Content.Crystal) < 0) mighty = false;
+        Check(mighty && Worth(Content.Assembler.cost) > 3 * Worth(Content.RobotFactory.cost) && Content.Assembler.size == 3,
+            $"심연 조립소의 유닛은 다른 공장의 가장 센 유닛보다 1.5배 넘게 단단하고 비싸며 심연 결정이 든다 (다른 공장 최고 체력 {topHealth:0}, 값 {topWorth:0})");
+        Finish(asm);
+        var ab = (FactoryBuilding)asm.world.BuildAt(3, 20);
+        Check(ab != null && ab.Built && ab.def.size == 3, "심연 조립소는 3×3 칸으로 지어진다");
+        ab.product = -1; ab.making = null;
+        asm.units.Clear();
+        asm.SpawnUnit(Content.Colossus, ab);
+        var giant = asm.units[0];
+        asm.HurtUnit(giant, 4000 + Content.Colossus.armor, 0);
+        float hurtTo = giant.health;
+        for (int i = 0; i < 600; i++) asm.Tick();
+        Check(hurtTo == giant.maxHealth - 1000 && Math.Abs(giant.health - hurtTo - Content.Colossus.regen * 10) < 1f && giant.barrier > 0,
+            $"심연 조립소의 유닛은 스스로 체력을 되찾는다 (10초에 +{giant.health - hurtTo:0})");
 
         AllUnits();
 

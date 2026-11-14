@@ -31,7 +31,7 @@ namespace AbyssDefense.Sim
     {
         public const int Damage = 0, Health = 1, Loadout = 2, Mortar = 3, Core = 4, Range = 5, Mining = 6, Ammo = 7, Bounty = 8, Lance = 9, Build = 10,
             RobotFactory = 11, Airfield = 12, Tier2 = 13, Tier3 = 14, Command = 15, UnitPower = 16,
-            Support = 17, Legs = 18, Shipyard = 19, Tier4 = 20, Tier5 = 21, Tank = 22, Hover = 23;
+            Support = 17, Legs = 18, Shipyard = 19, Tier4 = 20, Tier5 = 21, Tank = 22, Hover = 23, Assembler = 24, Transcend = 25;
         public const int BaseUnitCap = 4;
 
         public static readonly ResearchDef[] Defs =
@@ -73,6 +73,10 @@ namespace AbyssDefense.Sim
                 extra = new[] { new ItemStack(Content.Steel, 100) } },
             new ResearchDef { key = "hover", name = "부양 공방 기술", desc = "부양 공방을 짓고 부양 척후·부양 정비를 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 22, iron = 350, sulfur = 200,
                 extra = new[] { new ItemStack(Content.Steel, 100), new ItemStack(Content.Circuit, 80) } },
+            new ResearchDef { key = "assembler", name = "심연 조립 기술", desc = "심연 조립소를 짓고 6단계 유닛(심연 거신·심연 모함·심연 거미)을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 75, iron = 2500, sulfur = 1500, crystal = 800, crystalFrom = 0,
+                extra = new[] { new ItemStack(Content.Steel, 800), new ItemStack(Content.Circuit, 600), new ItemStack(Content.Alloy, 500) } },
+            new ResearchDef { key = "transcend", name = "초월 개량", desc = "7단계 유닛(종말 전차·심연 요새·천벌기)을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 90, iron = 4000, sulfur = 2500, crystal = 1500, crystalFrom = 0,
+                extra = new[] { new ItemStack(Content.Steel, 1200), new ItemStack(Content.Circuit, 900), new ItemStack(Content.Alloy, 900) } },
         };
 
         static Research()
@@ -103,6 +107,8 @@ namespace AbyssDefense.Sim
             Link(Legs, RobotFactory, "icon_legshop");
             Link(Tank, RobotFactory, "icon_tankfactory");
             Link(Hover, RobotFactory, "icon_hovershop");
+            Link(Assembler, Tier5, "icon_assembler");
+            Link(Transcend, Assembler, "unit_doomtank");
         }
 
         static void Link(int id, int parent, string icon) { Defs[id].parent = parent; Defs[id].icon = icon; }
