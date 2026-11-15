@@ -23,6 +23,9 @@ namespace AbyssDefense.Sim
         public int cargo;            // (수송체) 아직 내려놓지 않은 적의 수
         public Building goal;        // (표적 성향이 있는 비행체) 날아가 칠 건물
         public int goalTick;         // 그 건물을 다시 고를 틱
+        public Unit preyUnit;        // 가는 길 둘레에서 찾아 먼저 치러 가는 아군 유닛
+        public Building preyBuild;   // 가는 길 둘레에서 찾아 먼저 치러 가는 아군 건물
+        public int preyTick;         // 먹잇감을 다시 고를 틱
         public float Armor => acidTicks > 0 ? armor * acidMul : armor;
         public bool dead;
         public int hitFlash;
@@ -449,6 +452,11 @@ namespace AbyssDefense.Sim
             var near = NearestUnit(e.x, e.y, e.def.range + 0.3f, e.def.HitsAir);
             if (near != null) { AttackUnit(e, near); return; }
 
+            // 가는 길 둘레의 유닛과 건물을 핵보다 먼저 친다
+            if (tick >= e.preyTick) FindPrey(e);
+            if (e.preyUnit != null && (e.preyUnit.dead || e.preyUnit.carrier != null)) e.preyUnit = null;
+            if (e.preyBuild != null && (e.preyBuild.dead || e.preyBuild.health <= 0)) e.preyBuild = null;
+
             if (e.def.flying)
             {
                 // 수송체: 아군 건물 곁에 닿으면 실은 적을 내려놓는다
@@ -464,9 +472,21 @@ namespace AbyssDefense.Sim
                     if (e.goal == null || e.goal.dead || tick >= e.goalTick) { e.goal = NearestOfKind(e.x, e.y, float.MaxValue, e.def.prefers); e.goalTick = tick + 60; }
                     if (e.goal != null) dest = e.goal;
                 }
+                if (e.preyUnit != null) { MoveToward(e, e.preyUnit.x, e.preyUnit.y, speed); return; }
+                if (e.preyBuild != null && e.def.prefers == EnemyPrefer.Core) dest = e.preyBuild;
                 if (dest.DistTo(e.x, e.y) <= e.def.range) { Attack(e, dest); return; }
                 MoveToward(e, dest.Cx, dest.Cy, speed);
                 return;
+            }
+
+            // 지상: 먹잇감이 손에 닿으면 치고, 아니면 곧게 걸어갈 수 있을 때만 다가간다 (벽이나 다른 건물에 막히면 가던 길을 간다)
+            if (e.preyBuild != null && e.preyBuild.DistTo(e.x, e.y) <= e.def.range) { Attack(e, e.preyBuild); return; }
+            if (e.preyUnit != null || e.preyBuild != null)
+            {
+                float px = e.preyUnit != null ? e.preyUnit.x : Math.Max(e.preyBuild.x, Math.Min(e.x, e.preyBuild.x + e.preyBuild.def.size));
+                float py = e.preyUnit != null ? e.preyUnit.y : Math.Max(e.preyBuild.y, Math.Min(e.y, e.preyBuild.y + e.preyBuild.def.size));
+                if (WalkStep(e, px, py, speed)) return;
+                e.preyUnit = null; e.preyBuild = null;
             }
 
             int tx = (int)e.x, ty = (int)e.y;
@@ -488,6 +508,47 @@ namespace AbyssDefense.Sim
 
             if (next < 0) { MoveToward(e, core.Cx, core.Cy, speed); return; }
             MoveToward(e, next % world.W + 0.5f + e.ox, next / world.W + 0.5f + e.oy, speed);
+        }
+
+        /// 적이 가는 길 둘레에서 먼저 칠 것을 고른다: aggro 안의 가장 가까운 아군 유닛(때릴 수 있는 것) 또는 건물. 방벽은 고르지 않는다 (길을 막을 때만 친다)
+        void FindPrey(Enemy e)
+        {
+            e.preyTick = tick + 20;
+            e.preyUnit = null; e.preyBuild = null;
+            float r = e.def.aggro;
+            if (r <= 0) return;
+            var u = NearestUnit(e.x, e.y, r, e.def.HitsAir);
+            float ud = u != null ? (float)Math.Sqrt((u.x - e.x) * (u.x - e.x) + (u.y - e.y) * (u.y - e.y)) : float.MaxValue;
+            Building best = null; float bd = r;
+            var bs = world.buildings;
+            for (int i = 0; i < bs.Count; i++)
+            {
+                var b = bs[i];
+                if (b.def.enemy || b.dead || b.def.kind == BlockKind.Wall) continue;
+                float d = b.DistTo(e.x, e.y);
+                if (d <= bd) { bd = d; best = b; }
+            }
+            if (u != null && ud <= bd) e.preyUnit = u; else e.preyBuild = best;
+        }
+
+        /// 지상의 적이 (tx, ty) 쪽으로 곧게 한 걸음 간다. 디딜 칸이 벽이거나 건물이면 가지 않고 false
+        bool WalkStep(Enemy e, float tx, float ty, float speed)
+        {
+            float dx = tx - e.x, dy = ty - e.y;
+            float d = (float)Math.Sqrt(dx * dx + dy * dy);
+            if (d < 0.0001f) return true;
+            float s = Math.Min(speed, d);
+            float nx = e.x + dx / d * s, ny = e.y + dy / d * s;
+            // 반 칸 앞까지 미리 본다 (벽 모서리에 비비지 않게)
+            float lx = e.x + dx / d * Math.Min(d, 0.5f), ly = e.y + dy / d * Math.Min(d, 0.5f);
+            int cx = (int)Math.Floor(lx), cy = (int)Math.Floor(ly);
+            if (!world.In(cx, cy)) return false;
+            var t = world.tiles[world.Idx(cx, cy)];
+            if (t.wall || (t.build != null && t.build != e.preyBuild)) return false;
+            if (t.build == e.preyBuild && t.build != null) return true;   // 닿았다: 다음 틱에 친다
+            e.vx = nx - e.x; e.vy = ny - e.y;
+            e.x = nx; e.y = ny;
+            return true;
         }
 
         static void MoveToward(Enemy e, float tx, float ty, float speed)

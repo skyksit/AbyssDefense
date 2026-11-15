@@ -738,6 +738,51 @@ static class Program
         for (int i = 0; i < 200 && foe.wetTicks == 0; i++) s10.Tick();
         Check(noFire && burning && foe.wetTicks > 0 && foe.burnTicks == 0 && slime.ammo > 0, "젖은 적은 불이 붙는 대신 젖음이 사라지고, 불타던 적이 젖으면 불이 꺼진다");
 
+        // 적은 가는 길 둘레의 유닛과 건물을 핵보다 먼저 친다 (방벽은 길을 막을 때만)
+        var sa = EmptySim(new[] { 200, 0, 0 }, all);
+        int ax = (int)sa.Core.Cx, ay = sa.Core.y;
+        sa.Place(Content.RapidTurret, ax + 2, ay + 10); sa.Place(Content.Wall, ax - 2, ay + 13);
+        Finish(sa);
+        sa.Core.items[Content.Iron] = 0;   // 포탑은 쏘지 못한다
+        var side = sa.world.BuildAt(ax + 2, ay + 10); var sideWall = sa.world.BuildAt(ax - 2, ay + 13);
+        var walker = new Enemy { def = Content.Walker, x = ax + 0.5f, y = ay + 16.5f, health = 9000, maxHealth = 9000 };
+        sa.enemies.Add(walker);
+        for (int i = 0; i < 60 * 40 && side.health > 0; i++) sa.Tick();
+        Check(side.health <= 0 && sideWall.health == sideWall.maxHealth && sa.Core.health == sa.Core.maxHealth,
+            "보행병은 길에서 두 칸 떨어진 포탑을 부수고 나서야 핵으로 간다 (길을 막지 않는 방벽은 지나친다)");
+        for (int i = 0; i < 60 * 40 && sa.Core.health == sa.Core.maxHealth; i++) sa.Tick();
+        Check(sa.Core.health < sa.Core.maxHealth, "둘레에 칠 것이 없으면 핵을 친다");
+
+        var sb2 = EmptySim(new[] { 200, 0, 0 }, all);
+        sb2.Place(Content.RapidTurret, ax + 2, ay + 10);
+        Finish(sb2);
+        sb2.Core.items[Content.Iron] = 0;
+        var side2 = sb2.world.BuildAt(ax + 2, ay + 10);
+        var fly = new Enemy { def = Content.Flyer, x = ax + 0.5f, y = ay + 16.5f, health = 9000, maxHealth = 9000 };
+        var farFly = new Enemy { def = Content.Flyer, x = ax - 6.5f, y = ay + 16.5f, health = 9000, maxHealth = 9000 };
+        sb2.enemies.Add(fly);
+        for (int i = 0; i < 60 * 30 && side2.health > 0; i++) sb2.Tick();
+        bool flyHit = side2.health <= 0 && sb2.Core.health == sb2.Core.maxHealth;
+        sb2.enemies.Clear(); sb2.enemies.Add(farFly);
+        sb2.Core.items[Content.Iron] = 35; sb2.Place(Content.RapidTurret, ax + 2, ay + 10); Finish(sb2); sb2.Core.items[Content.Iron] = 0;
+        for (int i = 0; i < 60 * 30 && sb2.Core.health == sb2.Core.maxHealth; i++) sb2.Tick();
+        Check(flyHit && sb2.world.BuildAt(ax + 2, ay + 10).health == sb2.world.BuildAt(ax + 2, ay + 10).maxHealth,
+            "비행체도 지나는 길의 포탑을 먼저 치고, 멀리 떨어진 포탑은 두고 핵으로 간다");
+
+        var sc = EmptySim(Full, all);
+        sc.Place(Content.RobotFactory, 3, 20);
+        Finish(sc);
+        var fb2 = (FactoryBuilding)sc.world.BuildAt(3, 20);
+        fb2.product = -1; fb2.making = null; sc.units.Clear();
+        sc.SpawnUnit(Content.Scout, fb2);
+        var bait = sc.units[0];
+        bait.x = ax + 2.5f; bait.y = ay + 12.5f; bait.ox = bait.oy = 0; sc.SetRally(fb2, bait.x, bait.y);
+        bait.health = bait.maxHealth = 90000; bait.reload = 1 << 20;
+        var hunter = new Enemy { def = Content.Walker, x = ax + 0.5f, y = ay + 16.5f, health = 90000, maxHealth = 90000 };
+        sc.enemies.Add(hunter);
+        for (int i = 0; i < 60 * 20 && bait.health == 90000; i++) { sc.Tick(); bait.reload = 1 << 20; }
+        Check(bait.health < 90000 && sc.Core.health == sc.Core.maxHealth, "보행병은 길 곁에 선 유닛에게 다가가 먼저 친다");
+
         // 웨이브 구성: 얕은 지역에는 없고 깊어질수록 종류가 늘어난다
         int Kinds(int region) { var ks = new HashSet<string>(); foreach (var g in WaveGen.Generate(RegionRules.For(0, region))) ks.Add(g.enemy.key + (g.elite ? "+" : "") + (g.shieldScaling > 0 ? "s" : "")); return ks.Count; }
         Check(Kinds(8) == 5 && Kinds(9) == 6 && Kinds(20) > Kinds(9) && Kinds(40) == 14, $"능력이 있는 적은 지역 9 부터 차례로 섞인다 (지역 8: {Kinds(8)}, 20: {Kinds(20)}, 40: {Kinds(40)}가지 무리)");

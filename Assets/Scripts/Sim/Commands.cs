@@ -145,7 +145,7 @@ namespace AbyssDefense.Sim
         }
 
         /// 규칙이 바뀌면(코드의 동작이 달라지면) 올린다. 진행 중 저장은 이 값과 수치 지문이 같을 때만 이어진다
-        public const int RulesVersion = 2;   // 2: 덮어 짓기
+        public const int RulesVersion = 3;   // 2: 덮어 짓기, 3: 적이 길 둘레의 유닛·건물을 먼저 친다
 
         /// 수치 지문: 유닛·적·건물·지역 규칙·웨이브의 숫자를 한 값으로 줄인다. 밸런스를 고치면 값이 달라져, 예전 판의 명령 기록을 잘못 되돌리지 않는다
         public static int RulesFingerprint()
@@ -167,7 +167,7 @@ namespace AbyssDefense.Sim
                 }
                 foreach (var e in Content.Enemies)
                 {
-                    Mix(e.health); Mix(e.speed); Mix(e.armor); Mix(e.damage); Mix(e.attackTicks); Mix(e.range); Mix(e.heal); Mix(e.barrier); Mix(e.barrierRegen); Mix(e.splitCount); Mix(e.carryCount);
+                    Mix(e.aggro); Mix(e.health); Mix(e.speed); Mix(e.armor); Mix(e.damage); Mix(e.attackTicks); Mix(e.range); Mix(e.heal); Mix(e.barrier); Mix(e.barrierRegen); Mix(e.splitCount); Mix(e.carryCount);
                 }
                 foreach (var b in Content.Blocks)
                 {
