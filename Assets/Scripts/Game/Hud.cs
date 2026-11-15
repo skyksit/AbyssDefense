@@ -160,6 +160,8 @@ namespace AbyssDefense
             bossText = Ui.Label(bb.transform, "", 25, Color.white, TextAnchor.MiddleCenter, true);
             bossBar.SetActive(false);
 
+            BuildHints(root, sy - 62 - 8 - 46 - 8, 1040 - mw - 14);
+
             miniFrame = Ui.Panel(root, new Color(0, 0, 0, 0.8f), false, "Minimap");
             miniFrame.Rt().At(new Vector2(1, 1), new Vector2(1, 1), -20, sy, mw + 8, mh + 8);
             miniTex = new Texture2D(sim.world.W, sim.world.H, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
@@ -553,6 +555,7 @@ namespace AbyssDefense
             UpdatePreview();
             UpdateMinimap();
             UpdateWeather();
+            UpdateHints();
 
             if (infoOverride != null && Time.unscaledTime < infoUntil && play.Selected == null && !play.RemoveMode)
             {

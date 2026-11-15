@@ -65,6 +65,37 @@ namespace AbyssDefense
 
         sealed class BView { public GameObject go; public SpriteRenderer sr, top, aura; }
         struct FxItem { public SpriteRenderer sr; public float t, life, r0, r1; public Color col; }
+        struct Scorch { public SpriteRenderer sr; public float t; }
+        const float ScorchLife = 25f;
+        const int MaxScorch = 50;
+        readonly List<Scorch> scorches = new List<Scorch>();
+        float shake;
+
+        /// 이번 프레임에 카메라를 비켜 놓을 양 (PlayController 가 더했다가 다음 프레임에 뺀다)
+        public Vector2 ShakeOffset() => shake > 0 ? Random.insideUnitCircle * shake : Vector2.zero;
+
+        /// 큰 폭발·건물 파괴·보스의 죽음은 화면을 흔든다. 화면에서 멀수록 약하고, 여럿이 겹치면 가장 센 것만 남는다
+        void AddShake(float amp, float x, float y)
+        {
+            var c = Camera.main;
+            if (c == null) return;
+            float d = Vector2.Distance(c.transform.position, new Vector2(x, y));
+            float k = Mathf.Clamp01(1f - d / (c.orthographicSize * 2.4f));
+            shake = Mathf.Max(shake, amp * k);
+        }
+
+        /// 폭발과 부서진 건물이 바닥에 남기는 그을음. 천천히 옅어지고, 너무 많으면 가장 오래된 것을 다시 쓴다
+        void AddScorch(float x, float y, float r)
+        {
+            Scorch s;
+            if (scorches.Count >= MaxScorch) { s = scorches[0]; scorches.RemoveAt(0); }
+            else s = new Scorch { sr = NewSprite("Scorch", Art.Get("fx_circle"), OrderFloor + 1) };
+            s.t = 0;
+            s.sr.enabled = true;
+            s.sr.transform.position = new Vector3(x, y);
+            s.sr.transform.localScale = Vector3.one * (r * 2.2f / s.sr.sprite.bounds.size.x);
+            scorches.Add(s);
+        }
 
         Sim.Sim sim;
         readonly Dictionary<Building, BView> views = new Dictionary<Building, BView>();
@@ -345,6 +376,17 @@ namespace AbyssDefense
                 fxLive[i] = f;
             }
 
+            shake *= Mathf.Exp(-Time.unscaledDeltaTime * 9f);
+            if (shake < 0.004f) shake = 0;
+            for (int i = scorches.Count - 1; i >= 0; i--)
+            {
+                var s = scorches[i];
+                s.t += Time.deltaTime;
+                if (s.t >= ScorchLife) { s.sr.enabled = false; Destroy(s.sr.gameObject); scorches.RemoveAt(i); continue; }
+                s.sr.color = new Color(0, 0, 0, 0.5f * (1 - s.t / ScorchLife));
+                scorches[i] = s;
+            }
+
             float pulse = 1.1f + 0.25f * Mathf.Sin(time * 3);
             foreach (var m in spawnMarks) m.localScale = Vector3.one * pulse;
         }
@@ -376,6 +418,9 @@ namespace AbyssDefense
                 case FxKind.Spawn: it.life = 0.4f; it.r0 = f.r * 1.5f; it.r1 = f.r * 0.3f; break;
             }
             fxLive.Add(it);
+            if (f.kind == FxKind.Explode && f.r >= 0.9f) { AddShake(Mathf.Min(0.2f, 0.04f + f.r * 0.05f), f.x, f.y); AddScorch(f.x, f.y, f.r * 0.8f); }
+            else if (f.kind == FxKind.BuildDestroyed) { AddShake(0.12f + f.r * 0.06f, f.x, f.y); AddScorch(f.x, f.y, f.r); }
+            else if (f.kind == FxKind.EnemyDeath && f.r >= 1.2f) { AddShake(0.3f, f.x, f.y); AddScorch(f.x, f.y, f.r * 0.7f); }   // 보스
             if (f.kind == FxKind.Explode && fxLive.Count < 200)
             {
                 var sr2 = fxFree.Count > 0 ? fxFree.Pop() : NewSprite("Fx", null, OrderFx);

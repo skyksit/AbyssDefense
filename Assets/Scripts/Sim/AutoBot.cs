@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace AbyssDefense.Sim
 {
-    /// 점검용 자동 플레이. 적이 핵으로 오는 길가에 포탑을 세운다. 사람처럼 잘 두지는 못한다.
+    /// 점검용 자동 플레이. 적이 핵으로 오는 길가에 포탑을 세우고, 오는 적에 맞춰 대공포·박격포·전격탑과 지원 건물을 섞고, 자원이 넉넉하면 탄종을 바꾼다. 사람처럼 잘 두지는 못한다.
     public sealed class AutoBot
     {
         readonly Sim sim;
@@ -32,6 +32,32 @@ namespace AbyssDefense.Sim
                 else if (sim.units.Count <= 1) sim.stance = UnitStance.Defend;
             }
 
+            // 포탑의 탄: 강철이 넉넉하면 속사포에 철갑탄(방어력 무시, 철광도 아낀다), 화약이 넉넉하면 대공포에 화약 대공탄
+            int flak = 0, tesla = 0, mortar = 0, mend = 0, amp = 0, shield = 0;
+            foreach (var b in w.buildings)
+            {
+                if (b.def == Content.FlakTurret) flak++;
+                else if (b.def == Content.TeslaTurret) tesla++;
+                else if (b.def == Content.MortarTurret) mortar++;
+                else if (b.def == Content.MendTower) mend++;
+                else if (b.def == Content.Amplifier) amp++;
+                else if (b.def == Content.ShieldGen) shield++;
+                if (!(b is TurretBuilding t) || !b.Built) continue;
+                if (b.def == Content.RapidTurret)
+                {
+                    if (t.ammoIdx == 0 && items[Content.Steel] >= 300) t.SetAmmo(1);
+                    else if (t.ammoIdx == 1 && items[Content.Steel] < 40) t.SetAmmo(0);
+                }
+                else if (b.def == Content.FlakTurret)
+                {
+                    if (t.ammoIdx == 0 && items[Content.Powder] >= 200) t.SetAmmo(1);
+                    else if (t.ammoIdx == 1 && items[Content.Powder] < 20) t.SetAmmo(0);
+                }
+            }
+            // 이 지역에 어떤 적이 오는가
+            bool flyers = false, siege = false;
+            foreach (var g in sim.groups) { if (g.enemy.flying) flyers = true; if (g.enemy == Content.Bombard) siege = true; }
+
             // 공장은 지금 낼 수 있는 가장 높은 단계의 유닛을 만든다
             int robot = 0, air = 0;
             foreach (var b in w.buildings)
@@ -51,8 +77,16 @@ namespace AbyssDefense.Sim
             BlockDef def = null;
             if (robot == 0 && turrets >= 4 && sim.IsUnlocked(Content.RobotFactory) && sim.CanAfford(Content.RobotFactory) && items[Content.Iron] >= 120 + reserveIron) def = Content.RobotFactory;
             else if (air == 0 && turrets >= 6 && sim.IsUnlocked(Content.Airfield) && sim.CanAfford(Content.Airfield) && items[Content.Iron] >= 100 + reserveIron) def = Content.Airfield;
+            // 지원 건물: 포탑이 모이면 수리탑, 증폭탑, 역장 발생기를 하나씩 곁들인다 (포탑 줄 곁에 놓인다)
+            else if (sim.IsUnlocked(Content.MendTower) && turrets >= 6 && mend < 1 + turrets / 14 && sim.CanAfford(Content.MendTower) && items[Content.Iron] >= 40 + reserveIron) def = Content.MendTower;
+            else if (sim.IsUnlocked(Content.Amplifier) && turrets >= 8 && amp < 1 + turrets / 16 && sim.CanAfford(Content.Amplifier) && items[Content.Iron] >= 60 + reserveIron) def = Content.Amplifier;
+            else if (sim.IsUnlocked(Content.ShieldGen) && turrets >= 10 && shield < 1 && sim.CanAfford(Content.ShieldGen) && items[Content.Iron] >= 100 + reserveIron) def = Content.ShieldGen;
+            // 비행체가 오는 지역에는 대공포를 섞는다
+            else if (flyers && sim.IsUnlocked(Content.FlakTurret) && turrets >= 3 && flak < 1 + turrets / 8 && sim.CanAfford(Content.FlakTurret) && items[Content.Iron] >= 50 + reserveIron) def = Content.FlakTurret;
             else if (sim.IsUnlocked(Content.CrystalTurret) && sim.Core.Has(Content.CrystalTurret.cost) && items[Content.Crystal] >= 60 && items[Content.Iron] >= 80 + reserveIron) def = Content.CrystalTurret;
-            else if (sim.IsUnlocked(Content.MortarTurret) && turrets >= 3 && turrets % 3 == 0 && sim.Core.Has(Content.MortarTurret.cost) && items[Content.Sulfur] >= 70 && items[Content.Iron] >= 60 + reserveIron) def = Content.MortarTurret;
+            else if (sim.IsUnlocked(Content.TeslaTurret) && turrets >= 5 && tesla < turrets / 6 && sim.CanAfford(Content.TeslaTurret) && items[Content.Circuit] >= 120 && items[Content.Iron] >= 90 + reserveIron) def = Content.TeslaTurret;
+            // 포격병이 오는 지역에는 사거리가 긴 박격포를 더 자주 세운다
+            else if (sim.IsUnlocked(Content.MortarTurret) && turrets >= 3 && (turrets % 3 == 0 || (siege && mortar < turrets / 2)) && sim.Core.Has(Content.MortarTurret.cost) && items[Content.Sulfur] >= 70 && items[Content.Iron] >= 60 + reserveIron) def = Content.MortarTurret;
             else if (items[Content.Iron] >= 35 + reserveIron) def = Content.RapidTurret;
             if (def != null && def.kind == BlockKind.Turret && sim.rules.assault && turrets >= 10 && items[Content.Iron] < 500) def = null;   // 거점 지역에서는 유닛 몫을 남긴다
             if (def == null) return;

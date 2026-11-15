@@ -34,6 +34,8 @@ namespace AbyssDefense
             title.rectTransform.Fill(34, 0, 20, 20);
             var back = Ui.Btn(top.transform, "기지", 34, Violet, ShowBase);
             back.Rt().At(new Vector2(1, 1), new Vector2(1, 1), -30, -24, 200, 84);
+            var again = Ui.Btn(top.transform, $"힌트 다시 보기 ({save.hints.Count})", 26, Ui.Card, () => { ResetHints(); ShowDex(dexTab); });
+            again.Rt().At(new Vector2(1, 1), new Vector2(1, 1), -244, -24, 300, 84);
             for (int i = 0; i < DexTabs.Length; i++)
             {
                 int k = i;

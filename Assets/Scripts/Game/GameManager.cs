@@ -30,6 +30,7 @@ namespace AbyssDefense
         public int[] loadout = { 400, 100, 0, 0, 0, 0, 0 };   // 출격할 때 가져갈 양 (마지막 설정)
         public double lastTime;                         // 생산을 마지막으로 정산한 시각 (초)
         public int difficulty = 1;                      // 난이도 (0 쉬움, 1 보통, 2 어려움). 지역 정보 창에서 바꾼다
+        public List<string> hints = new List<string>(); // 이미 본 힌트의 key
         public RunSave run = new RunSave();             // 진행 중인 지역 (없으면 active = false)
     }
 
@@ -192,6 +193,7 @@ namespace AbyssDefense
             save.storageLv = Mathf.Clamp(save.storageLv, 1, BaseRules.MaxStorageLevel);
             save.version = 3;
             save.difficulty = Mathf.Clamp(save.difficulty, 0, 2);
+            if (save.hints == null) save.hints = new List<string>();
             if (save.run == null) save.run = new RunSave();
             var run = save.run;
             if (run.active && (run.rules != Sim.Sim.RulesFingerprint() || run.cmds == null || run.taken == null || run.taken.Length != n

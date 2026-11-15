@@ -88,6 +88,7 @@ namespace AbyssDefense
         {
             cam.transform.position = new Vector3(x, y, -10);
             ClampCamera();
+            shakeOff = Vector2.zero;
         }
 
         bool OverUi(Vector2 screen)
@@ -103,9 +104,22 @@ namespace AbyssDefense
         Vector2 ToWorld(Vector2 screen) => cam.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 10));
         Vector2Int Tile(Vector2 screen) { var w = ToWorld(screen); return new Vector2Int(Mathf.FloorToInt(w.x), Mathf.FloorToInt(w.y)); }
 
+        GameView view;
+        Vector2 shakeOff;
+
         void Update()
         {
             if (sim == null) return;
+            // 지난 프레임에 흔들어 둔 만큼 되돌린 뒤 조작을 처리하고, 끝에 이번 프레임의 흔들림을 더한다
+            cam.transform.position -= (Vector3)shakeOff;
+            Step();
+            if (view == null) view = GetComponent<GameView>();
+            shakeOff = view != null ? view.ShakeOffset() : Vector2.zero;
+            cam.transform.position += (Vector3)shakeOff;
+        }
+
+        void Step()
+        {
             bool playing = sim.state == SimState.Playing && !gm.ResultShown;
             if (Factory != null && Factory.dead) { Factory = null; RallyMode = false; }
             if (Turret != null && Turret.dead) Turret = null;
@@ -338,6 +352,9 @@ namespace AbyssDefense
                         bool ok = sim.CanPlace(def, c.x, c.y, false) == PlaceResult.Ok;
                         if (ok)
                         {
+                            // 덮어 짓는 자리: 헐리는 건물에서 돌려받을 몫을 먼저 더한다
+                            var back = sim.ReplaceRefund(def, c.x, c.y);
+                            if (back != null) for (int i = 0; i < left.Length; i++) left[i] += back[i];
                             foreach (var s in def.cost) if (left[s.item] < s.amount) ok = false;
                             if (ok) foreach (var s in def.cost) left[s.item] -= s.amount;
                         }

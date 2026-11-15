@@ -453,6 +453,30 @@ namespace AbyssDefense
             Note($"blizzard: frost region 30 blowing {fs.Blizzard} (expect True), left {fs.blizzardLeft / 60}s (expect about 19)");
             gm.Retreat();
 
+            // 덮어 짓기와 힌트
+            for (int i = 0; i < sv.stock.Length; i++) { sv.stock[i] = 5000; sv.loadout[i] = 400; }
+            int hintsSeen = sv.hints.Count;
+            sv.hints.Clear();
+            gm.StartRegion(0, 3);
+            var rs = gm.sim;
+            yield return new WaitForSeconds(1f);
+            play = FindAnyObjectByType<PlayController>();   // 앞 지역의 조작 객체가 치워진 뒤에 찾는다
+            yield return Shot("42_hint_build");
+            int wx = (int)rs.Core.Cx - 3, wy = rs.Core.y + 5;
+            rs.CmdPlace(Content.Wall, wx, wy);
+            gm.SetSpeed(8);
+            while (rs.world.BuildAt(wx, wy) == null || !rs.world.BuildAt(wx, wy).Built) yield return null;
+            gm.SetSpeed(1);
+            play.Select(Content.SteelWall);
+            Camera.main.transform.position = new Vector3(wx + 0.5f, wy + 3f, -10);
+            yield return null;
+            Vector2 wpt = Camera.main.WorldToScreenPoint(new Vector3(wx + 0.5f, wy + 0.5f));
+            play.DebugPointer(wpt, true, false); play.DebugPointer(wpt, false, true);
+            var swapped = rs.world.BuildAt(wx, wy);
+            play.Cancel();
+            Note($"hints and replace: hints seen during this run {hintsSeen} (expect > 3), tap steel wall on wall -> {swapped.def.name} (expect 강철 방벽), building {!swapped.Built} (expect True)");
+            gm.Retreat();
+
             File.WriteAllText(Path.Combine(dir, "_done.txt"), "errors " + errors);
             Application.Quit();
         }
