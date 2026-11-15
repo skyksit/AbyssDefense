@@ -15,6 +15,7 @@ namespace AbyssDefense
         public BlockDef Selected { get; private set; }
         public bool RemoveMode { get; private set; }
         public FactoryBuilding Factory { get; private set; }   // 탭해서 고른 공장
+        public TurretBuilding Turret { get; private set; }     // 탭해서 고른 포탑 (탄종·표적 기준 창)
         public bool RallyMode { get; private set; }            // 다음에 탭하는 곳이 그 공장의 집결 지점이 된다
         public bool CommandMode { get; private set; }          // 다음에 탭하는 곳으로 지휘기를 보낸다 (핵을 탭하면 켜진다)
 
@@ -54,11 +55,12 @@ namespace AbyssDefense
             ClampCamera();
         }
 
-        public void Select(BlockDef def) { Selected = Selected == def ? null : def; RemoveMode = false; dragging = false; Factory = null; RallyMode = false; CommandMode = false; }
-        public void ToggleRemove() { RemoveMode = !RemoveMode; Selected = null; dragging = false; Factory = null; RallyMode = false; CommandMode = false; }
-        public void Cancel() { Selected = null; RemoveMode = false; dragging = false; Factory = null; RallyMode = false; CommandMode = false; }
+        public void Select(BlockDef def) { var d = Selected == def ? null : def; Cancel(); Selected = d; }
+        public void ToggleRemove() { bool r = !RemoveMode; Cancel(); RemoveMode = r; }
+        public void Cancel() { Selected = null; RemoveMode = false; dragging = false; Factory = null; Turret = null; RallyMode = false; CommandMode = false; }
         public void BeginCommand() { Cancel(); CommandMode = true; }
         public void SelectFactory(FactoryBuilding f) { Cancel(); Factory = f; }
+        public void SelectTurret(TurretBuilding t) { Cancel(); Turret = t; }
         public void BeginRally() { if (Factory != null) { RallyMode = !RallyMode; dragging = false; } }
         bool HasTool => Selected != null || RemoveMode || RallyMode || CommandMode;
 
@@ -99,6 +101,7 @@ namespace AbyssDefense
             if (sim == null) return;
             bool playing = sim.state == SimState.Playing && !gm.ResultShown;
             if (Factory != null && Factory.dead) { Factory = null; RallyMode = false; }
+            if (Turret != null && Turret.dead) Turret = null;
             if (!playing) { dragging = false; DrawGhost(); return; }
 
             Keyboard();
@@ -188,9 +191,10 @@ namespace AbyssDefense
                     if ((pos - downScreen).magnitude < Screen.width * 0.02f)
                     {
                         var b = sim.world.BuildAt(downTile.x, downTile.y);
-                        if (b is FactoryBuilding f && f.Built) Factory = f;
+                        if (b is FactoryBuilding f && f.Built) SelectFactory(f);
+                        else if (b is TurretBuilding tb && tb.Built) SelectTurret(tb);
                         else if (b is CoreBuilding && sim.commanderEnabled) { BeginCommand(); gm.Toast("지휘기를 보낼 곳을 탭하세요"); }
-                        else { Factory = null; gm.ShowInfo(b); }
+                        else { Factory = null; Turret = null; gm.ShowInfo(b); }
                     }
                 }
                 return;
@@ -289,6 +293,18 @@ namespace AbyssDefense
                 if (len > 0.01f) ghost.Quad((f.Cx + f.rallyX) * 0.5f, (f.Cy + f.rallyY) * 0.5f, len, 0.06f, new Color(1f, 0.82f, 0.3f, 0.45f), Mathf.Atan2(ly, lx) * Mathf.Rad2Deg);
                 ghost.Quad(f.rallyX, f.rallyY, 0.42f, 0.42f, gold, 45);
                 ghost.Quad(f.rallyX, f.rallyY, 0.22f, 0.22f, new Color(0.1f, 0.1f, 0.12f, 0.9f), 45);
+            }
+            if (Turret != null)
+            {
+                // 고른 포탑의 테두리와 사거리
+                var t = Turret;
+                float ts = t.def.size;
+                var gold = new Color(1f, 0.82f, 0.3f, 0.9f);
+                ghost.Quad(t.Cx, t.Cy + ts * 0.5f, ts + 0.1f, 0.08f, gold); ghost.Quad(t.Cx, t.Cy - ts * 0.5f, ts + 0.1f, 0.08f, gold);
+                ghost.Quad(t.Cx + ts * 0.5f, t.Cy, 0.08f, ts + 0.1f, gold); ghost.Quad(t.Cx - ts * 0.5f, t.Cy, 0.08f, ts + 0.1f, gold);
+                rangeRing.enabled = true;
+                rangeRing.transform.position = new Vector3(t.Cx, t.Cy);
+                rangeRing.transform.localScale = Vector3.one * (t.Range * 2 / rangeRing.sprite.bounds.size.x);
             }
             if (dragging && !dragIsPan && HasTool && !RallyMode && !CommandMode)
             {

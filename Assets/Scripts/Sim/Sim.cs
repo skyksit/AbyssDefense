@@ -441,9 +441,49 @@ namespace AbyssDefense.Sim
             return best;
         }
 
+        /// 포탑의 표적 고르기. Nearest = 가장 가까운 적, Strongest = 남은 체력이 가장 많은 적,
+        /// First = 핵에 가장 가까이 온 적, Air = 비행체부터(없으면 가장 가까운 적)
+        public Enemy PickEnemy(float x, float y, float range, bool air, bool ground, TargetMode mode)
+        {
+            if (mode == TargetMode.Nearest) return NearestEnemy(x, y, range, air, ground);
+            if (mode == TargetMode.Air)
+            {
+                var f = air ? NearestEnemy(x, y, range, true, false) : null;
+                return f ?? NearestEnemy(x, y, range, air, ground);
+            }
+            Enemy best = null; float bk = float.MaxValue, bd = float.MaxValue;
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var e = enemies[i];
+                if (e.dead || (e.def.flying ? !air : !ground)) continue;
+                float dx = e.x - x, dy = e.y - y;
+                float d = dx * dx + dy * dy;
+                float lim = range + e.def.radius;
+                if (d > lim * lim) continue;
+                float key = mode == TargetMode.Strongest ? -e.health : CoreDistance(e);
+                if (key < bk || (key == bk && d < bd)) { bk = key; bd = d; best = e; }
+            }
+            return best;
+        }
+
+        /// 적이 핵까지 가야 할 길의 길이 (지상은 길 비용, 비행체는 곧은 거리)
+        float CoreDistance(Enemy e)
+        {
+            var core = Core;
+            if (core == null) return 0;
+            if (!e.def.flying)
+            {
+                int tx = (int)e.x, ty = (int)e.y;
+                if (world.In(tx, ty)) { float c = field.cost[world.Idx(tx, ty)]; if (c < float.MaxValue) return c; }
+            }
+            return core.DistTo(e.x, e.y);
+        }
+
         public void Fire(TurretBuilding t, float tx, float ty)
         {
-            FireFrom(t.Cx, t.Cy, tx, ty, t.def.bullet, t.def.bullet.damage * world.mods.damageMul, 0.5f);
+            var bl = t.Ammo.bullet;
+            var b = FireFrom(t.Cx, t.Cy, tx, ty, bl, bl.damage * world.mods.damageMul, 0.5f);
+            if (bl.homing > 0) b.target = t.target;
         }
 
         /// 포탑과 유닛이 함께 쓰는 발사

@@ -29,6 +29,16 @@ namespace AbyssDefense
         readonly Image[] prodBg = new Image[ProductButtons];
         Image stopBg, rallyBg;
 
+        // 포탑을 탭하면 뜨는 창: 넣을 탄, 겨눌 적
+        const int AmmoButtons = 4;
+        const float TurretPanelPx = 284;
+        static readonly string[] ModeNames = { "가까운 적", "튼튼한 적", "핵에 가까운 적", "비행체 먼저" };
+        GameObject turretPanel;
+        Text turretTitle;
+        readonly Text[] ammoText = new Text[AmmoButtons];
+        readonly Image[] ammoBg = new Image[AmmoButtons];
+        readonly Image[] modeBg = new Image[4];
+
         void BuildHud()
         {
             var root = NewScreen("Hud", null, HudBottomPx + 24);
@@ -138,6 +148,31 @@ namespace AbyssDefense
             rallyBg = rb.GetComponent<Image>();
             factoryPanel.SetActive(false);
 
+            // ── 포탑 창 (포탑을 탭했을 때만 보인다) ──
+            var tp = Ui.Panel(root, Ui.PanelCol, true, "Turret");
+            tp.Rt().BottomBar(HudBottomPx + 10, TurretPanelPx, 16, 16);
+            turretPanel = tp.gameObject;
+            turretTitle = Ui.Label(tp.transform, "", 28, null, TextAnchor.MiddleLeft, true);
+            turretTitle.rectTransform.TopBar(8, 46, 22, 22);
+            float aw = (ProductRowPx - ProductGapPx * (AmmoButtons - 1)) / AmmoButtons;
+            for (int i = 0; i < AmmoButtons; i++)
+            {
+                int k = i;
+                var ab = Ui.Btn(tp.transform, " ", 22, Ui.Card, () => SetAmmo(k));
+                ab.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 20 + i * (aw + ProductGapPx), 106, aw, 116);
+                ammoBg[i] = ab.GetComponent<Image>();
+                ammoText[i] = ab.GetComponentInChildren<Text>();
+                ammoText[i].supportRichText = true;
+            }
+            for (int i = 0; i < modeBg.Length; i++)
+            {
+                int k = i;
+                var mb = Ui.Btn(tp.transform, ModeNames[i], 25, Ui.Card, () => SetTargetMode((TargetMode)k));
+                mb.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 20 + i * (aw + ProductGapPx), 12, aw, 84);
+                modeBg[i] = mb.GetComponent<Image>();
+            }
+            turretPanel.SetActive(false);
+
             UpdateHud();
         }
 
@@ -163,6 +198,46 @@ namespace AbyssDefense
             f.product = k;
         }
 
+        /// 고른 포탑에 넣을 탄을 바꾼다. 장전해 둔 탄은 버린다
+        public void SetAmmo(int k)
+        {
+            var t = play != null ? play.Turret : null;
+            if (t == null || k >= t.def.ammos.Length) return;
+            if (t.SetAmmo(k) && sim.Core.items[t.Ammo.item] <= 0) Toast($"{t.Ammo.name}: 핵에 {Content.Items[t.Ammo.item].name}이(가) 없습니다");
+        }
+
+        /// 고른 포탑이 겨눌 적의 기준을 바꾼다
+        public void SetTargetMode(TargetMode m)
+        {
+            var t = play != null ? play.Turret : null;
+            if (t != null) t.mode = m;
+        }
+
+        void UpdateTurretPanel()
+        {
+            var t = play.Turret;
+            bool show = t != null && !ResultShown;
+            if (turretPanel.activeSelf != show) turretPanel.SetActive(show);
+            if (!show) return;
+            string only = !t.def.targetGround ? "  ·  공중만" : !t.def.targetAir ? "  ·  지상만" : "";
+            turretTitle.text = $"{t.def.name}  ·  체력 {Mathf.CeilToInt(t.health)}/{(int)t.maxHealth}  ·  사거리 {t.Range:0.#}{only}" + (t.Starved ? "  ·  탄약 없음" : "");
+            turretTitle.color = t.Starved ? Ui.Bad : Ui.TextCol;
+            for (int i = 0; i < AmmoButtons; i++)
+            {
+                bool has = i < t.def.ammos.Length;
+                ammoBg[i].gameObject.SetActive(has);
+                if (!has) continue;
+                var a = t.def.ammos[i];
+                int stock = sim.Core.items[a.item];
+                int per = Mathf.RoundToInt(a.perItem * sim.world.mods.ammoMul);
+                ammoBg[i].color = t.ammoIdx == i ? new Color(0.25f, 0.45f, 0.42f) : Ui.Card;
+                ammoText[i].text = $"{a.name}\n<color=#{Content.Items[a.item].color:X6}>{Content.Items[a.item].name} {stock}</color> · {per}발\n<color=#9EA6B8>{a.desc}</color>";
+                ammoText[i].fontSize = 20;
+                ammoText[i].color = stock > 0 || (t.ammoIdx == i && t.ammo > 0) ? Ui.TextCol : Ui.Dim;
+            }
+            for (int i = 0; i < modeBg.Length; i++) modeBg[i].color = (int)t.mode == i ? new Color(0.25f, 0.45f, 0.42f) : Ui.Card;
+        }
+
         /// 건물을 탭했을 때 설명 줄에 잠깐 보여 준다
         public void ShowInfo(Building b)
         {
@@ -170,7 +245,7 @@ namespace AbyssDefense
             string s = $"{b.def.name}  체력 {Mathf.CeilToInt(b.health)}/{(int)b.maxHealth}";
             if (!b.Built) s = $"{b.def.name}  건설 중 {Mathf.FloorToInt(b.progress * 100)}%" + (b.constructing ? "" : "  (순서를 기다리거나 자원이 부족합니다)");
             else if (b is TurretBuilding t)
-                s += t.Starved ? $"  탄약 없음 ({Content.Items[t.def.ammoItem].name} 부족)" : $"  탄약 {Content.Items[t.def.ammoItem].name} (하나에 {t.AmmoPerItem}발)";
+                s += t.Starved ? $"  탄약 없음 ({Content.Items[t.Ammo.item].name} 부족)" : $"  {t.Ammo.name}: {Content.Items[t.Ammo.item].name} 하나에 {t.AmmoPerItem}발";
             else if (b.def.armor > 0) s += $"  방어력 {b.def.armor:0}";
             infoOverride = s; infoUntil = Time.unscaledTime + 3f;
         }
@@ -280,6 +355,7 @@ namespace AbyssDefense
             }
 
             UpdateFactoryPanel();
+            UpdateTurretPanel();
 
             if (infoOverride != null && Time.unscaledTime < infoUntil && play.Selected == null && !play.RemoveMode)
             {
@@ -288,9 +364,10 @@ namespace AbyssDefense
             else if (play.RemoveMode) { infoText.text = "철거: 건물을 탭하거나 끌어서 지웁니다. 비용의 75%를 돌려받습니다."; infoText.color = Ui.Bad; }
             else if (play.Selected != null) { infoText.text = $"{play.Selected.name} — {play.Selected.desc}  건설 {play.Selected.buildTicks / 60f / sim.world.mods.buildSpeedMul:0.#}초"; infoText.color = Ui.TextCol; }
             else if (play.CommandMode) { infoText.text = "지휘기를 보낼 곳을 맵에서 탭하세요. 지휘기 곁의 건설은 1.5배 빠릅니다."; infoText.color = Ui.Gold; }
+            else if (play.Turret != null) { infoText.text = "넣을 탄과 겨눌 적을 고르세요. 탄을 바꾸면 장전해 둔 탄은 버립니다."; infoText.color = Ui.Dim; }
             else if (play.Factory != null) { infoText.text = "만들 유닛을 고르세요. 방어 태세의 유닛은 집결 지점(기본: 핵 옆)을 지킵니다."; infoText.color = Ui.Dim; }
             else if (assault) { infoText.text = "적 거점: 유닛을 모아 공격 태세로 보내 적 핵을 모두 부수세요. 웨이브는 끝없이 옵니다."; infoText.color = Ui.Gold; }
-            else { infoText.text = "건물을 골라 탭하거나 끌어서 짓습니다. 공장 탭 = 유닛 고르기, 핵 탭 = 지휘기 보내기."; infoText.color = Ui.Dim; }
+            else { infoText.text = "건물을 골라 탭하거나 끌어서 짓습니다. 공장 탭 = 유닛, 포탑 탭 = 탄종, 핵 탭 = 지휘기."; infoText.color = Ui.Dim; }
         }
 
         // ───────── 결과 창 ─────────
@@ -299,6 +376,7 @@ namespace AbyssDefense
         {
             play.Cancel();
             factoryPanel.SetActive(false);
+            turretPanel.SetActive(false);
             var dim = Ui.Panel(screen, new Color(0, 0, 0, 0.7f), false, "Result");
             dim.Rt().Fill();
             var card = Ui.Panel(dim.transform, Ui.PanelCol, true);

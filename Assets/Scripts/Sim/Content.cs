@@ -40,6 +40,17 @@ namespace AbyssDefense.Sim
         public float size = 0.18f;
     }
 
+    /// 포탑에 넣는 탄 한 종류: 핵의 어떤 자원을 쓰고, 그 자원 하나로 몇 발이 되며, 어떤 탄이 나가는가
+    public sealed class AmmoDef
+    {
+        public int item, perItem;
+        public string name, desc;
+        public BulletDef bullet;
+    }
+
+    /// 포탑이 사거리 안의 적 가운데 누구를 겨누는가
+    public enum TargetMode { Nearest, Strongest, First, Air }
+
     public sealed class BlockDef
     {
         public int id;
@@ -60,6 +71,9 @@ namespace AbyssDefense.Sim
         public int ammoPerItem;
         public bool targetAir = true, targetGround = true;
         public BulletDef bullet;
+        public string ammoName = "기본탄";   // 기본 탄의 이름 (포탑 창에 나온다)
+        public AmmoDef[] altAmmo = new AmmoDef[0];   // 기본 탄 말고 골라 넣을 수 있는 탄
+        public AmmoDef[] ammos;          // [0] = 기본 탄(ammoItem·ammoPerItem·bullet), 그 뒤로 altAmmo. 등록할 때 채운다
 
         // 유닛 공장
         public UnitDef[] units;          // 만들 수 있는 유닛 (단계 순)
@@ -943,6 +957,16 @@ namespace AbyssDefense.Sim
             cost = new[] { new ItemStack(Iron, 35) },
             range = 5.5f, reloadTicks = 20, ammoItem = Iron, ammoPerItem = 6,
             bullet = new BulletDef { speed = 0.22f, damage = 11, lifeTicks = 32, color = 0xFFD8A8 },
+            ammoName = "철광탄",
+            altAmmo = new[]
+            {
+                new AmmoDef { item = Steel, perItem = 8, name = "철갑탄", desc = "적의 방어력을 무시한다",
+                    bullet = new BulletDef { speed = 0.24f, damage = 13, lifeTicks = 30, pierceArmor = true, color = 0xDEE2E6 } },
+                new AmmoDef { item = Powder, perItem = 6, name = "소이탄", desc = "맞은 적을 불태운다",
+                    bullet = new BulletDef { speed = 0.22f, damage = 8, lifeTicks = 32, burn = 10, burnTicks = 180, color = 0xFF922B } },
+                new AmmoDef { item = Circuit, perItem = 8, name = "유도탄", desc = "겨눈 적을 쫓아간다",
+                    bullet = new BulletDef { speed = 0.20f, damage = 12, lifeTicks = 50, homing = 0.12f, color = 0x8CE99A } },
+            },
         };
 
         public static readonly BlockDef MortarTurret = new BlockDef
@@ -952,6 +976,15 @@ namespace AbyssDefense.Sim
             cost = new[] { new ItemStack(Iron, 60), new ItemStack(Sulfur, 40) },
             range = 8.5f, reloadTicks = 100, ammoItem = Sulfur, ammoPerItem = 2, targetAir = false,
             bullet = new BulletDef { speed = 0.11f, damage = 38, splash = 1.7f, lifeTicks = 90, artillery = true, color = 0xFFE066, size = 0.28f },
+            ammoName = "황석 포탄",
+            altAmmo = new[]
+            {
+                new AmmoDef { item = Powder, perItem = 2, name = "파편 포탄", desc = "터지며 사방으로 파편이 튄다",
+                    bullet = new BulletDef { speed = 0.11f, damage = 34, splash = 1.7f, lifeTicks = 90, artillery = true, color = 0xFF922B, size = 0.28f, fragCount = 6,
+                        frag = new BulletDef { speed = 0.18f, damage = 14, lifeTicks = 12, color = 0xFFE8CC, size = 0.13f } } },
+                new AmmoDef { item = Alloy, perItem = 3, name = "점착 포탄", desc = "넓은 범위의 적을 느리게 한다",
+                    bullet = new BulletDef { speed = 0.11f, damage = 26, splash = 2.4f, lifeTicks = 90, artillery = true, slow = 0.5f, slowTicks = 150, color = 0xF06292, size = 0.3f } },
+            },
         };
 
         public static readonly BlockDef CrystalTurret = new BlockDef
@@ -961,6 +994,64 @@ namespace AbyssDefense.Sim
             cost = new[] { new ItemStack(Iron, 80), new ItemStack(Sulfur, 50), new ItemStack(Crystal, 30) },
             range = 9.5f, reloadTicks = 55, ammoItem = Crystal, ammoPerItem = 4,
             bullet = new BulletDef { speed = 0.45f, damage = 70, lifeTicks = 26, pierce = 3, color = 0xD0BFFF, size = 0.24f },
+            ammoName = "결정탄",
+            altAmmo = new[]
+            {
+                new AmmoDef { item = Alloy, perItem = 4, name = "합금 관통탄", desc = "적 여섯을 꿰뚫고 방어력을 무시한다",
+                    bullet = new BulletDef { speed = 0.45f, damage = 85, lifeTicks = 26, pierce = 6, pierceArmor = true, color = 0xF8A5C2, size = 0.26f } },
+            },
+        };
+
+        // ───────── 특수 포탑 ─────────
+
+        public static readonly BlockDef FlakTurret = new BlockDef
+        {
+            key = "flak", name = "대공포", desc = "공중의 적만 쏜다. 터지며 둘레의 비행체까지 때린다.",
+            kind = BlockKind.Turret, health = 200, color = 0x74C0FC, tech = Research.SpecialTurret,
+            cost = new[] { new ItemStack(Iron, 50), new ItemStack(Steel, 15) },
+            range = 8f, reloadTicks = 30, ammoItem = Iron, ammoPerItem = 4, targetGround = false,
+            bullet = new BulletDef { speed = 0.30f, damage = 16, splash = 1.1f, lifeTicks = 30, color = 0xA5D8FF, size = 0.2f },
+            ammoName = "철광 대공탄",
+            altAmmo = new[]
+            {
+                new AmmoDef { item = Powder, perItem = 4, name = "화약 대공탄", desc = "더 세고 더 넓게 터진다",
+                    bullet = new BulletDef { speed = 0.30f, damage = 22, splash = 1.5f, lifeTicks = 30, color = 0xFFC078, size = 0.22f } },
+            },
+        };
+
+        public static readonly BlockDef SlimeTurret = new BlockDef
+        {
+            key = "slime", name = "점액탑", desc = "점액을 뿌려 둘레의 적을 느리게 한다. 피해는 거의 없다.",
+            kind = BlockKind.Turret, health = 180, color = 0x94D82D, tech = Research.SpecialTurret,
+            cost = new[] { new ItemStack(Iron, 45), new ItemStack(Sulfur, 25) },
+            range = 5f, reloadTicks = 45, ammoItem = Sulfur, ammoPerItem = 5,
+            bullet = new BulletDef { speed = 0.20f, damage = 5, splash = 1.3f, lifeTicks = 28, slow = 0.55f, slowTicks = 120, color = 0xC0EB75, size = 0.22f },
+            ammoName = "황석 점액",
+        };
+
+        public static readonly BlockDef TeslaTurret = new BlockDef
+        {
+            key = "tesla", name = "전격탑", desc = "번개가 맞은 적에서 가까운 적으로 건너뛴다. 떼로 오는 적에게 세다.",
+            kind = BlockKind.Turret, size = 2, health = 280, color = 0x3BC9DB, tech = Research.AdvTurret,
+            cost = new[] { new ItemStack(Iron, 90), new ItemStack(Steel, 40), new ItemStack(Circuit, 40) },
+            range = 6f, reloadTicks = 50, ammoItem = Circuit, ammoPerItem = 10,
+            bullet = new BulletDef { speed = 0.5f, damage = 30, lifeTicks = 14, chain = 4, chainRange = 2.2f, color = 0xC5F6FA, size = 0.2f },
+            ammoName = "회로 방전",
+            altAmmo = new[]
+            {
+                new AmmoDef { item = Alloy, perItem = 12, name = "합금 방전", desc = "더 세고 일곱 번까지 건너뛴다",
+                    bullet = new BulletDef { speed = 0.5f, damage = 42, lifeTicks = 14, chain = 7, chainRange = 2.6f, color = 0xFCC2D7, size = 0.22f } },
+            },
+        };
+
+        public static readonly BlockDef FlameTurret = new BlockDef
+        {
+            key = "flame", name = "화염탑", desc = "가까운 적을 꿰뚫는 불길로 태운다. 사거리가 짧다.",
+            kind = BlockKind.Turret, health = 240, color = 0xFF6B35, tech = Research.AdvTurret,
+            cost = new[] { new ItemStack(Iron, 60), new ItemStack(Powder, 30) },
+            range = 3.2f, reloadTicks = 8, ammoItem = Powder, ammoPerItem = 40,
+            bullet = new BulletDef { speed = 0.2f, damage = 4, lifeTicks = 17, pierce = 3, burn = 12, burnTicks = 150, color = 0xFF922B, size = 0.22f },
+            ammoName = "화약 불길",
         };
 
         public static readonly BlockDef RobotFactory = new BlockDef
@@ -1049,9 +1140,9 @@ namespace AbyssDefense.Sim
             bounty = new[] { new ItemStack(Iron, 3) },
         };
 
-        public static readonly BlockDef[] Blocks = { Core, Wall, RapidTurret, MortarTurret, CrystalTurret, SteelWall, RobotFactory, Airfield, EnemyCore, EnemyTurret, EnemyWall, SupportShop, LegShop, Shipyard, TankFactory, HoverShop, Assembler };
+        public static readonly BlockDef[] Blocks = { Core, Wall, RapidTurret, MortarTurret, CrystalTurret, SteelWall, RobotFactory, Airfield, EnemyCore, EnemyTurret, EnemyWall, SupportShop, LegShop, Shipyard, TankFactory, HoverShop, Assembler, FlakTurret, SlimeTurret, TeslaTurret, FlameTurret };
         /// 건설 바에 나오는 순서
-        public static readonly BlockDef[] Buildable = { RapidTurret, Wall, MortarTurret, CrystalTurret, RobotFactory, Airfield, SupportShop, LegShop, TankFactory, HoverShop, Shipyard, Assembler, SteelWall };
+        public static readonly BlockDef[] Buildable = { RapidTurret, Wall, MortarTurret, FlakTurret, SlimeTurret, CrystalTurret, TeslaTurret, FlameTurret, RobotFactory, Airfield, SupportShop, LegShop, TankFactory, HoverShop, Shipyard, Assembler, SteelWall };
 
         // ───────── 적 ─────────
 
@@ -1135,6 +1226,13 @@ namespace AbyssDefense.Sim
                 float sum = 20;
                 foreach (var s in Blocks[i].cost) sum += s.amount * weight[s.item];
                 Blocks[i].buildTicks = (int)(sum * 5);
+                var bd = Blocks[i];
+                if (bd.kind == BlockKind.Turret)
+                {
+                    bd.ammos = new AmmoDef[1 + bd.altAmmo.Length];
+                    bd.ammos[0] = new AmmoDef { item = bd.ammoItem, perItem = bd.ammoPerItem, bullet = bd.bullet, name = bd.ammoName, desc = "기본 탄" };
+                    System.Array.Copy(bd.altAmmo, 0, bd.ammos, 1, bd.altAmmo.Length);
+                }
             }
             for (int i = 0; i < Units.Length; i++) Units[i].id = i;
             for (int i = 0; i < Enemies.Length; i++) Enemies[i].id = i;

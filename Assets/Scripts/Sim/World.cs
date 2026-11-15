@@ -185,14 +185,25 @@ namespace AbyssDefense.Sim
     public sealed class TurretBuilding : Building
     {
         public int ammo, reload;
+        public int ammoIdx;              // def.ammos 의 번호: 지금 넣는 탄
+        public TargetMode mode;          // 누구를 겨누는가
         public float aim = 1.5708f;      // 그림용 포신 방향 (라디안)
         public Enemy target;
         int retarget;
 
+        public AmmoDef Ammo => def.ammos[ammoIdx];
         public float Range => def.range * world.mods.rangeMul;
-        public int AmmoPerItem => (int)Math.Round(def.ammoPerItem * world.mods.ammoMul);
+        public int AmmoPerItem => (int)Math.Round(Ammo.perItem * world.mods.ammoMul);
         /// 탄도 없고 핵에 탄약 자원도 없다
-        public bool Starved => ammo <= 0 && world.core.items[def.ammoItem] <= 0;
+        public bool Starved => ammo <= 0 && world.core.items[Ammo.item] <= 0;
+
+        /// 넣는 탄을 바꾼다. 장전해 둔 탄은 버린다
+        public bool SetAmmo(int k)
+        {
+            if (k < 0 || k >= def.ammos.Length || k == ammoIdx) return false;
+            ammoIdx = k; ammo = 0;
+            return true;
+        }
 
         public override void Update(Sim sim)
         {
@@ -201,12 +212,12 @@ namespace AbyssDefense.Sim
             if (--retarget <= 0 || target == null || target.dead || !InRange(target))
             {
                 retarget = 12;
-                target = sim.NearestEnemy(Cx, Cy, Range, def.targetAir, def.targetGround);
+                target = sim.PickEnemy(Cx, Cy, Range, def.targetAir, def.targetGround, mode);
             }
             if (target == null) return;
 
             // 탄이 닿을 때의 적 위치를 겨눈다
-            var bl = def.bullet;
+            var bl = Ammo.bullet;
             float tx = target.x, ty = target.y;
             for (int k = 0; k < 2; k++)
             {
@@ -222,8 +233,8 @@ namespace AbyssDefense.Sim
             if (ammo <= 0)
             {
                 var core = world.core;
-                if (core.items[def.ammoItem] <= 0) return;
-                core.items[def.ammoItem]--;
+                if (core.items[Ammo.item] <= 0) return;
+                core.items[Ammo.item]--;
                 ammo += AmmoPerItem;
             }
             reload = def.reloadTicks;

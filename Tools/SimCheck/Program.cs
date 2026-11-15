@@ -59,6 +59,7 @@ static class Program
         BuildTime();
         Combat();
         Armor();
+        Turrets();
         Units();
         Assault();
         NewUnits();
@@ -317,6 +318,124 @@ static class Program
         var sw = s2.world.BuildAt(3, 20); var nw = s2.world.BuildAt(5, 20);
         Check(Math.Abs(sw.maxHealth - sw.health - 6.7f) < 0.01f && Math.Abs(nw.maxHealth - nw.health - 11.7f) < 0.01f, $"보행병(9 × 1.3 = 11.7)에게 강철 방벽은 6.7, 보통 방벽은 11.7 을 받는다 ({sw.maxHealth - sw.health}, {nw.maxHealth - nw.health})");
         Check(RegionRules.For(0, 1).depth == 0 && Content.Shell.armor > Content.Walker.armor, "적의 방어력은 깊이에 따라 커진다 (지역 1 은 기본값)");
+    }
+
+    /// 제자리에 서서 맞기만 하는 적
+    static Enemy Dummy(Sim sim, EnemyDef def, float x, float y, float health = 90000, float armor = 0)
+    {
+        var e = new Enemy { def = def, x = x, y = y, health = health, maxHealth = health, armor = armor, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        sim.enemies.Add(e);
+        return e;
+    }
+
+    static void Turrets()
+    {
+        Console.WriteLine("포탑 (탄종·특수 포탑·표적 기준)");
+        var all = Mods(Research.Mortar, 1, Research.Lance, 1, Research.SpecialTurret, 1, Research.AdvTurret, 1);
+
+        // 철갑탄: 방어력을 무시하고, 강철을 쓴다
+        var sim = EmptySim(Full, all);
+        int tx = (int)sim.Core.Cx, ty = sim.Core.y + 6;
+        sim.Place(Content.RapidTurret, tx, ty);
+        Finish(sim);
+        var t = (TurretBuilding)sim.world.BuildAt(tx, ty);
+        var shell = Dummy(sim, Content.Shell, tx + 3.5f, ty + 0.5f, 1000, 6);
+        for (int i = 0; i < 300 && shell.health == 1000; i++) sim.Tick();
+        int loaded = t.ammo;
+        bool swapped = t.SetAmmo(1);
+        Check(swapped && loaded > 0 && t.ammo == 0 && !t.SetAmmo(1) && !t.SetAmmo(9), "탄종을 바꾸면 장전해 둔 탄을 버린다 (같은 탄·없는 탄은 무시)");
+        float before = shell.health; int steel = sim.Core.items[Content.Steel], iron = sim.Core.items[Content.Iron];
+        for (int i = 0; i < 300 && shell.health == before; i++) sim.Tick();
+        Check(before - shell.health == 13 && sim.Core.items[Content.Steel] == steel - 1 && sim.Core.items[Content.Iron] == iron,
+            $"철갑탄은 철갑병(방어력 6)에게 13 그대로 들어가고 강철을 쓴다 ({before - shell.health})");
+
+        // 소이탄: 불이 붙는다
+        t.SetAmmo(2);
+        for (int i = 0; i < 300 && shell.burnTicks == 0; i++) sim.Tick();
+        Check(shell.burnTicks > 0 && shell.burnDps == 10, "소이탄에 맞은 적은 불탄다");
+
+        // 유도탄: 겨눈 적을 쫓는다
+        t.SetAmmo(3);
+        sim.bullets.Clear();
+        for (int i = 0; i < 300 && sim.bullets.Count == 0; i++) sim.Tick();
+        Check(sim.bullets.Count > 0 && sim.bullets[0].target == shell && sim.bullets[0].def.homing > 0, "유도탄은 겨눈 적을 쫓는다");
+
+        // 탄약 자원이 없으면 그 탄은 못 쏜다
+        sim.Core.items[Content.Circuit] = 0; t.ammo = 0; sim.bullets.Clear();
+        for (int i = 0; i < 120; i++) sim.Tick();
+        Check(t.Starved && sim.bullets.Count == 0, "고른 탄의 자원이 핵에 없으면 포탑이 멈춘다");
+
+        // 표적 기준
+        var s2 = EmptySim(Full, all);
+        float cx = s2.Core.Cx, cy = s2.Core.y + 8.5f;
+        var near = Dummy(s2, Content.Walker, cx + 1, cy + 1, 50);          // 가장 가깝다
+        var strong = Dummy(s2, Content.Walker, cx - 3, cy + 2, 500);       // 가장 튼튼하다
+        var first = Dummy(s2, Content.Walker, cx + 2, cy - 3, 60);         // 핵에 가장 가깝다
+        var air = Dummy(s2, Content.Flyer, cx, cy + 4, 30);                // 비행체
+        s2.Tick();
+        Check(s2.PickEnemy(cx, cy, 6, true, true, TargetMode.Nearest) == near
+            && s2.PickEnemy(cx, cy, 6, true, true, TargetMode.Strongest) == strong
+            && s2.PickEnemy(cx, cy, 6, true, true, TargetMode.First) == first
+            && s2.PickEnemy(cx, cy, 6, true, true, TargetMode.Air) == air, "표적 기준 넷이 저마다 맞는 적을 고른다 (가까운·튼튼한·핵에 가까운·비행)");
+        Check(s2.PickEnemy(cx, cy, 6, false, true, TargetMode.Air) == near && s2.PickEnemy(cx, cy, 6, true, false, TargetMode.Strongest) == air,
+            "표적 기준은 포탑이 쏠 수 있는 적 안에서만 고른다");
+
+        // 대공포는 지상을 쏘지 않는다
+        var s3 = EmptySim(Full, all);
+        tx = (int)s3.Core.Cx; ty = s3.Core.y + 6;
+        Check(EmptySim(Full).Place(Content.FlakTurret, tx, ty) == PlaceResult.Locked && s3.Place(Content.FlakTurret, tx, ty) == PlaceResult.Ok, "대공포는 특수 포탑 기술을 연구해야 짓는다");
+        Finish(s3);
+        var g = Dummy(s3, Content.Walker, tx + 3.5f, ty + 0.5f);
+        for (int i = 0; i < 240; i++) s3.Tick();
+        bool groundSafe = g.health == 90000;
+        var fl = Dummy(s3, Content.Flyer, tx - 3f, ty + 0.5f); var fl2 = Dummy(s3, Content.Flyer, tx - 3.6f, ty + 0.5f);
+        for (int i = 0; i < 240; i++) s3.Tick();
+        Check(groundSafe && g.health == 90000 && fl.health < 90000 && fl2.health < 90000, "대공포는 비행체만 쏘고, 터지며 곁의 비행체도 때린다");
+
+        // 모든 포탑의 모든 탄: 사거리까지 닿고, 겨눌 수 있는 적에게 피해를 준다
+        string bad = ""; int kinds = 0;
+        foreach (var def in Content.Buildable)
+        {
+            if (def.kind != BlockKind.Turret) continue;
+            for (int k = 0; k < def.ammos.Length; k++)
+            {
+                kinds++;
+                var am = def.ammos[k]; var bl = am.bullet;
+                if (am.perItem <= 0 || string.IsNullOrEmpty(am.name) || (!bl.artillery && bl.speed * bl.lifeTicks < def.range)) bad += $" {def.key}:{k}";
+                var s = EmptySim(Full, all);
+                int px = (int)s.Core.Cx, py = s.Core.y + 6;
+                s.Place(def, px, py);
+                Finish(s);
+                var tb = (TurretBuilding)s.world.BuildAt(px, py);
+                tb.SetAmmo(k);
+                float reach = Math.Min(def.range - 0.5f, 3f) + def.size * 0.5f;
+                var foe = Dummy(s, def.targetGround ? Content.Walker : Content.Flyer, tb.Cx + reach, tb.Cy);
+                int had = s.Core.items[am.item];
+                for (int i = 0; i < 600; i++) s.Tick();
+                if (foe.health >= 90000 || s.Core.items[am.item] >= had) bad += $" 못때림:{def.key}:{k}";
+            }
+        }
+        Check(bad == "" && kinds == 15, $"포탑 7종의 탄 {kinds}가지가 모두 사거리까지 닿고 피해를 준다" + bad);
+
+        // 전격탑: 번개가 곁의 적으로 건너뛴다
+        var s4 = EmptySim(Full, all);
+        tx = (int)s4.Core.Cx; ty = s4.Core.y + 6;
+        s4.Place(Content.TeslaTurret, tx, ty);
+        Finish(s4);
+        var c1 = Dummy(s4, Content.Walker, tx + 4f, ty + 1f); var c2 = Dummy(s4, Content.Walker, tx + 5.2f, ty + 1f); var c3 = Dummy(s4, Content.Walker, tx + 6.4f, ty + 1f);
+        for (int i = 0; i < 200 && c3.health == 90000; i++) s4.Tick();
+        Check(c1.health < c2.health && c2.health < c3.health && c3.health < 90000, "전격탑의 번개는 건너뛸 때마다 약해지며 곁의 적을 친다");
+
+        // 점액탑: 범위 안의 적을 느리게 한다
+        var s5 = EmptySim(Full, all);
+        tx = (int)s5.Core.Cx; ty = s5.Core.y + 6;
+        s5.Place(Content.SlimeTurret, tx, ty);
+        Finish(s5);
+        var w1 = new Enemy { def = Content.Walker, x = tx + 3f, y = ty + 0.5f, health = 90000, maxHealth = 90000, cooldown = 1 << 20 };
+        var w2 = new Enemy { def = Content.Walker, x = tx + 3.6f, y = ty + 0.5f, health = 90000, maxHealth = 90000, cooldown = 1 << 20 };
+        s5.enemies.Add(w1); s5.enemies.Add(w2);
+        for (int i = 0; i < 200 && w2.slowTicks == 0; i++) s5.Tick();
+        Check(w1.slowTicks > 0 && w2.slowTicks > 0 && w1.slowMul == 0.55f, "점액탑은 맞은 적과 곁의 적을 느리게 한다");
     }
 
     static void Units()

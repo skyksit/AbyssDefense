@@ -258,7 +258,7 @@ namespace AbyssDefense
             Note($"stronghold 15: enemy cores {cores0} (expect 2), build next to enemy core {nearRes} (expect NearSpawn), result {s15.state} (expect Won), enemy cores left {s15.EnemyCores} (expect 0), structures destroyed {s15.structuresDestroyed}, units lost {s15.unitsLost}, cleared {sv.abysses[0].cleared} (expect 15), iron conquest bonus doubled {BaseRules.ConquestRate(Content.Iron, new[] { 15, 0, 0 }) - BaseRules.ConquestRate(Content.Iron, new[] { 14, 0, 0 })} (expect 0: region 15 gives crystal) crystal {BaseRules.ConquestRate(Content.Crystal, new[] { 15, 0, 0 }) - BaseRules.ConquestRate(Content.Crystal, new[] { 14, 0, 0 })} (expect 1.5)");
 
             // 새 유닛: 지원 공방·다리 공방·조선소, 해상·수송·지휘기
-            foreach (int id in new[] { Research.Support, Research.Legs, Research.Shipyard, Research.Tier4, Research.Tier5 }) sv.research[id] = 1;
+            foreach (int id in new[] { Research.Support, Research.Legs, Research.Shipyard, Research.Tier4, Research.Tier5, Research.Mortar, Research.Lance, Research.SpecialTurret, Research.AdvTurret }) sv.research[id] = 1;
             for (int i = 0; i < sv.stock.Length; i++) { sv.stock[i] = 5000; sv.loadout[i] = 400; }
             gm.SelectResearch(Research.Tier4);
             gm.ShowResearch();
@@ -310,6 +310,28 @@ namespace AbyssDefense
                 Note($"naval units on water {onWater} (expect True)");
                 yield return Shot("29_shipyard");
             }
+            // 포탑: 일곱 종을 짓고, 하나를 탭해 탄종과 표적 기준을 바꾼다
+            play.Cancel();
+            for (int i = 0; i < s30.Core.items.Length; i++) s30.Core.items[i] += 3000;
+            var turrets =new System.Collections.Generic.List<TurretBuilding>();
+            BlockDef[] tdefs = { Content.RapidTurret, Content.MortarTurret, Content.CrystalTurret, Content.FlakTurret, Content.SlimeTurret, Content.TeslaTurret, Content.FlameTurret };
+            for (int y = s30.Core.y + 4; y < s30.world.H && turrets.Count < tdefs.Length; y += 3)
+                for (int x = 2; x < s30.world.W - 3 && turrets.Count < tdefs.Length; x += 3)
+                    if (s30.Place(tdefs[turrets.Count], x, y) == PlaceResult.Ok) turrets.Add((TurretBuilding)s30.world.BuildAt(x, y));
+            gm.SetSpeed(8);
+            while (turrets.Exists(tb => !tb.Built)) yield return null;
+            gm.SetSpeed(1);
+            var rapid = turrets[0];
+            Camera.main.transform.position = new Vector3(rapid.Cx, rapid.Cy + 3, -10);
+            yield return null;
+            Vector2 tpt = Camera.main.WorldToScreenPoint(new Vector3(rapid.Cx, rapid.Cy));
+            play.DebugPointer(tpt, true, false); play.DebugPointer(tpt, false, true);
+            bool picked = play.Turret == rapid;
+            gm.SetAmmo(1);
+            gm.SetTargetMode(TargetMode.Strongest);
+            yield return Shot("30_turret_panel");
+            Note($"turrets: built {turrets.Count} (expect 7), tap selects turret {picked} (expect True), ammo {rapid.Ammo.name} (expect 철갑탄), target mode {rapid.mode} (expect Strongest)");
+            play.Cancel();
             gm.Retreat();
 
             // 깊은 지역 전투

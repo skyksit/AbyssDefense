@@ -300,6 +300,44 @@ namespace AbyssDefense
                     c.Fill(Circle(m, m, 22), barrel);
                     c.Fill(Circle(m, m, 10), Shade(col, 0.5f));
                 }
+                else if (d == Content.FlakTurret)
+                {
+                    // 대공포: 길고 가는 포신 넷
+                    for (int i = -1; i <= 1; i += 2)
+                    {
+                        c.Fill(Box(m + 13, m + i * 6.5f, 13, 1.8f, 1), Shade(col, 0.5f));
+                        c.Fill(Box(m + 13, m + i * 2.5f, 13, 1.8f, 1), Shade(col, 0.7f));
+                    }
+                    c.Fill(Box(m - 2, m, 9, 10, 3), barrel);
+                    c.Fill(Circle(m - 2, m, 4), Lite(col, 0.6f));
+                }
+                else if (d == Content.SlimeTurret)
+                {
+                    // 점액탑: 둥근 통과 넓은 주둥이
+                    c.Fill(Poly(m + 20, m + 8, m + 6, m + 5, m + 6, m - 5, m + 20, m - 8), Shade(col, 0.55f));
+                    c.Fill(Circle(m, m, 12), barrel);
+                    c.Fill(Circle(m - 2, m + 2, 6), Lite(col, 0.55f));
+                    c.Fill(Circle(m + 4, m - 4, 2.5f), Lite(col, 0.75f));
+                }
+                else if (d == Content.TeslaTurret)
+                {
+                    // 전격탑: 겹고리 코일과 앞으로 뻗은 두 갈래
+                    c.Fill(Box(m + 24, m + 9, 14, 2.5f, 1), Shade(col, 0.6f));
+                    c.Fill(Box(m + 24, m - 9, 14, 2.5f, 1), Shade(col, 0.6f));
+                    c.Fill(Circle(m + 38, m + 9, 4), Color.white);
+                    c.Fill(Circle(m + 38, m - 9, 4), Color.white);
+                    c.Fill(Ring(m, m, 22, 4), barrel);
+                    c.Fill(Ring(m, m, 13, 3), Shade(col, 0.7f));
+                    c.Fill(Circle(m, m, 7), Color.white);
+                }
+                else if (d == Content.FlameTurret)
+                {
+                    // 화염탑: 짧고 넓게 벌어진 분사구
+                    c.Fill(Poly(m + 22, m + 9, m + 6, m + 4, m + 6, m - 4, m + 22, m - 9), Shade(col, 0.6f));
+                    c.Fill(Poly(m + 22, m + 5, m + 14, m + 2, m + 14, m - 2, m + 22, m - 5), new Color(1f, 0.85f, 0.3f));
+                    c.Fill(Box(m - 2, m, 10, 9, 4), barrel);
+                    c.Fill(Box(m - 6, m, 3, 6, 1), Shade(col, 0.5f));
+                }
                 else
                 {
                     c.Fill(Box(m + 20, m, 26, 5, 2), Shade(col, 0.5f));
