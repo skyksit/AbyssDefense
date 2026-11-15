@@ -72,6 +72,7 @@ namespace AbyssDefense.Sim
         public bool Built => progress >= 1f;
         public bool dead;
         public int hitFlash;        // 그림용: 맞은 뒤 남은 틱
+        public int boostTick = -10; // 증폭탑의 범위 안에 있었던 마지막 틱
 
         public float Cx => x + def.size * 0.5f;
         public float Cy => y + def.size * 0.5f;
@@ -96,6 +97,7 @@ namespace AbyssDefense.Sim
                 case BlockKind.Factory: b = new FactoryBuilding(); break;
                 case BlockKind.EnemyCore: b = new EnemyCoreBuilding(); break;
                 case BlockKind.EnemyTurret: b = new EnemyTurretBuilding(); break;
+                case BlockKind.Support: b = new SupportBuilding(); break;
                 default: b = new WallBuilding(); break;
             }
             b.def = def;
@@ -105,6 +107,53 @@ namespace AbyssDefense.Sim
     }
 
     public sealed class WallBuilding : Building { }
+
+    /// 지원 건물: 수리탑·증폭탑·역장 발생기. 범위 안의 다 지어진 아군 건물을 돕는다
+    public sealed class SupportBuilding : Building
+    {
+        public float shieldHp;      // 남은 역장
+        public int shieldWait;      // 이 틱이 지나야 역장이 다시 차오른다
+        int timer;
+
+        public float MaxShield => def.shield * world.mods.healthMul;
+        public bool Covers(Building b) => b.DistTo(Cx, Cy) <= def.supportRange;
+
+        public override void Update(Sim sim)
+        {
+            var bs = world.buildings;
+            if (def.mendPct > 0 && ++timer >= def.mendTicks)
+            {
+                timer = 0;
+                bool any = false;
+                for (int i = 0; i < bs.Count; i++)
+                {
+                    var b = bs[i];
+                    if (b == this || b.def.enemy || !b.Built || b.health >= b.maxHealth || !Covers(b)) continue;
+                    b.health = Math.Min(b.maxHealth, b.health + b.maxHealth * def.mendPct);
+                    any = true;
+                }
+                if (any) sim.fx.Add(new Fx { kind = FxKind.Spawn, x = Cx, y = Cy, r = def.supportRange, color = def.color });
+            }
+            if (def.boost)
+                for (int i = 0; i < bs.Count; i++)
+                    if (bs[i] is TurretBuilding && Covers(bs[i])) bs[i].boostTick = sim.tick;
+            if (def.shield > 0)
+            {
+                if (shieldWait > 0) shieldWait--;
+                else if (shieldHp < MaxShield) shieldHp = Math.Min(MaxShield, shieldHp + def.shieldRegen / Sim.TicksPerSecond);
+            }
+        }
+
+        /// 역장이 피해를 대신 받는다. 받고 남은 피해를 돌려준다
+        public float Absorb(float dmg)
+        {
+            if (shieldHp <= 0) return dmg;
+            float take = Math.Min(shieldHp, dmg);
+            shieldHp -= take;
+            shieldWait = def.shieldDelay;
+            return dmg - take;
+        }
+    }
 
     /// 적 거점의 핵. 적이 여기서 나오고, 모두 부서지면 그 지역을 점령한다
     public sealed class EnemyCoreBuilding : Building { }
@@ -208,6 +257,7 @@ namespace AbyssDefense.Sim
         public override void Update(Sim sim)
         {
             if (reload > 0) reload--;
+            if (reload > 0 && sim.tick - boostTick <= 1 && sim.tick % 3 == 0) reload--;   // 증폭탑 곁: 3틱에 한 번 한 틱 더
 
             if (--retarget <= 0 || target == null || target.dead || !InRange(target))
             {

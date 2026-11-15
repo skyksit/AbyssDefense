@@ -259,6 +259,36 @@ namespace AbyssDefense
                             c.Fill(Circle(bx, by, 3.5f), Lite(col, 0.4f));
                         }
                         break;
+                    case BlockKind.Support:
+                        c.Fill(Box(m, m, m - 2, m - 2, 8), dark);
+                        c.Fill(Box(m, m, m - 5, m - 5, 6), Shade(col, 0.35f));
+                        if (d == Content.MendTower)
+                        {
+                            // 수리탑: 둥근 판 위의 십자
+                            c.Fill(Circle(m, m, 15), Shade(col, 0.75f));
+                            c.Fill(Box(m, m, 11, 3.5f, 1), Color.white);
+                            c.Fill(Box(m, m, 3.5f, 11, 1), Color.white);
+                        }
+                        else if (d == Content.Amplifier)
+                        {
+                            // 증폭탑: 위로 겹친 두 화살
+                            c.Fill(Circle(m, m, 15), Shade(col, 0.6f));
+                            c.Fill(Poly(m, m + 12, m - 10, m + 1, m + 10, m + 1), col);
+                            c.Fill(Poly(m, m + 1, m - 10, m - 10, m + 10, m - 10), Lite(col, 0.5f));
+                        }
+                        else
+                        {
+                            // 역장 발생기: 겹고리와 가운데의 빛
+                            c.Fill(Ring(m, m, m * 0.66f, 4), Lite(col, 0.3f));
+                            c.Fill(Ring(m, m, m * 0.42f, 3), Shade(col, 0.8f));
+                            c.Fill(Circle(m, m, m * 0.2f), Color.white);
+                            for (int i = 0; i < 6; i++)
+                            {
+                                float a = i * Mathf.PI / 3;
+                                c.Fill(Circle(m + Mathf.Cos(a) * m * 0.66f, m + Mathf.Sin(a) * m * 0.66f, 4), Lite(col, 0.7f));
+                            }
+                        }
+                        break;
                     default:   // 포탑 받침
                         c.Fill(Box(m, m, m - 2, m - 2, 6), dark);
                         c.Fill(Box(m, m, m - 5, m - 5, 5), Shade(col, 0.42f));

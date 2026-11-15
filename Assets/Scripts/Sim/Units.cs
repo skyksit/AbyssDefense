@@ -33,6 +33,7 @@ namespace AbyssDefense.Sim
     {
         public BlockDef def;
         public int x, y;
+        public int tick;             // 부서진 틱
     }
 
     /// 방어: 핵 옆의 집결 지점을 지키며 그 둘레로 온 적만 쫓는다. 공격: 적 출현 지점 앞으로 나가 그 둘레의 적과 싸운다
@@ -115,8 +116,10 @@ namespace AbyssDefense.Sim
         public int unitsBuilt, unitsLost, structuresDestroyed;
         public readonly int[] mined = new int[Content.Items.Length];   // 채굴 드론이 핵으로 나른 자원
         public const int MaxRuins = 40;
-        /// 재건 드론이 다시 지을 자리. 부서진 순서대로 짓는다
+        public const int AutoRebuildDelay = 10 * 60;   // 부서진 뒤 이 틱이 지나면 스스로 건설 터를 다시 놓는다
+        /// 적에게 부서진 건물의 자리. 자동 재건이 켜져 있으면 잠시 뒤 같은 건물의 건설 터를 다시 놓고, 재건 드론은 기다리지 않고 곧바로 놓는다
         public readonly List<Ruin> ruins = new List<Ruin>();
+        public bool autoRebuild = true;
         GroundNav nav, sea, skim;
 
         /// 걸어 다니는(또는 떠서 다니는) 유닛에게 막힌 칸인가. 부양 유닛은 호수를 지난다
@@ -646,13 +649,29 @@ namespace AbyssDefense.Sim
             fx.Add(new Fx { kind = FxKind.Spawn, x = u.x, y = u.y, r = 0.4f, color = d.minelay.color });
         }
 
-        /// 아군 건물이 적에게 부서졌다: 살아 있는 재건 드론이 있으면 그 자리를 적어 둔다 (철거한 건물은 적지 않는다)
+        /// 아군 건물이 적에게 부서졌다: 자동 재건이 켜져 있거나 살아 있는 재건 드론이 있으면 그 자리를 적어 둔다 (철거한 건물은 적지 않는다)
         void AddRuin(Building b)
         {
             if (ruins.Count >= MaxRuins) return;
-            bool any = false;
+            bool any = autoRebuild;
             for (int i = 0; i < units.Count && !any; i++) any = units[i].def.rebuild && !units[i].dead;
-            if (any) ruins.Add(new Ruin { def = b.def, x = b.x, y = b.y });
+            if (any) ruins.Add(new Ruin { def = b.def, x = b.x, y = b.y, tick = tick });
+        }
+
+        /// 자동 재건: 부서진 지 AutoRebuildDelay 가 지난 자리에 같은 건물의 건설 터를 다시 놓는다. 비용과 건설 순서는 직접 지을 때와 같다.
+        /// 자원이 모자라면 기다리고, 그 자리에 다시는 지을 수 없으면(다른 건물이 들어섰다) 그 자리를 버린다
+        void AutoRebuild()
+        {
+            if (!autoRebuild || ruins.Count == 0 || tick % 30 != 0) return;
+            for (int i = 0; i < ruins.Count; i++)
+            {
+                var r = ruins[i];
+                if (tick - r.tick < AutoRebuildDelay) continue;
+                var res = CanPlace(r.def, r.x, r.y);
+                if (res == PlaceResult.NoResources) continue;
+                ruins.RemoveAt(i--);
+                if (res == PlaceResult.Ok) Place(r.def, r.x, r.y);
+            }
         }
 
         /// 재건 드론: 가장 먼저 부서진 자리로 가서 같은 건물의 건설 터를 놓는다. 자원이 모자라면 그 자리에서 기다리고,

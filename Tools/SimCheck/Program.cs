@@ -60,6 +60,7 @@ static class Program
         Combat();
         Armor();
         Turrets();
+        SupportBlocks();
         Units();
         Assault();
         NewUnits();
@@ -139,6 +140,7 @@ static class Program
             for (int x = 1; x < w.W - 1; x++) { w.tiles[w.Idx(x, y)].wall = false; w.tiles[w.Idx(x, y)].water = false; }
         sim.waveCountdown = int.MaxValue;
         sim.DisableCommander();   // 지휘기가 끼어들지 않게 (지휘기는 따로 검사한다)
+        sim.autoRebuild = false;  // 자동 재건도 따로 검사한다
         return sim;
     }
 
@@ -436,6 +438,99 @@ static class Program
         s5.enemies.Add(w1); s5.enemies.Add(w2);
         for (int i = 0; i < 200 && w2.slowTicks == 0; i++) s5.Tick();
         Check(w1.slowTicks > 0 && w2.slowTicks > 0 && w1.slowMul == 0.55f, "점액탑은 맞은 적과 곁의 적을 느리게 한다");
+    }
+
+    static void SupportBlocks()
+    {
+        Console.WriteLine("지원 건물 (수리탑·증폭탑·역장 발생기)과 자동 재건");
+        var all = Mods(Research.SupportBlock, 1);
+        var sim = EmptySim(Full, all);
+        Check(EmptySim(Full).Place(Content.MendTower, 5, 20) == PlaceResult.Locked, "지원 건물은 지원 건물 기술을 연구해야 짓는다");
+
+        // 수리탑: 범위 안의 건물만 고친다
+        sim.Place(Content.MendTower, 5, 20);
+        sim.Place(Content.Wall, 7, 20); sim.Place(Content.Wall, 12, 20);
+        Finish(sim);
+        var nearW = sim.world.BuildAt(7, 20); var farW = sim.world.BuildAt(12, 20); var mender = sim.world.BuildAt(5, 20);
+        nearW.health = 100; farW.health = 100; mender.health = 50;
+        for (int i = 0; i < Content.MendTower.mendTicks; i++) sim.Tick();
+        Check(Math.Abs(nearW.health - (100 + 420 * 0.05f)) < 0.01f && farW.health == 100 && mender.health == 50,
+            $"수리탑은 2초마다 범위 안의 건물을 5% 고친다 (자기 자신과 범위 밖은 아니다: {nearW.health}, {farW.health})");
+
+        // 증폭탑: 범위 안의 포탑이 빨리 쏘고, 둘이 겹쳐도 한 번만 듣는다
+        int Shots(int amps)
+        {
+            var s = EmptySim(Full, all);
+            int px = (int)s.Core.Cx, py = s.Core.y + 6;
+            s.Place(Content.RapidTurret, px, py);
+            if (amps >= 1) s.Place(Content.Amplifier, px - 2, py);
+            if (amps >= 2) s.Place(Content.Amplifier, px - 2, py + 2);
+            Finish(s);
+            Dummy(s, Content.Walker, px + 3.5f, py + 0.5f);
+            var tb = (TurretBuilding)s.world.BuildAt(px, py);
+            int shots = 0, last = tb.reload;
+            for (int i = 0; i < 600; i++) { s.Tick(); if (tb.reload > last) shots++; last = tb.reload; }
+            return shots;
+        }
+        int plain = Shots(0), one = Shots(1), two = Shots(2);
+        Check(plain == 30 && one == 40 && two == one, $"증폭탑 곁의 포탑은 1.33배 빨리 쏘고, 겹쳐도 한 번만 듣는다 (10초에 {plain} → {one} → {two}발)");
+
+        // 역장 발생기: 범위 안 건물이 받는 피해를 먼저 받고, 맞지 않으면 다시 차오른다
+        var s2 = EmptySim(Full, all);
+        s2.Place(Content.ShieldGen, 5, 20);
+        s2.Place(Content.Wall, 8, 20); s2.Place(Content.Wall, 14, 20);
+        Finish(s2);
+        var gen = (SupportBuilding)s2.world.BuildAt(5, 20);
+        for (int i = 0; i < 60 * 20; i++) s2.Tick();
+        bool full = gen.shieldHp == 600;
+        var inW = s2.world.BuildAt(8, 20); var outW = s2.world.BuildAt(14, 20);
+        var a1 = new Enemy { def = Content.Walker, x = 8.5f, y = 20.5f, health = 9999, maxHealth = 9999 };
+        var a2 = new Enemy { def = Content.Walker, x = 14.5f, y = 20.5f, health = 9999, maxHealth = 9999 };
+        s2.enemies.Add(a1); s2.enemies.Add(a2);
+        s2.Tick();
+        Check(full && inW.health == inW.maxHealth && Math.Abs(gen.shieldHp - (600 - 11.7f)) < 0.01f && Math.Abs(outW.maxHealth - outW.health - 11.7f) < 0.01f,
+            $"역장은 범위 안 건물의 피해를 대신 받는다 (역장 {gen.shieldHp}, 범위 밖 방벽 −{outW.maxHealth - outW.health})");
+        gen.shieldHp = 5; a1.cooldown = 0;
+        s2.Tick();
+        Check(gen.shieldHp == 0 && Math.Abs(inW.maxHealth - inW.health - 6.7f) < 0.01f, $"역장이 다 닳으면 남은 피해는 건물이 받는다 (−{inW.maxHealth - inW.health})");
+        s2.enemies.Clear();
+        for (int i = 0; i < Content.ShieldGen.shieldDelay - 2; i++) s2.Tick();
+        bool waiting = gen.shieldHp == 0;
+        for (int i = 0; i < 62; i++) s2.Tick();
+        Check(waiting && gen.shieldHp > 30 && gen.shieldHp < 45, $"역장은 5초 동안 맞지 않아야 다시 차오른다 (1초 뒤 {gen.shieldHp:0.0})");
+
+        // 자동 재건: 적에게 부서진 건물을 잠시 뒤 같은 자리에 다시 놓는다
+        var s3 = EmptySim(new[] { 100, 0, 0 });
+        s3.autoRebuild = true;
+        s3.Place(Content.RapidTurret, 5, 20); s3.Place(Content.Wall, 8, 20);
+        Finish(s3);
+        ((TurretBuilding)s3.world.BuildAt(5, 20)).SetAmmo(0);
+        s3.world.BuildAt(5, 20).health = 0;
+        s3.Tick();
+        s3.Remove(8, 20);
+        int ironNow = s3.Core.items[Content.Iron];
+        bool noted = s3.ruins.Count == 1 && s3.world.BuildAt(5, 20) == null;
+        for (int i = 0; i < Sim.AutoRebuildDelay - 40; i++) s3.Tick();
+        bool waits = s3.world.BuildAt(5, 20) == null;
+        for (int i = 0; i < 80; i++) s3.Tick();
+        var site = s3.world.BuildAt(5, 20);
+        Finish(s3);
+        Check(noted && waits && site != null && site.def == Content.RapidTurret && site.Built && s3.ruins.Count == 0 && s3.Core.items[Content.Iron] == ironNow - 35 && s3.world.BuildAt(8, 20) == null,
+            "자동 재건: 부서진 포탑은 10초 뒤 정가로 다시 지어지고, 직접 철거한 건물은 다시 짓지 않는다");
+        s3.Core.items[Content.Iron] = 0;
+        s3.world.BuildAt(5, 20).health = 0;
+        for (int i = 0; i < Sim.AutoRebuildDelay + 120; i++) s3.Tick();
+        bool poor = s3.world.BuildAt(5, 20) == null && s3.ruins.Count == 1;
+        s3.Core.items[Content.Iron] = 100;
+        for (int i = 0; i < 60; i++) s3.Tick();
+        Check(poor && s3.world.BuildAt(5, 20) != null, "자동 재건: 자원이 없으면 기다렸다가 생기면 놓는다");
+        s3.world.BuildAt(5, 20).health = 0;
+        s3.Tick();
+        bool gone = s3.Remove(5, 20) && s3.ruins.Count == 0;
+        s3.autoRebuild = false;
+        s3.Place(Content.Wall, 5, 20); Finish(s3);
+        s3.world.BuildAt(5, 20).health = 0; s3.Tick();
+        Check(gone && s3.ruins.Count == 0, "부서진 자리는 철거로 지울 수 있고, 자동 재건을 끄면 적어 두지 않는다");
     }
 
     static void Units()

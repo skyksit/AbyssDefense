@@ -184,6 +184,7 @@ namespace AbyssDefense.Sim
         public bool Remove(int x, int y)
         {
             var b = world.BuildAt(x, y);
+            if (b == null && state == SimState.Playing) return RemoveRuin(x, y);
             if (b == null || b is CoreBuilding || b.def.enemy || state != SimState.Playing) return false;
             if (!b.Built) { for (int k = 0; k < b.paid.Length; k++) Core.Add(b.def.cost[k].item, b.paid[k]); }
             else Core.Refund(b.def.cost, RefundRatio * (b.health / b.maxHealth));
@@ -191,6 +192,19 @@ namespace AbyssDefense.Sim
             fieldDirty = true;
             BuildingRemoved?.Invoke(b);
             return true;
+        }
+
+        /// 부서진 자리(다시 지으려고 적어 둔 곳)를 지운다
+        public bool RemoveRuin(int x, int y)
+        {
+            for (int i = 0; i < ruins.Count; i++)
+            {
+                var r = ruins[i];
+                if (x < r.x || y < r.y || x >= r.x + r.def.size || y >= r.y + r.def.size) continue;
+                ruins.RemoveAt(i);
+                return true;
+            }
+            return false;
         }
 
         // ───────── 한 틱 ─────────
@@ -220,6 +234,7 @@ namespace AbyssDefense.Sim
             for (int i = 0; i < enemies.Count; i++) UpdateEnemy(enemies[i]);
             for (int i = 0; i < bullets.Count; i++) UpdateBullet(bullets[i]);
             UpdateMines();
+            AutoRebuild();
 
             enemies.RemoveAll(e => e.dead);
             units.RemoveAll(u => u.dead);
@@ -381,9 +396,23 @@ namespace AbyssDefense.Sim
         {
             if (e.cooldown > 0) return;
             e.cooldown = e.def.attackTicks;
-            b.health -= Armored(e.def.damage * EnemyDamageMul, b.def.armor);
+            float dmg = Shielded(b, Armored(e.def.damage * EnemyDamageMul, b.def.armor));
+            b.health -= dmg;
             b.hitFlash = 6;
             fx.Add(new Fx { kind = FxKind.EnemyAttack, x = b.Cx, y = b.Cy, r = 0.4f, color = e.def.color });
+        }
+
+        /// 역장 발생기의 범위 안에 있는 건물은 역장이 피해를 먼저 받는다. 남은 피해를 돌려준다
+        float Shielded(Building b, float dmg)
+        {
+            var bs = world.buildings;
+            for (int i = 0; i < bs.Count && dmg > 0; i++)
+            {
+                if (!(bs[i] is SupportBuilding s) || s.def.shield <= 0 || !s.Built || s.shieldHp <= 0 || !s.Covers(b)) continue;
+                dmg = s.Absorb(dmg);
+                fx.Add(new Fx { kind = FxKind.Hit, x = b.Cx, y = b.Cy, r = b.def.size * 0.7f, color = s.def.color });
+            }
+            return dmg;
         }
 
         Building NearestBuilding(float x, float y, float range)

@@ -336,12 +336,13 @@ namespace AbyssDefense
                         var col = ok ? new Color(0.4f, 1f, 0.55f, 0.45f) : new Color(1f, 0.3f, 0.3f, 0.5f);
                         ghost.Quad(c.x + half, c.y + half, def.size - 0.08f, def.size - 0.08f, col);
                     }
-                    if (def.kind == BlockKind.Turret && cells.Count > 0)
+                    if ((def.kind == BlockKind.Turret || def.kind == BlockKind.Support) && cells.Count > 0)
                     {
                         var last = cells[cells.Count - 1];
+                        float reach = def.kind == BlockKind.Turret ? def.range * sim.world.mods.rangeMul : def.supportRange;
                         rangeRing.enabled = true;
                         rangeRing.transform.position = new Vector3(last.x + half, last.y + half);
-                        rangeRing.transform.localScale = Vector3.one * (def.range * sim.world.mods.rangeMul * 2 / rangeRing.sprite.bounds.size.x);
+                        rangeRing.transform.localScale = Vector3.one * (reach * 2 / rangeRing.sprite.bounds.size.x);
                     }
                 }
             }

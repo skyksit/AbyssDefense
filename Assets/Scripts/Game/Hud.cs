@@ -14,7 +14,8 @@ namespace AbyssDefense
         Text[] itemTexts;
         Text waveText, timerText, infoText, speedText, pauseText, hpText, stanceText;
         RectTransform hpFill;
-        Image removeBg, stanceBg;
+        Image removeBg, stanceBg, rebuildBg;
+        Text rebuildText;
         Button nextWaveBtn;
         string infoOverride;
         float infoUntil;
@@ -121,8 +122,12 @@ namespace AbyssDefense
                 slots.Add(new BuildSlot { def = def, bg = b.GetComponent<Image>(), cost = cost, name = name, icon = icon });
             }
             var bRem = Ui.Btn(bottom.transform, "철거", 34, Ui.Card, () => play.ToggleRemove());
-            bRem.Rt().At(new Vector2(1, 0), new Vector2(1, 0), -20, 14, remW, slotH);
+            bRem.Rt().At(new Vector2(1, 0), new Vector2(1, 0), -20, 14 + 106, remW, slotH - 106);
             removeBg = bRem.GetComponent<Image>();
+            var bReb = Ui.Btn(bottom.transform, "자동 재건", 24, Ui.Card, ToggleAutoRebuild);
+            bReb.Rt().At(new Vector2(1, 0), new Vector2(1, 0), -20, 14, remW, 96);
+            rebuildBg = bReb.GetComponent<Image>();
+            rebuildText = bReb.GetComponentInChildren<Text>();
 
             // ── 공장 창 (공장을 탭했을 때만 보인다) ──
             var fp = Ui.Panel(root, Ui.PanelCol, true, "Factory");
@@ -182,6 +187,15 @@ namespace AbyssDefense
             if (sim == null) return;
             sim.stance = sim.stance == UnitStance.Defend ? UnitStance.Attack : UnitStance.Defend;
             Toast(sim.stance == UnitStance.Defend ? "방어 태세: 유닛이 핵 옆 집결 지점으로 돌아와 핵을 지킵니다" : "공격 태세: 유닛이 적 출현 지점 앞으로 나가 싸웁니다");
+        }
+
+        /// 자동 재건 켜기·끄기. 끄면 적어 둔 자리도 지운다
+        public void ToggleAutoRebuild()
+        {
+            if (sim == null) return;
+            sim.autoRebuild = !sim.autoRebuild;
+            if (!sim.autoRebuild) sim.ruins.Clear();
+            Toast(sim.autoRebuild ? "자동 재건 켬: 적에게 부서진 건물을 10초 뒤 같은 자리에 다시 짓습니다 (비용은 그대로)" : "자동 재건 끔");
         }
 
         /// 고른 공장이 만들 유닛을 바꾼다 (-1 = 정지). 만들던 유닛은 끝까지 만든다
@@ -246,6 +260,11 @@ namespace AbyssDefense
             if (!b.Built) s = $"{b.def.name}  건설 중 {Mathf.FloorToInt(b.progress * 100)}%" + (b.constructing ? "" : "  (순서를 기다리거나 자원이 부족합니다)");
             else if (b is TurretBuilding t)
                 s += t.Starved ? $"  탄약 없음 ({Content.Items[t.Ammo.item].name} 부족)" : $"  {t.Ammo.name}: {Content.Items[t.Ammo.item].name} 하나에 {t.AmmoPerItem}발";
+            else if (b is SupportBuilding sb)
+            {
+                if (b.def.shield > 0) s += $"  역장 {Mathf.CeilToInt(sb.shieldHp)}/{(int)sb.MaxShield}" + (sb.shieldHp <= 0 ? " (다 닳았습니다)" : "");
+                s += $"  범위 {b.def.supportRange:0.#}칸";
+            }
             else if (b.def.armor > 0) s += $"  방어력 {b.def.armor:0}";
             infoOverride = s; infoUntil = Time.unscaledTime + 3f;
         }
@@ -340,6 +359,8 @@ namespace AbyssDefense
             speedText.text = "x" + Speed;
             pauseText.text = Paused ? "계속" : "멈춤";
             removeBg.color = play.RemoveMode ? Ui.Bad : Ui.Card;
+            rebuildBg.color = sim.autoRebuild ? new Color(0.2f, 0.42f, 0.3f) : Ui.Card;
+            rebuildText.text = sim.autoRebuild ? (sim.ruins.Count > 0 ? $"자동 재건\n대기 {sim.ruins.Count}" : "자동 재건\n켬") : "자동 재건\n끔";
             bool attack = sim.stance == UnitStance.Attack;
             stanceText.text = (attack ? "공격 중 (출현 지점)" : "방어 중 (핵 수비)") + $"\n유닛 {sim.SupplyUsed}/{sim.UnitCap}  ·  눌러서 전환";
             stanceBg.color = attack ? new Color(0.6f, 0.34f, 0.16f, 0.95f) : new Color(0.16f, 0.36f, 0.42f, 0.95f);

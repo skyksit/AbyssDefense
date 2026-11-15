@@ -63,7 +63,7 @@ namespace AbyssDefense
     {
         const int OrderFloor = -10, OrderBlock = 0, OrderBlockTop = 2, OrderItems = 4, OrderEnemy = 10, OrderBullet = 14, OrderFx = 16, OrderBars = 20;
 
-        sealed class BView { public GameObject go; public SpriteRenderer sr, top; }
+        sealed class BView { public GameObject go; public SpriteRenderer sr, top, aura; }
         struct FxItem { public SpriteRenderer sr; public float t, life, r0, r1; public Color col; }
 
         Sim.Sim sim;
@@ -168,6 +168,12 @@ namespace AbyssDefense
             v.go.transform.position = new Vector3(b.Cx, b.Cy);
             var top = Art.BlockTop(b.def);
             if (top != null) v.top = NewSprite("top", top, OrderBlockTop, v.go.transform);
+            if (b.def.kind == BlockKind.Support)
+            {
+                // 지원 건물의 범위 고리
+                v.aura = NewSprite("aura", Art.Get("fx_ring"), OrderBlock - 1, v.go.transform);
+                v.aura.transform.localScale = Vector3.one * (b.def.supportRange * 2 / v.aura.sprite.bounds.size.x);
+            }
             views[b] = v;
         }
 
@@ -207,6 +213,18 @@ namespace AbyssDefense
                     float half = t.def.size * 0.5f;
                     if (t.Starved && Mathf.Repeat(time, 0.8f) < 0.5f) bars.Quad(t.Cx + half - 0.2f, t.Cy + half - 0.2f, 0.26f, 0.26f, new Color(1f, 0.2f, 0.2f), 45);
                 }
+                if (v.aura != null)
+                {
+                    // 범위 고리: 다 지어져야 보이고, 역장 발생기는 남은 역장만큼 또렷하다 (다 닳으면 붉게 깜빡인다)
+                    var ac = Art.C(b.def.color, 0.22f);
+                    if (b is SupportBuilding sb && b.def.shield > 0)
+                    {
+                        float k = Mathf.Clamp01(sb.shieldHp / sb.MaxShield);
+                        ac = k > 0 ? Art.C(b.def.color, 0.15f + 0.55f * k) : new Color(1f, 0.3f, 0.3f, Mathf.Repeat(time, 0.8f) < 0.4f ? 0.35f : 0.1f);
+                    }
+                    v.aura.enabled = b.Built;
+                    v.aura.color = ac;
+                }
                 if (b is EnemyTurretBuilding et) v.top.transform.rotation = Quaternion.Euler(0, 0, et.aim * Mathf.Rad2Deg);
                 if (b is FactoryBuilding fb && b.Built && fb.making != null)
                 {
@@ -216,6 +234,16 @@ namespace AbyssDefense
                     bars.Quad(b.Cx - w * 0.5f * (1 - fb.work), y0, w * fb.work, 0.1f, Art.C(fb.making.color));
                 }
                 if (b.Built && b.health < b.maxHealth) HealthBar(b.Cx, b.Cy + b.def.size * 0.5f - 0.1f, b.def.size * 0.8f, b.health / b.maxHealth);
+            }
+
+            // 부서진 자리: 다시 지어질 건물의 흐린 윤곽
+            foreach (var r in sim.ruins)
+            {
+                float rs = r.def.size, rx = r.x + rs * 0.5f, ry = r.y + rs * 0.5f;
+                var rc = Art.C(r.def.color, 0.28f);
+                bars.Quad(rx, ry, rs - 0.12f, rs - 0.12f, new Color(rc.r, rc.g, rc.b, 0.12f));
+                bars.Quad(rx, ry + rs * 0.5f - 0.08f, rs - 0.12f, 0.06f, rc); bars.Quad(rx, ry - rs * 0.5f + 0.08f, rs - 0.12f, 0.06f, rc);
+                bars.Quad(rx + rs * 0.5f - 0.08f, ry, 0.06f, rs - 0.12f, rc); bars.Quad(rx - rs * 0.5f + 0.08f, ry, 0.06f, rs - 0.12f, rc);
             }
 
             // 적

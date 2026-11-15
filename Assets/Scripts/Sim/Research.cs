@@ -31,7 +31,7 @@ namespace AbyssDefense.Sim
     {
         public const int Damage = 0, Health = 1, Loadout = 2, Mortar = 3, Core = 4, Range = 5, Mining = 6, Ammo = 7, Bounty = 8, Lance = 9, Build = 10,
             RobotFactory = 11, Airfield = 12, Tier2 = 13, Tier3 = 14, Command = 15, UnitPower = 16,
-            Support = 17, Legs = 18, Shipyard = 19, Tier4 = 20, Tier5 = 21, Tank = 22, Hover = 23, Assembler = 24, Transcend = 25, SpecialTurret = 26, AdvTurret = 27;
+            Support = 17, Legs = 18, Shipyard = 19, Tier4 = 20, Tier5 = 21, Tank = 22, Hover = 23, Assembler = 24, Transcend = 25, SpecialTurret = 26, AdvTurret = 27, SupportBlock = 28;
         public const int BaseUnitCap = 4;
 
         public static readonly ResearchDef[] Defs =
@@ -81,6 +81,8 @@ namespace AbyssDefense.Sim
                 extra = new[] { new ItemStack(Content.Steel, 40) } },
             new ResearchDef { key = "advturret", name = "고급 포탑 기술", desc = "전격탑과 화염탑을 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 16, iron = 400, sulfur = 250,
                 extra = new[] { new ItemStack(Content.Circuit, 80), new ItemStack(Content.Powder, 60) } },
+            new ResearchDef { key = "supportblock", name = "지원 건물 기술", desc = "수리탑·증폭탑·역장 발생기를 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 9, iron = 250, sulfur = 120,
+                extra = new[] { new ItemStack(Content.Steel, 60), new ItemStack(Content.Circuit, 30) } },
         };
 
         static Research()
@@ -115,6 +117,7 @@ namespace AbyssDefense.Sim
             Link(Transcend, Assembler, "unit_doomtank");
             Link(SpecialTurret, Mortar, "icon_flak");
             Link(AdvTurret, Lance, "icon_tesla");
+            Link(SupportBlock, Health, "icon_mender");
         }
 
         static void Link(int id, int parent, string icon) { Defs[id].parent = parent; Defs[id].icon = icon; }

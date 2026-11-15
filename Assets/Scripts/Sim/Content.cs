@@ -14,7 +14,7 @@ namespace AbyssDefense.Sim
         public uint color;   // 0xRRGGBB
     }
 
-    public enum BlockKind { Core, Wall, Turret, Factory, EnemyCore, EnemyTurret }
+    public enum BlockKind { Core, Wall, Turret, Factory, EnemyCore, EnemyTurret, Support }
 
     public sealed class BulletDef
     {
@@ -74,6 +74,15 @@ namespace AbyssDefense.Sim
         public string ammoName = "기본탄";   // 기본 탄의 이름 (포탑 창에 나온다)
         public AmmoDef[] altAmmo = new AmmoDef[0];   // 기본 탄 말고 골라 넣을 수 있는 탄
         public AmmoDef[] ammos;          // [0] = 기본 탄(ammoItem·ammoPerItem·bullet), 그 뒤로 altAmmo. 등록할 때 채운다
+
+        // 지원 건물: 범위 안의 아군 건물을 돕는다
+        public float supportRange;       // 건물 가운데에서 잰 범위 (상대 건물의 가장자리까지)
+        public float mendPct;            // (수리탑) mendTicks 마다 범위 안 건물을 최대 체력의 이 비율만큼 고친다
+        public int mendTicks;
+        public bool boost;               // (증폭탑) 범위 안 포탑이 3틱에 한 번 재장전을 한 틱 더 줄인다 (연사 약 1.33배, 겹쳐도 한 번만)
+        public float shield;             // (역장 발생기) 범위 안 건물이 적에게 받는 피해를 이만큼까지 대신 받는다
+        public float shieldRegen;        // 초당 차오르는 양
+        public int shieldDelay;          // 마지막으로 피해를 받은 뒤 이 틱이 지나야 차오르기 시작한다
 
         // 유닛 공장
         public UnitDef[] units;          // 만들 수 있는 유닛 (단계 순)
@@ -1054,6 +1063,32 @@ namespace AbyssDefense.Sim
             ammoName = "화약 불길",
         };
 
+        // ───────── 지원 건물 ─────────
+
+        public static readonly BlockDef MendTower = new BlockDef
+        {
+            key = "mender", name = "수리탑", desc = "2초마다 둘레 4칸 안의 건물을 최대 체력의 5% 씩 고친다.",
+            kind = BlockKind.Support, health = 200, color = 0x51CF66, tech = Research.SupportBlock,
+            cost = new[] { new ItemStack(Iron, 40), new ItemStack(Steel, 20) },
+            supportRange = 4f, mendPct = 0.05f, mendTicks = 120,
+        };
+
+        public static readonly BlockDef Amplifier = new BlockDef
+        {
+            key = "amplifier", name = "증폭탑", desc = "둘레 4칸 안의 포탑이 1.33배 빨리 쏜다. 겹쳐도 한 번만 듣는다.",
+            kind = BlockKind.Support, health = 220, color = 0xFCC419, tech = Research.SupportBlock,
+            cost = new[] { new ItemStack(Iron, 60), new ItemStack(Circuit, 40) },
+            supportRange = 4f, boost = true,
+        };
+
+        public static readonly BlockDef ShieldGen = new BlockDef
+        {
+            key = "shieldgen", name = "역장 발생기", desc = "둘레 4.5칸 안의 건물이 받는 피해를 역장이 먼저 받는다. 5초 동안 맞지 않으면 다시 차오른다.",
+            kind = BlockKind.Support, size = 2, health = 500, color = 0x66D9E8, tech = Research.SupportBlock,
+            cost = new[] { new ItemStack(Iron, 100), new ItemStack(Steel, 60), new ItemStack(Circuit, 50) },
+            supportRange = 4.5f, shield = 600, shieldRegen = 40, shieldDelay = 300,
+        };
+
         public static readonly BlockDef RobotFactory = new BlockDef
         {
             key = "robotfactory", name = "로봇 공장", desc = "핵의 자원으로 공격 로봇을 만든다.",
@@ -1140,9 +1175,9 @@ namespace AbyssDefense.Sim
             bounty = new[] { new ItemStack(Iron, 3) },
         };
 
-        public static readonly BlockDef[] Blocks = { Core, Wall, RapidTurret, MortarTurret, CrystalTurret, SteelWall, RobotFactory, Airfield, EnemyCore, EnemyTurret, EnemyWall, SupportShop, LegShop, Shipyard, TankFactory, HoverShop, Assembler, FlakTurret, SlimeTurret, TeslaTurret, FlameTurret };
+        public static readonly BlockDef[] Blocks = { Core, Wall, RapidTurret, MortarTurret, CrystalTurret, SteelWall, RobotFactory, Airfield, EnemyCore, EnemyTurret, EnemyWall, SupportShop, LegShop, Shipyard, TankFactory, HoverShop, Assembler, FlakTurret, SlimeTurret, TeslaTurret, FlameTurret, MendTower, Amplifier, ShieldGen };
         /// 건설 바에 나오는 순서
-        public static readonly BlockDef[] Buildable = { RapidTurret, Wall, MortarTurret, FlakTurret, SlimeTurret, CrystalTurret, TeslaTurret, FlameTurret, RobotFactory, Airfield, SupportShop, LegShop, TankFactory, HoverShop, Shipyard, Assembler, SteelWall };
+        public static readonly BlockDef[] Buildable = { RapidTurret, Wall, MortarTurret, FlakTurret, SlimeTurret, CrystalTurret, TeslaTurret, FlameTurret, MendTower, Amplifier, ShieldGen, RobotFactory, Airfield, SupportShop, LegShop, TankFactory, HoverShop, Shipyard, Assembler, SteelWall };
 
         // ───────── 적 ─────────
 

@@ -258,7 +258,7 @@ namespace AbyssDefense
             Note($"stronghold 15: enemy cores {cores0} (expect 2), build next to enemy core {nearRes} (expect NearSpawn), result {s15.state} (expect Won), enemy cores left {s15.EnemyCores} (expect 0), structures destroyed {s15.structuresDestroyed}, units lost {s15.unitsLost}, cleared {sv.abysses[0].cleared} (expect 15), iron conquest bonus doubled {BaseRules.ConquestRate(Content.Iron, new[] { 15, 0, 0 }) - BaseRules.ConquestRate(Content.Iron, new[] { 14, 0, 0 })} (expect 0: region 15 gives crystal) crystal {BaseRules.ConquestRate(Content.Crystal, new[] { 15, 0, 0 }) - BaseRules.ConquestRate(Content.Crystal, new[] { 14, 0, 0 })} (expect 1.5)");
 
             // 새 유닛: 지원 공방·다리 공방·조선소, 해상·수송·지휘기
-            foreach (int id in new[] { Research.Support, Research.Legs, Research.Shipyard, Research.Tier4, Research.Tier5, Research.Mortar, Research.Lance, Research.SpecialTurret, Research.AdvTurret }) sv.research[id] = 1;
+            foreach (int id in new[] { Research.Support, Research.Legs, Research.Shipyard, Research.Tier4, Research.Tier5, Research.Mortar, Research.Lance, Research.SpecialTurret, Research.AdvTurret, Research.SupportBlock }) sv.research[id] = 1;
             for (int i = 0; i < sv.stock.Length; i++) { sv.stock[i] = 5000; sv.loadout[i] = 400; }
             gm.SelectResearch(Research.Tier4);
             gm.ShowResearch();
@@ -332,6 +332,24 @@ namespace AbyssDefense
             yield return Shot("30_turret_panel");
             Note($"turrets: built {turrets.Count} (expect 7), tap selects turret {picked} (expect True), ammo {rapid.Ammo.name} (expect 철갑탄), target mode {rapid.mode} (expect Strongest)");
             play.Cancel();
+
+            // 지원 건물 셋과 부서진 자리(자동 재건 대기)
+            BlockDef[] sdefs = { Content.MendTower, Content.Amplifier, Content.ShieldGen };
+            var supports = new System.Collections.Generic.List<Building>();
+            for (int y = (int)rapid.Cy + 2; y < s30.world.H && supports.Count < sdefs.Length; y += 3)
+                for (int x = 2; x < s30.world.W - 3 && supports.Count < sdefs.Length; x += 3)
+                    if (s30.Place(sdefs[supports.Count], x, y) == PlaceResult.Ok) supports.Add(s30.world.BuildAt(x, y));
+            gm.SetSpeed(8);
+            while (supports.Exists(sb => !sb.Built)) yield return null;
+            gm.SetSpeed(1);
+            var genB = supports[2] as SupportBuilding;
+            turrets[1].health = 0;
+            yield return new WaitForSeconds(0.3f);
+            Camera.main.transform.position = new Vector3(supports[1].Cx, supports[1].Cy + 2, -10);
+            yield return Shot("31_support_blocks");
+            Note($"support blocks: built {supports.Count} (expect 3), shield charging {genB.shieldHp > 0} (expect True), auto rebuild {s30.autoRebuild} (expect True), ruins waiting {s30.ruins.Count} (expect 1)");
+            gm.ToggleAutoRebuild();
+            Note($"auto rebuild off: {!s30.autoRebuild} (expect True), ruins {s30.ruins.Count} (expect 0)");
             gm.Retreat();
 
             // 깊은 지역 전투
