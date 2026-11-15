@@ -29,6 +29,7 @@ namespace AbyssDefense
         public int storageLv = 1;                       // 창고 단계
         public int[] loadout = { 400, 100, 0, 0, 0, 0, 0 };   // 출격할 때 가져갈 양 (마지막 설정)
         public double lastTime;                         // 생산을 마지막으로 정산한 시각 (초)
+        public int difficulty = 1;                      // 난이도 (0 쉬움, 1 보통, 2 어려움). 지역 정보 창에서 바꾼다
         public RunSave run = new RunSave();             // 진행 중인 지역 (없으면 active = false)
     }
 
@@ -39,6 +40,7 @@ namespace AbyssDefense
         public bool active;
         public int rules;                               // 그 판을 시작할 때의 규칙 지문. 달라졌으면 이어할 수 없다
         public int abyss, region;
+        public int difficulty = 1;
         public int[] taken = new int[0];                // 가져간 자원
         public int[] research = new int[0];             // 출격할 때의 연구 단계
         public int tick;                                // 마지막으로 저장한 틱
@@ -189,6 +191,7 @@ namespace AbyssDefense
             if (save.refOn == null || save.refOn.Length != rn) { save.refOn = new bool[rn]; for (int i = 0; i < rn; i++) save.refOn[i] = true; }
             save.storageLv = Mathf.Clamp(save.storageLv, 1, BaseRules.MaxStorageLevel);
             save.version = 3;
+            save.difficulty = Mathf.Clamp(save.difficulty, 0, 2);
             if (save.run == null) save.run = new RunSave();
             var run = save.run;
             if (run.active && (run.rules != Sim.Sim.RulesFingerprint() || run.cmds == null || run.taken == null || run.taken.Length != n
@@ -386,14 +389,18 @@ namespace AbyssDefense
             return screen;
         }
 
-        public void Toast(string msg)
+        public void Toast(string msg, float seconds = 2.4f)
         {
             if (toastText == null) return;
             toastText.text = msg;
             var go = toastText.transform.parent.gameObject;
+            // 긴 알림은 두 줄로: 판을 키우고 글씨를 줄인다
+            bool tall = msg.Length > 34;
+            ((RectTransform)go.transform).sizeDelta = new Vector2(tall ? 1000 : 900, tall ? 124 : 76);
+            toastText.fontSize = tall ? 26 : 30;
             go.SetActive(true);
             go.transform.SetAsLastSibling();
-            toastUntil = Time.unscaledTime + 2.4f;
+            toastUntil = Time.unscaledTime + seconds;
         }
 
         // ───────── 지역 한 판 ─────────
@@ -411,10 +418,11 @@ namespace AbyssDefense
                 Taken[i] = LoadoutAmount(i);
                 save.stock[i] -= Taken[i];
             }
-            sim = new Sim.Sim(abyss, region, Taken, Research.Mods(save.research));
-            save.run = new RunSave { active = true, rules = Sim.Sim.RulesFingerprint(), abyss = abyss, region = region, taken = (int[])Taken.Clone(), research = (int[])save.research.Clone() };
+            sim = new Sim.Sim(abyss, region, Taken, Research.Mods(save.research), save.difficulty);
+            save.run = new RunSave { active = true, rules = Sim.Sim.RulesFingerprint(), abyss = abyss, region = region, difficulty = save.difficulty, taken = (int[])Taken.Clone(), research = (int[])save.research.Clone() };
             Save();
             EnterPlay();
+            if (sim.rules.hazard != Hazard.None) Toast($"{sim.abyss.hazardName}: {sim.abyss.hazardDesc}", 6f);
         }
 
         void EnterPlay()
@@ -453,7 +461,7 @@ namespace AbyssDefense
             var fill = Ui.Panel(back.transform, Primary, true, "Fill").Rt();
             fill.anchorMin = Vector2.zero; fill.offsetMin = new Vector2(4, 4); fill.offsetMax = new Vector2(-4, -4);
 
-            var s = new Sim.Sim(run.abyss, run.region, Taken, Research.Mods(run.research));
+            var s = new Sim.Sim(run.abyss, run.region, Taken, Research.Mods(run.research), run.difficulty);
             var cmds = new List<SimCommand>(run.cmds);
             int next = 0;
             var watch = new System.Diagnostics.Stopwatch();

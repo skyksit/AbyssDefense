@@ -421,6 +421,38 @@ namespace AbyssDefense
             gm.Retreat();
             Note($"after retreat: can resume {gm.CanResume} (expect False)");
 
+            // 심연 규칙: 잿불의 용암 틈, 서리의 눈보라. 난이도
+            for (int i = 0; i < sv.stock.Length; i++) { sv.stock[i] = 5000; sv.loadout[i] = 400; }
+            sv.difficulty = 2;
+            gm.ShowRegionMap(0);
+            gm.ShowRegionSheet(0, 30);
+            yield return Shot("39_region_sheet_hard");
+            gm.StartRegion(0, 30);
+            play = FindAnyObjectByType<PlayController>();
+            var hs = gm.sim;
+            int hazards = 0, firstHz = -1;
+            for (int i = 0; i < hs.world.tiles.Length; i++) if (hs.world.tiles[i].hazard) { hazards++; if (firstHz < 0 && i / hs.world.W > hs.Core.y + 8) firstHz = i; }
+            if (firstHz < 0) firstHz = hs.world.Idx((int)hs.Core.Cx, hs.Core.y + 10);
+            Camera.main.transform.position = new Vector3(firstHz % hs.world.W + 0.5f, firstHz / hs.world.W + 2.5f, -10);
+            var onHz = hs.CanPlace(Content.Wall, firstHz % hs.world.W, firstHz / hs.world.W, false);
+            yield return new WaitForSeconds(0.3f);
+            yield return Shot("40_lava");
+            Note($"hazards: ember region 30 hard, hazard tiles {hazards} (expect > 0), build on hazard {onHz} (expect Hazard), difficulty {hs.rules.difficulty} (expect 2), enemy health x{hs.rules.enemyHealthMul / RegionRules.For(0, 30).enemyHealthMul:0.00} (expect 1.40)");
+            gm.Retreat();
+            sv.difficulty = 1;
+            sv.abysses[1].cleared = 29;
+            for (int i = 0; i < sv.stock.Length; i++) { sv.stock[i] = 5000; sv.loadout[i] = 400; }
+            gm.StartRegion(1, 30);
+            var fs = gm.sim;
+            fs.waveCountdown = 60 * 600;
+            gm.SetSpeed(24);
+            while (!fs.Blizzard && fs.state == SimState.Playing) yield return null;
+            gm.SetSpeed(1);
+            yield return new WaitForSeconds(0.3f);
+            yield return Shot("41_blizzard");
+            Note($"blizzard: frost region 30 blowing {fs.Blizzard} (expect True), left {fs.blizzardLeft / 60}s (expect about 19)");
+            gm.Retreat();
+
             File.WriteAllText(Path.Combine(dir, "_done.txt"), "errors " + errors);
             Application.Quit();
         }

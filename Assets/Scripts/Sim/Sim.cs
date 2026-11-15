@@ -63,7 +63,7 @@ namespace AbyssDefense.Sim
     }
 
     public enum SimState { Playing, Won, Lost }
-    public enum PlaceResult { Ok, OutOfBounds, Blocked, NoResources, NearSpawn, Locked, NeedsWater }
+    public enum PlaceResult { Ok, OutOfBounds, Blocked, NoResources, NearSpawn, Locked, NeedsWater, Hazard }
 
     /// 지역 한 판의 시뮬레이션. 화면 없이 Tick() 만으로 돈다.
     public sealed partial class Sim
@@ -97,12 +97,13 @@ namespace AbyssDefense.Sim
         int serial;
 
         /// loadout = 기지에서 가져온 자원 [철광, 황석, 심연 결정]
-        public Sim(int abyssId, int region, int[] loadout = null, SimMods mods = null)
+        public Sim(int abyssId, int region, int[] loadout = null, SimMods mods = null, int difficulty = 1)
         {
-            rules = RegionRules.For(abyssId, region);
+            rules = RegionRules.For(abyssId, region, difficulty);
             abyss = Content.Abysses[abyssId];
             world = MapGen.Generate(rules, abyss);
             MakeLakes();
+            MakeHazards();
             if (mods != null) world.mods = mods;
             world.core.health = world.core.maxHealth = Content.Core.health * world.mods.coreHealthMul;
             field = new FlowField(world);
@@ -141,6 +142,7 @@ namespace AbyssDefense.Sim
                     var t = world.At(x + dx, y + dy);
                     if (t == null) return PlaceResult.OutOfBounds;
                     if (t.wall || t.build != null) return PlaceResult.Blocked;
+                    if (t.hazard) return PlaceResult.Hazard;
                     foreach (int s in world.spawns)
                     {
                         int sx = s % world.W, sy = s / world.W;
@@ -231,6 +233,7 @@ namespace AbyssDefense.Sim
                 if (pending[i].tick <= tick) { Spawn(pending[i].def, pending[i].tile, pending[i].group); pending.RemoveAt(i); }
 
             if (fieldDirty) { field.Compute(); fieldDirty = false; }
+            UpdateWeather();
 
             var bs = world.buildings;
             Construct();
@@ -401,10 +404,12 @@ namespace AbyssDefense.Sim
             else if (e.def.barrierRegen > 0 && e.barrier < e.barrierMax)
                 e.barrier = Math.Min(e.barrierMax, e.barrier + e.def.barrierRegen * rules.enemyHealthMul / TicksPerSecond);
             if (e.def.heal > 0 && (tick + e.serial) % 15 == 0) HealEnemies(e);
+            if (rules.hazard != Hazard.None && !e.def.flying && (tick + e.serial) % 15 == 0) { HazardEnemy(e); if (e.dead) return; }
             e.vx = e.vy = 0;
             var core = Core;
             if (core == null) return;
             float speed = e.def.speed * abyss.enemySpeedMul * (e.elite ? EliteSpeed : 1f);
+            if (e.def.flying && Blizzard) speed *= BlizzardFly;
             if (e.slowTicks > 0) { e.slowTicks--; speed *= e.slowMul; }
 
             // 손이 닿는 곳에 아군 유닛이 있으면 멈춰서 그 유닛부터 친다
@@ -541,7 +546,7 @@ namespace AbyssDefense.Sim
             if (b.def.enemy)
             {
                 // 적 건물: 전리품이 들어오고, 적 핵이었다면 그 출현 지점이 사라진다
-                float bm = abyss.bountyMul * world.mods.bountyMul;
+                float bm = abyss.bountyMul * world.mods.bountyMul * rules.bountyMul;
                 foreach (var s in b.def.bounty)
                 {
                     int n = Math.Max(1, (int)Math.Round(s.amount * bm));
@@ -914,7 +919,7 @@ namespace AbyssDefense.Sim
             kills++;
             if (e.def.splitInto != null) SpawnNear(e.def.splitInto, e.x, e.y, e.def.splitCount);
             // 전리품은 핵으로 바로 들어온다
-            float bm = abyss.bountyMul * world.mods.bountyMul * (e.elite ? EliteBounty : 1f);
+            float bm = abyss.bountyMul * world.mods.bountyMul * rules.bountyMul * (e.elite ? EliteBounty : 1f);
             foreach (var s in e.def.bounty)
             {
                 int n = Math.Max(1, (int)Math.Round(s.amount * bm));

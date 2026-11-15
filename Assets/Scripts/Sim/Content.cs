@@ -175,10 +175,15 @@ namespace AbyssDefense.Sim
         public bool HitsAir => !noAir && (flying || siege || boss);
     }
 
+    /// 심연마다 다른 규칙 (지역 5 부터)
+    public enum Hazard { None, Lava, Acid, Blizzard }
+
     public sealed class AbyssDef
     {
         public int id;
         public string key, name, desc;
+        public Hazard hazard;
+        public string hazardName, hazardDesc;
         public float enemyHealthMul = 1, enemySpeedMul = 1, enemyCountMul = 1, bountyMul = 1;
         public uint floorColor, wallColor, accent;
     }
@@ -1301,18 +1306,21 @@ namespace AbyssDefense.Sim
         {
             new AbyssDef
             {
-                key = "ember", name = "잿불 심연", desc = "타다 남은 재가 흩날리는 균형 잡힌 심연.",
+                key = "ember", name = "잿불 심연", desc = "타다 남은 재가 흩날리는 균형 잡힌 심연. 지역 5 부터 용암 틈이 있다.",
+                hazard = Hazard.Lava, hazardName = "용암 틈", hazardDesc = "용암 틈 위에 선 지상의 적과 유닛은 초마다 최대 체력의 2% 를 잃습니다 (보스는 1%). 그 위에는 지을 수 없습니다.",
                 floorColor = 0x3A2E2B, wallColor = 0x1C1514, accent = 0xF4A261,
             },
             new AbyssDef
             {
-                key = "frost", name = "서리 심연", desc = "적은 느리지만 단단하고, 전리품이 적다.",
+                key = "frost", name = "서리 심연", desc = "적은 느리지만 단단하고, 전리품이 적다. 지역 5 부터 눈보라가 분다.",
+                hazard = Hazard.Blizzard, hazardName = "눈보라", hazardDesc = "75초마다 20초 동안 눈보라가 붑니다. 포탑과 유닛이 25% 느리게 쏘고, 비행체는 40% 느려집니다.",
                 enemyHealthMul = 1.45f, enemySpeedMul = 0.8f, enemyCountMul = 0.9f, bountyMul = 0.85f,
                 floorColor = 0x2B3A4A, wallColor = 0x131C26, accent = 0x90E0EF,
             },
             new AbyssDef
             {
-                key = "mire", name = "독늪 심연", desc = "적이 빠르게 떼로 몰려오지만 전리품이 많다.",
+                key = "mire", name = "독늪 심연", desc = "적이 빠르게 떼로 몰려오지만 전리품이 많다. 지역 5 부터 산성 웅덩이가 있다.",
+                hazard = Hazard.Acid, hazardName = "산성 웅덩이", hazardDesc = "산성 웅덩이 위에 선 지상의 적과 유닛은 방어력이 절반이 됩니다. 그 위에는 지을 수 없습니다.",
                 enemyHealthMul = 0.8f, enemySpeedMul = 1.25f, enemyCountMul = 1.4f, bountyMul = 1.15f,
                 floorColor = 0x2F3B2A, wallColor = 0x161D13, accent = 0xB5E48C,
             },

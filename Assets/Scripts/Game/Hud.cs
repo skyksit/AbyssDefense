@@ -58,6 +58,8 @@ namespace AbyssDefense
         Color32[] miniBase, miniPx;
         Image miniFrame;
         float miniTimer, coreAlertUntil, lastCoreHp;
+        Image blizzardTint;
+        int lastBlizzardIn, lastBlizzardLeft;
 
         // 포탑을 탭하면 뜨는 창: 넣을 탄, 겨눌 적
         const int AmmoButtons = 4;
@@ -73,6 +75,13 @@ namespace AbyssDefense
         {
             var root = NewScreen("Hud", null, HudBottomPx + 24);
             slots.Clear();
+
+            // 눈보라가 부는 동안 화면 전체에 엷게 깔리는 흰 막
+            blizzardTint = Ui.Panel(root, new Color(0.82f, 0.92f, 1f, 0.16f), false, "Blizzard");
+            blizzardTint.raycastTarget = false;
+            blizzardTint.Rt().Fill();
+            blizzardTint.gameObject.SetActive(false);
+            lastBlizzardIn = sim.blizzardIn; lastBlizzardLeft = sim.blizzardLeft;
 
             // ── 위: 핵에 있는 자원 · 핵 체력 · 웨이브 ──
             var top = Ui.Panel(root, Ui.PanelCol);
@@ -161,7 +170,8 @@ namespace AbyssDefense
             miniBase = new Color32[sim.world.W * sim.world.H];
             miniPx = new Color32[miniBase.Length];
             Color32 mFloor = Art.C(sim.abyss.floorColor), mWall = Art.C(sim.abyss.wallColor), mWater = new Color32(40, 90, 150, 255);
-            for (int i = 0; i < miniBase.Length; i++) { var mt = sim.world.tiles[i]; miniBase[i] = mt.water ? mWater : mt.wall ? mWall : mFloor; }
+            Color32 mHazard = sim.rules.hazard == Hazard.Lava ? new Color32(190, 70, 25, 255) : new Color32(110, 150, 40, 255);
+            for (int i = 0; i < miniBase.Length; i++) { var mt = sim.world.tiles[i]; miniBase[i] = mt.water ? mWater : mt.wall ? mWall : mt.hazard ? mHazard : mFloor; }
             miniTimer = 0; lastCoreHp = sim.Core.health; coreAlertUntil = 0;
 
             // ── 아래: 설명 줄 · 옆으로 넘기는 건설 줄 + 철거 ──
@@ -343,6 +353,17 @@ namespace AbyssDefense
                 bossFill.anchorMax = new Vector2(Mathf.Max(0.01f, Mathf.Clamp01(hp / max)), 1);
                 bossText.text = (n > 1 ? $"{name} ×{n}" : name) + $"  {Mathf.CeilToInt(hp):N0}";
             }
+        }
+
+        /// 서리 심연의 눈보라: 10초 전에 알리고, 부는 동안 화면에 흰 막을 깐다
+        void UpdateWeather()
+        {
+            if (sim.rules.hazard != Hazard.Blizzard) return;
+            if (blizzardTint.gameObject.activeSelf != sim.Blizzard) blizzardTint.gameObject.SetActive(sim.Blizzard);
+            if (sim.blizzardIn <= Sim.Sim.BlizzardWarn && lastBlizzardIn > Sim.Sim.BlizzardWarn && !sim.Blizzard) Toast("10초 뒤 눈보라가 붑니다");
+            if (sim.blizzardLeft > 0 && lastBlizzardLeft == 0) Toast("눈보라: 포탑과 유닛이 느리게 쏘고 비행체가 느려집니다 (20초)");
+            if (sim.blizzardLeft == 0 && lastBlizzardLeft > 0) Toast("눈보라가 그쳤습니다");
+            lastBlizzardIn = sim.blizzardIn; lastBlizzardLeft = sim.blizzardLeft;
         }
 
         /// 미니맵: 지형 위에 건물·적·유닛을 점으로. 초당 다섯 번 다시 그린다. 핵이 맞으면 테두리가 붉어진다
@@ -531,6 +552,7 @@ namespace AbyssDefense
             UpdateTurretPanel();
             UpdatePreview();
             UpdateMinimap();
+            UpdateWeather();
 
             if (infoOverride != null && Time.unscaledTime < infoUntil && play.Selected == null && !play.RemoveMode)
             {

@@ -139,7 +139,7 @@ namespace AbyssDefense.Sim
                 foreach (var e in enemies) { Mix(e.def.id); Mix(e.x); Mix(e.y); Mix(e.health); Mix(e.barrier); }
                 foreach (var u in units) { Mix(u.def.id); Mix(u.x); Mix(u.y); Mix(u.health); }
                 foreach (var bl in bullets) { Mix(bl.x); Mix(bl.y); }
-                Mix(mines.Count); Mix(ruins.Count); Mix(commandX); Mix(commandY);
+                Mix(mines.Count); Mix(ruins.Count); Mix(commandX); Mix(commandY); Mix(blizzardLeft); Mix(blizzardIn);
                 return h;
             }
         }
@@ -179,7 +179,7 @@ namespace AbyssDefense.Sim
                     foreach (int reg in new[] { 1, 15, 40, 100 })
                     {
                         var r = RegionRules.For(a, reg);
-                        Mix(r.mapW); Mix(r.mapH); Mix(r.winWave); Mix(r.waveTicks); Mix(r.firstWaveTicks); Mix(r.enemyHealthMul); Mix(r.enemyDamageMul); Mix(r.enemyArmorMul);
+                        Mix((int)r.hazard); Mix(r.mapW); Mix(r.mapH); Mix(r.winWave); Mix(r.waveTicks); Mix(r.firstWaveTicks); Mix(r.enemyHealthMul); Mix(r.enemyDamageMul); Mix(r.enemyArmorMul);
                         foreach (var g in WaveGen.Generate(r)) { Mix(g.enemy.id); Mix(g.begin); Mix(g.spacing); Mix(g.amount); Mix(g.scaling); Mix(g.max); Mix(g.shields); Mix(g.shieldScaling); }
                     }
                 return h;

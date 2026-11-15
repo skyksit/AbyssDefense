@@ -18,6 +18,9 @@ namespace AbyssDefense.Sim
         public float late;               // 후반 보정의 바탕: 지역 10 까지 0, 그 뒤로 고르게 커져 지역 100 에서 1
         public bool hasBoss;             // 10의 배수 지역: 마지막 웨이브의 보스가 심연 군주다
         public int[] startItems;
+        public Hazard hazard;            // 이 지역에 적용되는 심연 규칙 (지역 5 부터)
+        public int difficulty = 1;       // 0 쉬움, 1 보통, 2 어려움
+        public float countMul = 1, bountyMul = 1;   // 난이도에 따른 적의 수·전리품 배수
         public bool assault;             // 적 거점 지역: 웨이브는 끝없이 오고, 적 핵을 모두 부숴야 점령한다
 
         /// 지역 15 부터 5 로 끝나는 지역 (15, 25, … 95)
@@ -35,8 +38,14 @@ namespace AbyssDefense.Sim
             return t;
         }
 
-        public static RegionRules For(int abyssId, int region)
+        public const int HazardFromRegion = 5;
+        public static readonly string[] DifficultyNames = { "쉬움", "보통", "어려움" };
+        // 난이도: 적 체력, 적의 수, 웨이브 간격, 전리품
+        static readonly float[] DiffHealth = { 0.7f, 1f, 1.4f }, DiffCount = { 0.8f, 1f, 1.2f }, DiffWave = { 1.25f, 1f, 0.85f }, DiffBounty = { 0.8f, 1f, 1.3f };
+
+        public static RegionRules For(int abyssId, int region, int difficulty = 1)
         {
+            difficulty = Math.Max(0, Math.Min(2, difficulty));
             var a = Content.Abysses[abyssId];
             float d = (region - 1) / (float)(Content.RegionCount - 1);
             var r = new RegionRules
@@ -58,6 +67,12 @@ namespace AbyssDefense.Sim
                 startItems = new int[Content.Items.Length],
             };
             r.startItems[Content.Iron] = 150;   // 빈손으로 와도 포탑 몇 개는 지을 수 있는 기본 보급
+            r.hazard = region >= HazardFromRegion ? a.hazard : Hazard.None;
+            r.difficulty = difficulty;
+            r.enemyHealthMul *= DiffHealth[difficulty];
+            r.countMul = DiffCount[difficulty];
+            r.bountyMul = DiffBounty[difficulty];
+            r.waveTicks = (int)(r.waveTicks * DiffWave[difficulty]);
             return r;
         }
     }
@@ -93,7 +108,7 @@ namespace AbyssDefense.Sim
         {
             var a = Content.Abysses[r.abyss];
             var rng = new Rng(r.seed * 31 + 7);
-            float d = r.depth, cm = a.enemyCountMul * (r.assault ? 1.3f : 1f);
+            float d = r.depth, cm = a.enemyCountMul * r.countMul * (r.assault ? 1.3f : 1f);
             var g = new List<WaveGroup>();
 
             g.Add(new WaveGroup { enemy = Content.Walker, amount = Count(4 + d * 8, cm), scaling = 1.5f });

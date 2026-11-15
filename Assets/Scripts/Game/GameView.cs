@@ -146,6 +146,14 @@ namespace AbyssDefense
                     }
                     Q(x, y, 1, 1, Color.Lerp(floor, floor * 1.25f, v));
                     if (((x + y) & 1) == 0) Q(x + 0.04f, y + 0.04f, 0.92f, 0.92f, Color.Lerp(floor, floor * 1.25f, v) * 1.06f);
+                    if (t.hazard)
+                    {
+                        // 위험 바닥: 용암 틈은 붉은 바탕에 밝은 금, 산성 웅덩이는 탁한 연두 바탕에 밝은 방울
+                        bool lava = sim.rules.hazard == Hazard.Lava;
+                        Q(x, y, 1, 1, lava ? new Color(0.55f, 0.13f, 0.05f, 0.85f) : new Color(0.25f, 0.42f, 0.08f, 0.85f));
+                        if (lava) Q(x + 0.12f + 0.3f * v, y + 0.2f, 0.5f, 0.13f, new Color(1f, 0.62f, 0.18f, 0.9f));
+                        else Q(x + 0.2f + 0.4f * v, y + 0.25f + 0.3f * (1 - v), 0.2f, 0.2f, new Color(0.75f, 0.95f, 0.35f, 0.9f));
+                    }
                 }
 
             var mesh = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };

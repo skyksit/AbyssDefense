@@ -416,7 +416,7 @@ namespace AbyssDefense
             if (sheet != null) Destroy(sheet.gameObject);
             Accrue();
             var a = Content.Abysses[abyss];
-            var r = RegionRules.For(abyss, region);
+            var r = RegionRules.For(abyss, region, save.difficulty);
             bool unlocked = IsUnlocked(abyss, region);
             bool first = region > save.abysses[abyss].cleared;
             var accent = Art.C(a.accent);
@@ -433,7 +433,11 @@ namespace AbyssDefense
             line.Rt().TopBar(0, 6);
 
             var title = Ui.Label(sheet, $"지역 {region}" + (r.hasBoss ? "  ·  심연 군주" : r.assault ? "  ·  적 거점" : ""), 58, r.hasBoss ? Ui.Gold : r.assault ? Ui.Bad : Ui.TextCol, TextAnchor.UpperLeft, true);
-            title.rectTransform.Fill(40, 0, 180, 30);
+            title.rectTransform.Fill(40, 0, 420, 30);
+            // 난이도: 누를 때마다 쉬움 → 보통 → 어려움 (적 체력·수·웨이브 간격·전리품이 달라진다)
+            Color[] dcol = { new Color(0.2f, 0.42f, 0.3f), Ui.Card, new Color(0.55f, 0.22f, 0.25f) };
+            var diff = Ui.Btn(sheet, "난이도 " + RegionRules.DifficultyNames[save.difficulty], 30, dcol[save.difficulty], () => { save.difficulty = (save.difficulty + 1) % 3; Save(); ShowRegionSheet(abyss, region); });
+            diff.Rt().At(new Vector2(1, 1), new Vector2(1, 1), -184, -28, 220, 76);
             var close = Ui.Btn(sheet, "닫기", 30, Ui.Card, () => { if (sheet != null) Destroy(sheet.gameObject); sheet = null; });
             close.Rt().At(new Vector2(1, 1), new Vector2(1, 1), -30, -28, 140, 76);
 
@@ -445,6 +449,11 @@ namespace AbyssDefense
             var info = Ui.Label(sheet, body, 29, Ui.Dim, TextAnchor.UpperLeft);
             info.lineSpacing = 1.3f;
             info.rectTransform.Fill(40, 0, 40, 118);
+            if (r.hazard != Hazard.None)
+            {
+                var hz = Ui.Label(sheet, a.hazardName, 27, accent, TextAnchor.UpperRight, true);
+                hz.rectTransform.Fill(40, 0, 40, 118 + 40);
+            }
             // 나오는 적은 그림으로 한 줄에 (정예는 금색 점, 보호막은 하늘색 점). 이름과 능력은 도감에 있다
             for (int i = 0; i < groups.Count; i++)
             {

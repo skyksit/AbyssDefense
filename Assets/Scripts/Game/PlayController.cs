@@ -274,6 +274,7 @@ namespace AbyssDefense
                 case PlaceResult.NearSpawn: return sim.rules.assault ? $"적 핵에서 {Sim.Sim.EnemyCoreSafeRadius}칸 안에는 지을 수 없습니다. 유닛을 보내 부수세요" : "적 출현 지점 가까이에는 지을 수 없습니다";
                 case PlaceResult.Locked: return "기지에서 연구해야 지을 수 있습니다";
                 case PlaceResult.NeedsWater: return "조선소는 호수 바로 옆에만 지을 수 있습니다";
+                case PlaceResult.Hazard: return $"{sim.abyss.hazardName} 위에는 지을 수 없습니다";
                 default: return "그 자리에는 지을 수 없습니다";
             }
         }

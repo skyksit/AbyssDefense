@@ -72,6 +72,7 @@ static class Program
         Turrets();
         SupportBlocks();
         Enemies();
+        Hazards();
         Units();
         Assault();
         NewUnits();
@@ -709,6 +710,102 @@ static class Program
         // 웨이브 구성: 얕은 지역에는 없고 깊어질수록 종류가 늘어난다
         int Kinds(int region) { var ks = new HashSet<string>(); foreach (var g in WaveGen.Generate(RegionRules.For(0, region))) ks.Add(g.enemy.key + (g.elite ? "+" : "") + (g.shieldScaling > 0 ? "s" : "")); return ks.Count; }
         Check(Kinds(8) == 5 && Kinds(9) == 6 && Kinds(20) > Kinds(9) && Kinds(40) == 14, $"능력이 있는 적은 지역 9 부터 차례로 섞인다 (지역 8: {Kinds(8)}, 20: {Kinds(20)}, 40: {Kinds(40)}가지 무리)");
+    }
+
+    static void Hazards()
+    {
+        Console.WriteLine("심연 규칙 (용암 틈·산성 웅덩이·눈보라)과 난이도");
+
+        // 위험 바닥: 지역 5 부터, 핵과 출현 지점 둘레는 비워 둔다
+        int Count(Sim s, out bool clear)
+        {
+            int n = 0; clear = true;
+            for (int i = 0; i < s.world.tiles.Length; i++)
+            {
+                var t = s.world.tiles[i];
+                if (!t.hazard) continue;
+                n++;
+                float x = i % s.world.W + 0.5f, y = i / s.world.W + 0.5f;
+                if (t.wall || t.water || s.Core.DistTo(x, y) < 5.5f) clear = false;
+                foreach (int sp in s.world.spawns) if (Math.Abs(sp % s.world.W + 0.5f - x) < 3.5f && Math.Abs(sp / s.world.W + 0.5f - y) < 3.5f) clear = false;
+            }
+            return n;
+        }
+        bool okAll = true; int minPct = 100, maxPct = 0, none = 0;
+        for (int a = 0; a < 3; a += 2)
+            for (int reg = 5; reg <= 100; reg += 5)
+            {
+                var s = new Sim(a, reg);
+                int floor = 0; foreach (var t in s.world.tiles) if (!t.wall) floor++;
+                int n = Count(s, out bool clear);
+                if (!clear) okAll = false;
+                if (n == 0) none++;
+                int pct = n * 100 / floor;
+                minPct = Math.Min(minPct, pct); maxPct = Math.Max(maxPct, pct);
+            }
+        Check(okAll && maxPct <= 25 && none <= 4, $"위험 바닥은 벽·물·핵 둘레·출현 지점 둘레를 피해 깔린다 (바닥의 {minPct}~{maxPct}%, 하나도 없는 맵 {none}/40)");
+        Check(Count(new Sim(0, 4), out _) == 0 && Count(new Sim(1, 30), out _) == 0 && RegionRules.For(1, 30).hazard == Hazard.Blizzard && RegionRules.For(1, 4).hazard == Hazard.None,
+            "지역 4 까지는 심연 규칙이 없고, 서리 심연에는 위험 바닥 대신 눈보라가 분다");
+
+        // 용암 틈
+        var lava = new Sim(0, 30, Full);
+        lava.waveCountdown = 1 << 28; lava.DisableCommander();
+        int hz = -1;
+        for (int i = 0; i < lava.world.tiles.Length && hz < 0; i++) if (lava.world.tiles[i].hazard) hz = i;
+        int hx = hz % lava.world.W, hy = hz / lava.world.W;
+        Check(lava.Place(Content.Wall, hx, hy) == PlaceResult.Hazard, "위험 바닥 위에는 지을 수 없다");
+        var onLava = Dummy(lava, Content.Walker, hx + 0.5f, hy + 0.5f, 1000);
+        var flyLava = Dummy(lava, Content.Flyer, hx + 0.5f, hy + 0.5f, 1000);
+        var bossLava = Dummy(lava, Content.Chief, hx + 0.5f, hy + 0.5f, 1000);
+        for (int i = 0; i < 60; i++) lava.Tick();
+        Check(Math.Abs(onLava.health - 980) < 0.01f && flyLava.health == 1000 && Math.Abs(bossLava.health - 990) < 0.01f,
+            $"용암 틈 위의 지상 적은 초마다 최대 체력의 2% 를 잃는다 (보스 1%, 비행체는 아니다: {onLava.health}, {bossLava.health})");
+
+        // 산성 웅덩이
+        var pool = new Sim(2, 30, Full);
+        pool.waveCountdown = 1 << 28; pool.DisableCommander();
+        hz = -1;
+        for (int i = 0; i < pool.world.tiles.Length && hz < 0; i++) if (pool.world.tiles[i].hazard) hz = i;
+        hx = hz % pool.world.W; hy = hz / pool.world.W;
+        var inPool = Dummy(pool, Content.Shell, hx + 0.5f, hy + 0.5f, 1000, 10);
+        for (int i = 0; i < 20; i++) pool.Tick();
+        bool halved = inPool.Armor == 5;
+        inPool.x = pool.Core.Cx; inPool.y = pool.Core.y + 5.5f;
+        for (int i = 0; i < 40; i++) pool.Tick();
+        Check(halved && inPool.Armor == 10, "산성 웅덩이 위의 적은 방어력이 절반이 되고, 벗어나면 돌아온다");
+
+        // 눈보라
+        var snow = new Sim(1, 30, Full, Mods(Research.Mortar, 1));
+        snow.waveCountdown = 1 << 28; snow.DisableCommander();
+        int tx = (int)snow.Core.Cx, ty = snow.Core.y + 5;
+        snow.Place(Content.RapidTurret, tx, ty);
+        Finish(snow);
+        var tb = (TurretBuilding)snow.world.BuildAt(tx, ty);
+        Dummy(snow, Content.Walker, tx + 3.5f, ty + 0.5f);
+        int Shots(int ticks) { int n = 0, last = tb.reload; for (int i = 0; i < ticks; i++) { snow.Tick(); if (tb.reload > last) n++; last = tb.reload; } return n; }
+        while (snow.blizzardIn > 610) snow.Tick();
+        int calm = Shots(600);
+        bool before = !snow.Blizzard;
+        while (!snow.Blizzard) snow.Tick();
+        var flyer = new Enemy { def = Content.Flyer, x = tx - 6f, y = ty + 14f, health = 90000, maxHealth = 90000, cooldown = 1 << 20 };
+        snow.enemies.Add(flyer);
+        float fy0 = flyer.y, fx0 = flyer.x;
+        snow.Tick();
+        float step = (float)Math.Sqrt((flyer.x - fx0) * (flyer.x - fx0) + (flyer.y - fy0) * (flyer.y - fy0));
+        snow.enemies.Remove(flyer);
+        int storm = Shots(600);
+        int left = snow.blizzardLeft;
+        for (int i = 0; i < left; i++) snow.Tick();
+        Check(before && calm == 30 && (storm == 22 || storm == 23) && Math.Abs(step - Content.Flyer.speed * Content.Abysses[1].enemySpeedMul * Sim.BlizzardFly) < 0.0001f && !snow.Blizzard && snow.blizzardIn == Sim.BlizzardEvery,
+            $"눈보라: 75초마다 20초, 포탑이 25% 느리게 쏘고 (10초에 {calm} → {storm}발) 비행체가 40% 느려진다");
+
+        // 난이도
+        var easy = RegionRules.For(0, 20, 0); var normal = RegionRules.For(0, 20); var hard = RegionRules.For(0, 20, 2);
+        int Total(RegionRules r) { int n = 0; foreach (var g in WaveGen.Generate(r)) for (int w = 1; w <= r.winWave; w++) n += g.GetSpawned(w); return n; }
+        Check(Math.Abs(easy.enemyHealthMul / normal.enemyHealthMul - 0.7f) < 0.001f && Math.Abs(hard.enemyHealthMul / normal.enemyHealthMul - 1.4f) < 0.001f
+            && easy.waveTicks > normal.waveTicks && hard.waveTicks < normal.waveTicks && Total(easy) < Total(normal) && Total(normal) < Total(hard)
+            && new Sim(0, 20, Full, null, 2).rules.difficulty == 2 && new Sim(0, 20, Full).rules.difficulty == 1,
+            $"난이도: 쉬움은 적 체력 ×0.7·적 {Total(easy)}마리, 보통 {Total(normal)}마리, 어려움은 ×1.4·{Total(hard)}마리");
     }
 
     static void Units()
@@ -1759,7 +1856,7 @@ static class Program
             for (int x = 0; x < w.W; x++)
             {
                 var t = w.tiles[w.Idx(x, y)];
-                char c = t.wall ? '#' : '.';
+                char c = t.water ? '~' : t.wall ? '#' : t.hazard ? ':' : '.';   // ~ 호수, : 위험 바닥
                 if (w.spawns.Contains(w.Idx(x, y))) c = 'X';
                 var b = t.build;
                 if (b is CoreBuilding) c = 'C';

@@ -8,6 +8,7 @@ namespace AbyssDefense.Sim
     {
         public bool wall;
         public bool water;          // 호수: 지상에서는 벽처럼 막혀 있고(wall 도 true) 해상 유닛만 다닌다
+        public bool hazard;         // 위험 바닥 (용암 틈·산성 웅덩이): 걸을 수는 있지만 지을 수 없다
         public Building build;      // 여러 칸짜리 건물은 덮은 칸 모두가 같은 건물을 가리킨다
         public byte shade;          // 그림용 무작위 값
     }
@@ -256,7 +257,7 @@ namespace AbyssDefense.Sim
 
         public override void Update(Sim sim)
         {
-            if (reload > 0) reload--;
+            if (reload > 0 && !sim.BlizzardStall) reload--;
             if (reload > 0 && sim.tick - boostTick <= 1 && sim.tick % 3 == 0) reload--;   // 증폭탑 곁: 3틱에 한 번 한 틱 더
 
             if (--retarget <= 0 || target == null || target.dead || !InRange(target))

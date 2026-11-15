@@ -13,6 +13,7 @@ namespace AbyssDefense.Sim
         public int barrierWait;             // 보호막이 다시 차오르기까지 남은 틱
         public float aim;                // 그림용: 보고 있는 방향 (라디안)
         public int reload, retarget, hitFlash, serial;
+        public int acidTicks;            // 산성 웅덩이 위에 있었다: 남은 틱 동안 방어력이 절반
         public Enemy target;
         public Building tbuild;          // 겨누고 있는 적 건물 (적 거점 지역)
         public FactoryBuilding home;     // 태어난 공장. 그 공장의 집결 지점을 따른다
@@ -316,8 +317,10 @@ namespace AbyssDefense.Sim
         void UpdateUnit(Unit u)
         {
             if (u.dead) return;
-            if (u.reload > 0) u.reload--;
+            if (u.reload > 0 && !BlizzardStall) u.reload--;
             if (u.reload > 0 && (tick + u.serial) % 3 == 0 && Boosted(u)) u.reload--;
+            if (u.acidTicks > 0) u.acidTicks--;
+            if (rules.hazard != Hazard.None && u.carrier == null && !u.def.flying && !u.def.hover && !u.def.naval && (tick + u.serial) % 15 == 0) HazardUnit(u);
             if (u.hitFlash > 0) u.hitFlash--;
             if (u.def.regen > 0 && u.health < u.maxHealth) u.health = Math.Min(u.maxHealth, u.health + u.def.regen * world.mods.unitMul / 60f);
             if (u.barrier < u.maxBarrier)
@@ -924,6 +927,7 @@ namespace AbyssDefense.Sim
         void MoveUnit(Unit u, float tx, float ty)
         {
             float speed = u.def.speed;
+            if (u.def.flying && Blizzard) speed *= BlizzardFly;
             if (u.def.flying || u.def.legs) { StepUnit(u, tx, ty, speed); return; }   // 날거나 벽을 타 넘는다
             if (u.def.naval) { MoveNaval(u, tx, ty, speed); return; }
 
@@ -1023,7 +1027,7 @@ namespace AbyssDefense.Sim
         public void HurtUnit(Unit u, float dmg, uint color)
         {
             if (u.dead) return;
-            float hit = Armored(dmg * ShieldMul(u), u.def.armor);
+            float hit = Armored(dmg * ShieldMul(u), u.acidTicks > 0 ? u.def.armor * PoolArmor : u.def.armor);
             if (u.maxBarrier > 0)
             {
                 // 자기 보호막이 먼저 받는다. 맞으면 다시 차오르는 것이 미뤄진다
