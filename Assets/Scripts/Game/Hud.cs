@@ -5,6 +5,21 @@ using UnityEngine.UI;
 
 namespace AbyssDefense
 {
+    /// 미니맵을 누르거나 끌면 그 자리(0~1)를 알려 준다
+    public sealed class MiniClick : MonoBehaviour, UnityEngine.EventSystems.IPointerDownHandler, UnityEngine.EventSystems.IDragHandler
+    {
+        public System.Action<Vector2> on;
+        public void OnPointerDown(UnityEngine.EventSystems.PointerEventData e) { Report(e); }
+        public void OnDrag(UnityEngine.EventSystems.PointerEventData e) { Report(e); }
+        void Report(UnityEngine.EventSystems.PointerEventData e)
+        {
+            var rt = (RectTransform)transform;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rt, e.position, e.pressEventCamera, out var lp)) return;
+            var r = rt.rect;
+            on?.Invoke(new Vector2(Mathf.Clamp01((lp.x - r.xMin) / r.width), Mathf.Clamp01((lp.y - r.yMin) / r.height)));
+        }
+    }
+
     /// 지역 플레이 화면의 HUD: 위 상태 줄, 아래 건설 바, 공장 창, 결과 창
     public sealed partial class GameManager
     {
@@ -29,6 +44,20 @@ namespace AbyssDefense
         readonly Text[] prodText = new Text[ProductButtons];
         readonly Image[] prodBg = new Image[ProductButtons];
         Image stopBg, rallyBg;
+
+        // 다음 회차에 나올 적 (위 단추 줄 아래의 띠), 보스 체력 막대, 미니맵
+        const int PreviewSlots = 9;
+        GameObject previewStrip, bossBar;
+        Text previewLabel, bossNote, bossText;
+        RectTransform bossFill;
+        readonly Image[] previewIcon = new Image[PreviewSlots];
+        readonly Image[] previewDot = new Image[PreviewSlots];
+        readonly Text[] previewCount = new Text[PreviewSlots];
+        readonly List<WavePreview> preview = new List<WavePreview>();
+        Texture2D miniTex;
+        Color32[] miniBase, miniPx;
+        Image miniFrame;
+        float miniTimer, coreAlertUntil, lastCoreHp;
 
         // 포탑을 탭하면 뜨는 창: 넣을 탄, 겨눌 적
         const int AmmoButtons = 4;
@@ -72,7 +101,7 @@ namespace AbyssDefense
             // ── 위 줄 아래: 다음 웨이브 · 유닛 태세 · 일시정지 · 배속 · 후퇴 ──
             float by = -HudTopPx - 14;
             var dark = new Color(0.2f, 0.22f, 0.28f, 0.92f);
-            nextWaveBtn = Ui.Btn(root, "다음 웨이브 부르기", 27, new Color(0.55f, 0.22f, 0.25f, 0.95f), () => sim.CallNextWave());
+            nextWaveBtn = Ui.Btn(root, "다음 웨이브 부르기", 27, new Color(0.55f, 0.22f, 0.25f, 0.95f), () => sim.CmdCallWave());
             nextWaveBtn.Rt().At(new Vector2(0, 1), new Vector2(0, 1), 20, by, 290, 78);
             var bStance = Ui.Btn(root, "방어 태세", 23, dark, ToggleStance);
             bStance.Rt().At(new Vector2(0, 1), new Vector2(0, 1), 320, by, 300, 78);
@@ -87,6 +116,53 @@ namespace AbyssDefense
             var bPause = Ui.Btn(root, "멈춤", 30, dark, TogglePause);
             bPause.Rt().At(new Vector2(1, 1), new Vector2(1, 1), -280, by, 130, 78);
             pauseText = bPause.GetComponentInChildren<Text>();
+
+            // ── 그 아래: 다음 회차의 적 · 보스 체력 · 미니맵 ──
+            float sy = by - 78 - 8;
+            int mw = 200, mh = Mathf.Min(300, Mathf.RoundToInt(200f * sim.world.H / sim.world.W));
+            var strip = Ui.Panel(root, new Color(0, 0, 0, 0.5f), true, "NextWave");
+            strip.raycastTarget = false;
+            strip.Rt().At(new Vector2(0, 1), new Vector2(0, 1), 20, sy, 1040 - mw - 14, 62);
+            previewStrip = strip.gameObject;
+            previewLabel = Ui.Label(strip.transform, "다음", 25, Ui.Dim, TextAnchor.MiddleCenter, true);
+            previewLabel.rectTransform.At(new Vector2(0, 0.5f), new Vector2(0, 0.5f), 6, 0, 74, 56);
+            for (int i = 0; i < PreviewSlots; i++)
+            {
+                var slot = Ui.Node("Slot", strip.transform).At(new Vector2(0, 0.5f), new Vector2(0, 0.5f), 84 + i * 72, 0, 70, 56);
+                previewIcon[i] = Ui.Icon(slot, null);
+                previewIcon[i].Rt().At(new Vector2(0, 0.5f), new Vector2(0, 0.5f), 0, 0, 36, 36);
+                previewDot[i] = Ui.Icon(previewIcon[i].transform, Art.Get("fx_disc"));
+                previewDot[i].Rt().At(new Vector2(1, 1), new Vector2(0.5f, 0.5f), 0, 0, 13, 13);
+                previewCount[i] = Ui.Label(slot, "", 23, null, TextAnchor.MiddleLeft, true);
+                previewCount[i].rectTransform.Fill(38, 0, 0, 0);
+            }
+            bossNote = Ui.Label(strip.transform, "", 24, Ui.Gold, TextAnchor.MiddleRight, true);
+            bossNote.rectTransform.Fill(0, 0, 14, 0);
+
+            var bb = Ui.Panel(root, new Color(0, 0, 0, 0.7f), true, "Boss");
+            bb.raycastTarget = false;
+            bb.Rt().At(new Vector2(0, 1), new Vector2(0, 1), 20, sy - 62 - 8, 1040 - mw - 14, 46);
+            bossBar = bb.gameObject;
+            var bf = Ui.Panel(bb.transform, Art.C(Content.Boss.color), true, "Fill");
+            bf.raycastTarget = false;
+            bossFill = bf.Rt();
+            bossFill.anchorMin = Vector2.zero; bossFill.anchorMax = Vector2.one;
+            bossFill.offsetMin = new Vector2(3, 3); bossFill.offsetMax = new Vector2(-3, -3);
+            bossText = Ui.Label(bb.transform, "", 25, Color.white, TextAnchor.MiddleCenter, true);
+            bossBar.SetActive(false);
+
+            miniFrame = Ui.Panel(root, new Color(0, 0, 0, 0.8f), false, "Minimap");
+            miniFrame.Rt().At(new Vector2(1, 1), new Vector2(1, 1), -20, sy, mw + 8, mh + 8);
+            miniTex = new Texture2D(sim.world.W, sim.world.H, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            var raw = Ui.Node("Map", miniFrame.transform).gameObject.AddComponent<RawImage>();
+            raw.texture = miniTex;
+            raw.rectTransform.Fill(4, 4, 4, 4);
+            raw.gameObject.AddComponent<MiniClick>().on = uv => play.LookAt(uv.x * sim.world.W, uv.y * sim.world.H);
+            miniBase = new Color32[sim.world.W * sim.world.H];
+            miniPx = new Color32[miniBase.Length];
+            Color32 mFloor = Art.C(sim.abyss.floorColor), mWall = Art.C(sim.abyss.wallColor), mWater = new Color32(40, 90, 150, 255);
+            for (int i = 0; i < miniBase.Length; i++) { var mt = sim.world.tiles[i]; miniBase[i] = mt.water ? mWater : mt.wall ? mWall : mFloor; }
+            miniTimer = 0; lastCoreHp = sim.Core.health; coreAlertUntil = 0;
 
             // ── 아래: 설명 줄 · 옆으로 넘기는 건설 줄 + 철거 ──
             var bottom = Ui.Panel(root, Ui.PanelCol);
@@ -185,7 +261,7 @@ namespace AbyssDefense
         public void ToggleStance()
         {
             if (sim == null) return;
-            sim.stance = sim.stance == UnitStance.Defend ? UnitStance.Attack : UnitStance.Defend;
+            sim.CmdStance(sim.stance == UnitStance.Defend ? UnitStance.Attack : UnitStance.Defend);
             Toast(sim.stance == UnitStance.Defend ? "방어 태세: 유닛이 핵 옆 집결 지점으로 돌아와 핵을 지킵니다" : "공격 태세: 유닛이 적 출현 지점 앞으로 나가 싸웁니다");
         }
 
@@ -193,8 +269,7 @@ namespace AbyssDefense
         public void ToggleAutoRebuild()
         {
             if (sim == null) return;
-            sim.autoRebuild = !sim.autoRebuild;
-            if (!sim.autoRebuild) sim.ruins.Clear();
+            sim.CmdAutoRebuild(!sim.autoRebuild);
             Toast(sim.autoRebuild ? "자동 재건 켬: 적에게 부서진 건물을 10초 뒤 같은 자리에 다시 짓습니다 (비용은 그대로)" : "자동 재건 끔");
         }
 
@@ -209,7 +284,7 @@ namespace AbyssDefense
                 var u = f.def.units[k];
                 if (!sim.IsUnlocked(u)) { Toast($"{u.name}: 기지 연구소에서 '{Research.Defs[u.tech].name}'을 연구해야 합니다"); return; }
             }
-            f.product = k;
+            sim.CmdProduct(f, k);
         }
 
         /// 고른 포탑에 넣을 탄을 바꾼다. 장전해 둔 탄은 버린다
@@ -217,14 +292,91 @@ namespace AbyssDefense
         {
             var t = play != null ? play.Turret : null;
             if (t == null || k >= t.def.ammos.Length) return;
-            if (t.SetAmmo(k) && sim.Core.items[t.Ammo.item] <= 0) Toast($"{t.Ammo.name}: 핵에 {Content.Items[t.Ammo.item].name}이(가) 없습니다");
+            if (sim.CmdAmmo(t, k) && sim.Core.items[t.Ammo.item] <= 0) Toast($"{t.Ammo.name}: 핵에 {Content.Items[t.Ammo.item].name}이(가) 없습니다");
         }
 
         /// 고른 포탑이 겨눌 적의 기준을 바꾼다
         public void SetTargetMode(TargetMode m)
         {
             var t = play != null ? play.Turret : null;
-            if (t != null) t.mode = m;
+            if (t != null) sim.CmdMode(t, m);
+        }
+
+        /// 다음 회차의 적, 보스 예고, 보스 체력 막대
+        void UpdatePreview()
+        {
+            bool show = !sim.AllWavesSent && !ResultShown;
+            if (previewStrip.activeSelf != show) previewStrip.SetActive(show);
+            if (show)
+            {
+                sim.Preview(sim.wave + 1, preview);
+                bool bossNext = false;
+                for (int i = 0; i < PreviewSlots; i++)
+                {
+                    bool has = i < preview.Count;
+                    previewIcon[i].transform.parent.gameObject.SetActive(has);
+                    if (!has) continue;
+                    var pv = preview[i];
+                    bool more = i == PreviewSlots - 1 && preview.Count > PreviewSlots;   // 자리가 모자라면 마지막 칸에 남은 종류 수
+                    previewIcon[i].sprite = Art.Get("enemy_" + pv.def.key);
+                    previewIcon[i].enabled = !more;
+                    previewDot[i].enabled = !more && (pv.elite || pv.shield);
+                    previewDot[i].color = pv.elite ? Ui.Gold : new Color(0.45f, 0.85f, 1f);
+                    previewCount[i].text = more ? $"+{preview.Count - PreviewSlots + 1}종" : pv.count.ToString();
+                    previewCount[i].color = pv.def.boss ? Ui.Bad : Ui.TextCol;
+                    if (pv.def.boss) bossNext = true;
+                }
+                foreach (var pv in preview) if (pv.def.boss) bossNext = true;
+                int bossIn = bossNext ? 1 : sim.BossIn(3);
+                previewLabel.text = bossNext ? "보스!" : "다음";
+                previewLabel.color = bossNext ? Ui.Bad : Ui.Dim;
+                bossNote.text = bossIn >= 2 ? $"보스 {bossIn}회 뒤" : "";
+            }
+
+            float hp = 0, max = 0; string name = null; int n = 0;
+            foreach (var e in sim.enemies)
+                if (e.def.boss && !e.dead) { hp += e.health; max += e.maxHealth; n++; if (name == null) name = e.def.name; }
+            bool boss = n > 0 && !ResultShown;
+            if (bossBar.activeSelf != boss) bossBar.SetActive(boss);
+            if (boss)
+            {
+                bossFill.anchorMax = new Vector2(Mathf.Max(0.01f, Mathf.Clamp01(hp / max)), 1);
+                bossText.text = (n > 1 ? $"{name} ×{n}" : name) + $"  {Mathf.CeilToInt(hp):N0}";
+            }
+        }
+
+        /// 미니맵: 지형 위에 건물·적·유닛을 점으로. 초당 다섯 번 다시 그린다. 핵이 맞으면 테두리가 붉어진다
+        void UpdateMinimap()
+        {
+            var core = sim.Core;
+            if (core.health < lastCoreHp - 0.01f) coreAlertUntil = Time.unscaledTime + 0.8f;
+            lastCoreHp = core.health;
+            miniFrame.color = Time.unscaledTime < coreAlertUntil && Mathf.Repeat(Time.unscaledTime, 0.3f) < 0.15f ? new Color(1f, 0.2f, 0.2f, 0.95f) : new Color(0, 0, 0, 0.8f);
+            miniTimer -= Time.unscaledDeltaTime;
+            if (miniTimer > 0) return;
+            miniTimer = 0.2f;
+            var w = sim.world;
+            System.Array.Copy(miniBase, miniPx, miniBase.Length);
+            foreach (var b in w.buildings)
+            {
+                Color32 c = b is CoreBuilding ? new Color32(255, 255, 255, 255) : b.def.enemy ? new Color32(230, 60, 60, 255) : (Color32)Art.C(b.def.color);
+                for (int dy = 0; dy < b.def.size; dy++)
+                    for (int dx = 0; dx < b.def.size; dx++) miniPx[w.Idx(b.x + dx, b.y + dy)] = c;
+            }
+            foreach (int sp in w.spawns) miniPx[sp] = new Color32(255, 80, 90, 255);
+            foreach (var u in sim.units) Dot((int)u.x, (int)u.y, new Color32(90, 220, 255, 255));
+            foreach (var e in sim.enemies) Dot((int)e.x, (int)e.y, e.def.boss ? new Color32(255, 200, 60, 255) : new Color32(255, 70, 70, 255));
+            // 화면에 보이는 범위
+            float hh = cam.orthographicSize, hw = hh * cam.aspect;
+            int x0 = Mathf.FloorToInt(cam.transform.position.x - hw), x1 = Mathf.CeilToInt(cam.transform.position.x + hw) - 1;
+            int y0 = Mathf.FloorToInt(cam.transform.position.y - hh), y1 = Mathf.CeilToInt(cam.transform.position.y + hh) - 1;
+            var frame = new Color32(255, 255, 255, 255);
+            for (int x = x0; x <= x1; x++) { Dot(x, y0, frame); Dot(x, y1, frame); }
+            for (int y = y0; y <= y1; y++) { Dot(x0, y, frame); Dot(x1, y, frame); }
+            miniTex.SetPixels32(miniPx);
+            miniTex.Apply(false);
+
+            void Dot(int x, int y, Color32 c) { if (w.In(x, y)) miniPx[w.Idx(x, y)] = c; }
         }
 
         void UpdateTurretPanel()
@@ -377,6 +529,8 @@ namespace AbyssDefense
 
             UpdateFactoryPanel();
             UpdateTurretPanel();
+            UpdatePreview();
+            UpdateMinimap();
 
             if (infoOverride != null && Time.unscaledTime < infoUntil && play.Selected == null && !play.RemoveMode)
             {

@@ -83,6 +83,13 @@ namespace AbyssDefense
             cam.transform.position = p;
         }
 
+        /// 카메라를 맵의 그 자리로 옮긴다 (미니맵)
+        public void LookAt(float x, float y)
+        {
+            cam.transform.position = new Vector3(x, y, -10);
+            ClampCamera();
+        }
+
         bool OverUi(Vector2 screen)
         {
             var es = EventSystem.current;
@@ -205,7 +212,7 @@ namespace AbyssDefense
                 if (!up) return;
                 dragging = false;
                 var cp = ToWorld(pos);
-                if (sim.SetCommand(cp.x, cp.y)) CommandMode = false;
+                if (sim.CmdCommand(cp.x, cp.y)) CommandMode = false;
                 return;
             }
 
@@ -214,7 +221,7 @@ namespace AbyssDefense
                 if (!up) return;
                 dragging = false;
                 var wp = ToWorld(pos);
-                if (sim.SetRally(Factory, wp.x, wp.y)) RallyMode = false;
+                if (sim.CmdRally(Factory, wp.x, wp.y)) RallyMode = false;
                 else gm.Toast("그곳에는 집결 지점을 둘 수 없습니다");
                 return;
             }
@@ -245,14 +252,14 @@ namespace AbyssDefense
             BuildLine();
             if (RemoveMode)
             {
-                foreach (var c in cells) sim.Remove(c.x, c.y);
+                foreach (var c in cells) sim.CmdRemove(c.x, c.y);
                 return;
             }
             PlaceResult fail = PlaceResult.Ok;
             int placed = 0;
             foreach (var c in cells)
             {
-                var r = sim.Place(Selected, c.x, c.y);
+                var r = sim.CmdPlace(Selected, c.x, c.y);
                 if (r == PlaceResult.Ok) placed++;
                 else if (fail == PlaceResult.Ok) fail = r;
             }

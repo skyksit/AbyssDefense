@@ -150,6 +150,7 @@ namespace AbyssDefense.Sim
     {
         public int id;
         public string key, name;
+        public string desc = "";     // 도감에 나오는 설명
         public float health, speed, radius;
         public float armor;          // 깊은 지역일수록 커진다
         public float damage;
@@ -1199,37 +1200,37 @@ namespace AbyssDefense.Sim
 
         public static readonly EnemyDef Walker = new EnemyDef
         {
-            key = "walker", name = "보행병", health = 42, speed = 0.020f, radius = 0.30f,
+            key = "walker", name = "보행병", desc = "핵으로 걸어온다. 길이 막히면 약한 건물을 부순다.", health = 42, speed = 0.020f, radius = 0.30f,
             damage = 9, attackTicks = 50, range = 0.65f, color = 0xD64550,
             bounty = new[] { new ItemStack(Iron, 4) },
         };
         public static readonly EnemyDef Runner = new EnemyDef
         {
-            key = "runner", name = "질주병", health = 20, speed = 0.038f, radius = 0.22f,
+            key = "runner", name = "질주병", desc = "빠르고 약하다. 떼로 온다.", health = 20, speed = 0.038f, radius = 0.22f,
             damage = 5, attackTicks = 35, range = 0.6f, color = 0xFF8FA3,
             bounty = new[] { new ItemStack(Iron, 2), new ItemStack(Sulfur, 1) },
         };
         public static readonly EnemyDef Breaker = new EnemyDef
         {
-            key = "breaker", name = "파쇄병", health = 190, speed = 0.012f, radius = 0.42f, armor = 2,
+            key = "breaker", name = "파쇄병", desc = "사거리 안의 건물을 멈춰 서서 친다. 비행 유닛도 친다.", health = 190, speed = 0.012f, radius = 0.42f, armor = 2,
             damage = 26, attackTicks = 80, range = 2.4f, siege = true, color = 0x8B1E3F,
             bounty = new[] { new ItemStack(Iron, 8), new ItemStack(Sulfur, 4) },
         };
         public static readonly EnemyDef Flyer = new EnemyDef
         {
-            key = "flyer", name = "비행체", health = 30, speed = 0.030f, radius = 0.26f,
+            key = "flyer", name = "비행체", desc = "길을 무시하고 핵으로 곧장 날아온다.", health = 30, speed = 0.030f, radius = 0.26f,
             damage = 7, attackTicks = 45, range = 1.0f, flying = true, color = 0xB5179E,
             bounty = new[] { new ItemStack(Iron, 3), new ItemStack(Sulfur, 1) },
         };
         public static readonly EnemyDef Boss = new EnemyDef
         {
-            key = "boss", name = "심연 군주", health = 3400, speed = 0.009f, radius = 0.8f, armor = 3,
+            key = "boss", name = "심연 군주", desc = "10의 배수 지역의 마지막 웨이브에 나오는 보스. 둔화·산성·밀어내기가 절반만 듣는다.", health = 3400, speed = 0.009f, radius = 0.8f, armor = 3,
             damage = 60, attackTicks = 90, range = 2.2f, siege = true, boss = true, color = 0x5A189A,
             bounty = new[] { new ItemStack(Iron, 120), new ItemStack(Sulfur, 80), new ItemStack(Crystal, 40) },
         };
         public static readonly EnemyDef Shell = new EnemyDef
         {
-            key = "shell", name = "철갑병", health = 110, speed = 0.015f, radius = 0.36f, armor = 6,
+            key = "shell", name = "철갑병", desc = "방어력이 높아 약한 탄은 거의 튕겨 낸다. 철갑탄·화상·산성이 잘 듣는다.", health = 110, speed = 0.015f, radius = 0.36f, armor = 6,
             damage = 16, attackTicks = 60, range = 0.7f, color = 0x6C757D,
             bounty = new[] { new ItemStack(Iron, 7), new ItemStack(Sulfur, 3) },
         };
@@ -1237,7 +1238,7 @@ namespace AbyssDefense.Sim
         /// 모든 지역의 마지막 웨이브에 한 마리 나오는 보스 (10의 배수 지역은 더 강한 심연 군주가 대신 나온다)
         public static readonly EnemyDef Chief = new EnemyDef
         {
-            key = "chief", name = "심연 대장", health = 900, speed = 0.011f, radius = 0.6f, armor = 2,
+            key = "chief", name = "심연 대장", desc = "마지막 웨이브에 나오는 보스. 둔화·산성·밀어내기가 절반만 듣는다.", health = 900, speed = 0.011f, radius = 0.6f, armor = 2,
             damage = 34, attackTicks = 85, range = 2.0f, siege = true, boss = true, color = 0x7B2CBF,
             bounty = new[] { new ItemStack(Iron, 40), new ItemStack(Sulfur, 25) },
         };
@@ -1247,49 +1248,49 @@ namespace AbyssDefense.Sim
         /// 수리병: 싸움은 못 하지만 둘레의 다른 적을 고친다. 먼저 잡아야 한다
         public static readonly EnemyDef Healer = new EnemyDef
         {
-            key = "healer", name = "수리병", health = 70, speed = 0.017f, radius = 0.30f,
+            key = "healer", name = "수리병", desc = "둘레의 다른 적을 계속 고친다 (보스는 못 고친다). 먼저 잡아야 한다.", health = 70, speed = 0.017f, radius = 0.30f,
             damage = 4, attackTicks = 60, range = 0.6f, heal = 8, healRange = 2.5f, color = 0x2F9E44,
             bounty = new[] { new ItemStack(Iron, 6), new ItemStack(Sulfur, 3) },
         };
         /// 포격병: 속사포의 사거리 밖에서 멈춰 서서 포탑부터 부순다. 비행 유닛은 못 친다
         public static readonly EnemyDef Bombard = new EnemyDef
         {
-            key = "bombard", name = "포격병", health = 80, speed = 0.011f, radius = 0.36f, armor = 1,
+            key = "bombard", name = "포격병", desc = "속사포의 사거리 밖에서 멈춰 서서 포탑부터 친다. 비행 유닛은 못 친다.", health = 80, speed = 0.011f, radius = 0.36f, armor = 1,
             damage = 16, attackTicks = 120, range = 6.0f, siege = true, noAir = true, prefers = EnemyPrefer.Turret, color = 0xE8590C,
             bounty = new[] { new ItemStack(Iron, 9), new ItemStack(Sulfur, 5) },
         };
         /// 분열 조각: 분열체가 죽으면 나오는 작고 빠른 적
         public static readonly EnemyDef Mite = new EnemyDef
         {
-            key = "mite", name = "분열 조각", health = 22, speed = 0.034f, radius = 0.18f,
+            key = "mite", name = "분열 조각", desc = "분열체가 죽으면 나오는 작고 빠른 조각.", health = 22, speed = 0.034f, radius = 0.18f,
             damage = 4, attackTicks = 35, range = 0.55f, color = 0xF783AC,
             bounty = new[] { new ItemStack(Iron, 1) },
         };
         /// 분열체: 죽으면 분열 조각 셋으로 갈라진다. 범위 피해로 한꺼번에 잡아야 한다
         public static readonly EnemyDef Splitter = new EnemyDef
         {
-            key = "splitter", name = "분열체", health = 130, speed = 0.016f, radius = 0.40f,
+            key = "splitter", name = "분열체", desc = "죽으면 분열 조각 셋으로 갈라진다. 범위 피해로 함께 잡는다.", health = 130, speed = 0.016f, radius = 0.40f,
             damage = 12, attackTicks = 55, range = 0.65f, splitInto = Mite, splitCount = 3, color = 0xC2255C,
             bounty = new[] { new ItemStack(Iron, 6), new ItemStack(Sulfur, 2) },
         };
         /// 방패병: 보호막이 피해를 먼저 받고, 3초 동안 맞지 않으면 다시 차오른다. 끊기지 않는 화력이나 불로 잡는다
         public static readonly EnemyDef Guard = new EnemyDef
         {
-            key = "guard", name = "방패병", health = 120, speed = 0.015f, radius = 0.38f, armor = 2,
+            key = "guard", name = "방패병", desc = "보호막이 피해를 먼저 받고, 3초 동안 맞지 않으면 다시 차오른다.", health = 120, speed = 0.015f, radius = 0.38f, armor = 2,
             damage = 14, attackTicks = 60, range = 0.7f, barrier = 80, barrierRegen = 18, barrierDelay = 180, color = 0x1C7ED6,
             bounty = new[] { new ItemStack(Iron, 8), new ItemStack(Sulfur, 4) },
         };
         /// 수송체: 벽을 넘어 날아와 아군 건물 곁에 보행병 넷을 내려놓는다. 내려놓기 전에 떨어뜨리면 실린 적도 함께 사라진다
         public static readonly EnemyDef Dropship = new EnemyDef
         {
-            key = "dropship", name = "수송체", health = 160, speed = 0.018f, radius = 0.50f, armor = 1,
+            key = "dropship", name = "수송체", desc = "날아와 아군 건물 곁에 보행병 넷을 내려놓는다. 그 전에 떨어뜨리면 실린 적도 사라진다.", health = 160, speed = 0.018f, radius = 0.50f, armor = 1,
             damage = 6, attackTicks = 50, range = 1.0f, flying = true, carries = Walker, carryCount = 4, color = 0x862E9C,
             bounty = new[] { new ItemStack(Iron, 10), new ItemStack(Sulfur, 6) },
         };
         /// 습격기: 핵이 아니라 가장 가까운 공장으로 날아가 친다
         public static readonly EnemyDef Raider = new EnemyDef
         {
-            key = "raider", name = "습격기", health = 55, speed = 0.034f, radius = 0.28f,
+            key = "raider", name = "습격기", desc = "핵이 아니라 가장 가까운 공장으로 날아가 친다.", health = 55, speed = 0.034f, radius = 0.28f,
             damage = 14, attackTicks = 40, range = 1.0f, flying = true, prefers = EnemyPrefer.Factory, color = 0xF03E3E,
             bounty = new[] { new ItemStack(Iron, 5), new ItemStack(Sulfur, 2) },
         };

@@ -39,6 +39,15 @@ namespace AbyssDefense
 
             var start = Ui.Btn(root, "시작", 60, Primary, ShowBase);
             start.Rt().At(new Vector2(0.5f, 0), new Vector2(0.5f, 0), 0, 330, 620, 150);
+            if (CanResume)
+            {
+                // 진행 중이던 지역이 있다
+                var run = save.run;
+                int sec = run.tick / 60;
+                var resume = Ui.Btn(root, $"이어하기\n<size=30>{Content.Abysses[run.abyss].name} · 지역 {run.region} · {sec / 60}분 {sec % 60:00}초</size>", 48, new Color(0.62f, 0.44f, 0.16f), ResumeRun);
+                resume.GetComponentInChildren<Text>().supportRichText = true;
+                resume.Rt().At(new Vector2(0.5f, 0), new Vector2(0.5f, 0), 0, 500, 620, 150);
+            }
             var ver = Ui.Label(root, "v" + Application.version, 26, Ui.Dim);
             ver.rectTransform.At(new Vector2(0.5f, 0), new Vector2(0.5f, 0), 0, 40, 600, 40);
         }
@@ -227,9 +236,12 @@ namespace AbyssDefense
             var bottom = Ui.Panel(root, Ui.Bg);
             bottom.Rt().BottomBar(0, 226);
             var lab = Ui.Btn(bottom.transform, buyable > 0 ? $"연구소\n연구 가능 {buyable}" : "연구소", buyable > 0 ? 38 : 46, Violet, ShowResearch);
-            lab.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 30, 56, 380, 150);
-            var go = Ui.Btn(bottom.transform, "심연으로 출격", 56, Primary, ShowAbyssSelect);
-            go.Rt().At(new Vector2(1, 0), new Vector2(1, 0), -30, 56, 620, 150);
+            lab.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 30, 56, 300, 150);
+            var dex = Ui.Btn(bottom.transform, "도감", 42, Ui.Card, ShowDex);
+            dex.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 344, 56, 180, 150);
+            var go = Ui.Btn(bottom.transform, CanResume ? "출격\n<size=26>진행 중인 지역은 버려집니다</size>" : "심연으로 출격", CanResume ? 46 : 52, Primary, ShowAbyssSelect);
+            go.GetComponentInChildren<Text>().supportRichText = true;
+            go.Rt().At(new Vector2(1, 0), new Vector2(1, 0), -30, 56, 512, 150);
 
             if (offlineNote != null) { Toast(offlineNote); offlineNote = null; }
         }

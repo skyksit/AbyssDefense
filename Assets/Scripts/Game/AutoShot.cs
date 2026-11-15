@@ -387,6 +387,40 @@ namespace AbyssDefense
             while (gm.sim.state == SimState.Playing && !(gm.sim.wave >= 4 && gm.sim.enemies.Count >= 8 && gm.sim.bullets.Count >= 1)) yield return null;
             yield return Shot("16_play_region30");
 
+            gm.Retreat();
+
+            // 도감 세 쪽
+            gm.ShowBase();
+            yield return Shot("34_base_with_dex");
+            for (int tab = 0; tab < 3; tab++) { gm.ShowDex(tab); yield return Shot("35_dex_" + tab); }
+
+            // 진행 중 저장과 이어하기: 명령으로 짓고, 저장하고, 세이브를 다시 읽어 이어한다
+            for (int i = 0; i < sv.stock.Length; i++) { sv.stock[i] = 5000; sv.loadout[i] = 400; }
+            gm.StartRegion(0, 12);
+            var live = gm.sim;
+            int lx = (int)live.Core.Cx, ly = live.Core.y;
+            for (int i = -2; i <= 2; i++) live.CmdPlace(i == 0 ? Content.MortarTurret : Content.RapidTurret, lx + i * 2, ly + 5);
+            gm.SetSpeed(8);
+            while (live.tick < 60 * 100 && live.state == SimState.Playing) yield return null;
+            live.CmdCallWave();
+            while (live.tick < 60 * 150 && live.state == SimState.Playing) yield return null;
+            gm.SetSpeed(1);
+            gm.TogglePause();
+            yield return Shot("36_preview_minimap");
+            gm.Save();
+            long liveHash = live.StateHash(); int liveTick = live.tick, liveCmds = live.log.Count;
+            gm.ReloadSave();
+            sv = gm.save;
+            bool can = gm.CanResume;
+            gm.ShowTitle();
+            yield return Shot("37_title_resume");
+            gm.ResumeRun();
+            while (gm.sim == null) yield return null;
+            yield return Shot("38_resumed");
+            Note($"resume: can resume {can} (expect True), commands {liveCmds} (expect 5 or 6), tick {gm.sim.tick} (expect {liveTick}), same state {gm.sim.StateHash() == liveHash} (expect True), paused {gm.Paused} (expect True)");
+            gm.Retreat();
+            Note($"after retreat: can resume {gm.CanResume} (expect False)");
+
             File.WriteAllText(Path.Combine(dir, "_done.txt"), "errors " + errors);
             Application.Quit();
         }

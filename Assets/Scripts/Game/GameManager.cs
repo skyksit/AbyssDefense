@@ -29,6 +29,20 @@ namespace AbyssDefense
         public int storageLv = 1;                       // 창고 단계
         public int[] loadout = { 400, 100, 0, 0, 0, 0, 0 };   // 출격할 때 가져갈 양 (마지막 설정)
         public double lastTime;                         // 생산을 마지막으로 정산한 시각 (초)
+        public RunSave run = new RunSave();             // 진행 중인 지역 (없으면 active = false)
+    }
+
+    /// 진행 중인 지역 한 판. 상태를 통째로 적지 않고 플레이어가 내린 명령만 적어 둔다. 이어할 때 같은 명령을 같은 틱에 다시 넣는다
+    [Serializable]
+    public sealed class RunSave
+    {
+        public bool active;
+        public int rules;                               // 그 판을 시작할 때의 규칙 지문. 달라졌으면 이어할 수 없다
+        public int abyss, region;
+        public int[] taken = new int[0];                // 가져간 자원
+        public int[] research = new int[0];             // 출격할 때의 연구 단계
+        public int tick;                                // 마지막으로 저장한 틱
+        public List<SimCommand> cmds = new List<SimCommand>();
     }
 
     /// 씬에 아무것도 없어도 실행하면 게임이 뜨게 한다
@@ -175,6 +189,16 @@ namespace AbyssDefense
             if (save.refOn == null || save.refOn.Length != rn) { save.refOn = new bool[rn]; for (int i = 0; i < rn; i++) save.refOn[i] = true; }
             save.storageLv = Mathf.Clamp(save.storageLv, 1, BaseRules.MaxStorageLevel);
             save.version = 3;
+            if (save.run == null) save.run = new RunSave();
+            var run = save.run;
+            if (run.active && (run.rules != Sim.Sim.RulesFingerprint() || run.cmds == null || run.taken == null || run.taken.Length != n
+                || run.abyss < 0 || run.abyss >= Content.Abysses.Length || run.region < 1 || run.region > Content.RegionCount))
+            {
+                // 규칙이 바뀌어 이어할 수 없는 판: 가져갔던 자원을 돌려주고 버린다
+                if (run.taken != null) for (int i = 0; i < Math.Min(n, run.taken.Length); i++) save.stock[i] += run.taken[i];
+                save.run = new RunSave();
+                offlineNote = "게임이 바뀌어 진행 중이던 지역은 이어할 수 없습니다. 가져간 자원은 돌려받았습니다";
+            }
         }
 
         static T[] Fit<T>(T[] a, int n, T[] fallback)
@@ -188,9 +212,25 @@ namespace AbyssDefense
 
         public void Save()
         {
+            StoreRun();
             try { File.WriteAllText(SavePath, JsonUtility.ToJson(save)); }
             catch (Exception e) { Debug.LogWarning("[Save] 쓰기 실패: " + e.Message); }
         }
+
+        /// 진행 중인 판을 세이브에 옮겨 적는다 (지금 틱과 지금까지의 명령)
+        void StoreRun()
+        {
+            if (sim == null || resuming || !save.run.active) return;
+            if (sim.state != SimState.Playing || ResultShown || bot != null) { save.run.active = false; return; }   // 봇이 둔 판은 명령 기록이 없다
+            save.run.tick = sim.tick;
+            save.run.cmds = new List<SimCommand>(sim.log);
+        }
+
+        /// 이어할 수 있는 판이 있는가
+        public bool CanResume => save.run != null && save.run.active && sim == null;
+
+        /// 점검용: 세이브 파일을 다시 읽는다 (앱을 껐다 켠 것처럼)
+        public void ReloadSave() { EndRegion(); Load(); }
 
         public void ResetSave()
         {
@@ -371,14 +411,67 @@ namespace AbyssDefense
                 Taken[i] = LoadoutAmount(i);
                 save.stock[i] -= Taken[i];
             }
-            Save();
             sim = new Sim.Sim(abyss, region, Taken, Research.Mods(save.research));
+            save.run = new RunSave { active = true, rules = Sim.Sim.RulesFingerprint(), abyss = abyss, region = region, taken = (int[])Taken.Clone(), research = (int[])save.research.Clone() };
+            Save();
+            EnterPlay();
+        }
+
+        void EnterPlay()
+        {
             playRoot = new GameObject("Play");
             playRoot.AddComponent<GameView>().Init(sim);
             play = playRoot.AddComponent<PlayController>();
             play.Init(this, sim, cam);
             cam.backgroundColor = Art.C(sim.abyss.wallColor);
             BuildHud();
+        }
+
+        bool resuming;
+
+        /// 진행 중이던 지역을 이어한다: 같은 지역을 새로 만들고, 적어 둔 명령을 틱에 맞춰 넣으며 저장한 틱까지 빨리 돌린다
+        public void ResumeRun()
+        {
+            if (!CanResume || resuming) return;
+            StartCoroutine(ResumeRoutine());
+        }
+
+        System.Collections.IEnumerator ResumeRoutine()
+        {
+            var run = save.run;
+            resuming = true;
+            EndRegion();
+            AbyssId = run.abyss; Region = run.region;
+            ResultShown = false; Paused = false; Speed = 1; acc = 0;
+            Taken = (int[])run.taken.Clone();
+            var root = NewScreen("Resume");
+            Ui.Panel(root, Ui.Bg).Rt().Fill();
+            var label = Ui.Label(root, "", 44, null, TextAnchor.MiddleCenter, true);
+            label.rectTransform.At(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), 0, 40, 1000, 160);
+            var back = Ui.Panel(root, new Color(0, 0, 0, 0.6f), true, "Bar");
+            back.Rt().At(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), 0, -80, 760, 40);
+            var fill = Ui.Panel(back.transform, Primary, true, "Fill").Rt();
+            fill.anchorMin = Vector2.zero; fill.offsetMin = new Vector2(4, 4); fill.offsetMax = new Vector2(-4, -4);
+
+            var s = new Sim.Sim(run.abyss, run.region, Taken, Research.Mods(run.research));
+            var cmds = new List<SimCommand>(run.cmds);
+            int next = 0;
+            var watch = new System.Diagnostics.Stopwatch();
+            while (s.tick < run.tick && s.state == SimState.Playing)
+            {
+                watch.Restart();
+                while (watch.ElapsedMilliseconds < 14 && s.tick < run.tick && s.state == SimState.Playing) next = s.Replay(cmds, next, run.tick, 120);
+                float k = run.tick > 0 ? (float)s.tick / run.tick : 1;
+                fill.anchorMax = new Vector2(Mathf.Max(0.02f, k), 1);
+                label.text = $"{Content.Abysses[run.abyss].name} · 지역 {run.region}\n이어하는 중 {Mathf.FloorToInt(k * 100)}%";
+                yield return null;
+            }
+            if (s.tick >= run.tick) s.Replay(cmds, next, run.tick, 0);
+            sim = s;
+            resuming = false;
+            EnterPlay();
+            Paused = true;   // 이어한 판은 멈춘 채로 연다
+            Toast("이어하기: 멈춘 상태입니다. '계속'을 눌러 다시 시작하세요");
         }
 
         void EndRegion()
@@ -394,8 +487,9 @@ namespace AbyssDefense
             if (sim != null && sim.state == SimState.Playing)
             {
                 for (int i = 0; i < save.stock.Length; i++) save.stock[i] += (int)(sim.Core.items[i] * RetreatReturn);
-                Save();
             }
+            save.run.active = false;
+            Save();
             int a = AbyssId;
             EndRegion();
             ShowRegionMap(a);
@@ -418,7 +512,7 @@ namespace AbyssDefense
                 refreshTimer += Time.unscaledDeltaTime;
                 if (refreshTimer > 1f && !Input.GetMouseButton(0) && Input.touchCount == 0) { refreshTimer = 0; refresh(); }
             }
-            if (sim == null) return;
+            if (sim == null || resuming) return;
 
             if (!Paused && sim.state == SimState.Playing)
             {
@@ -464,8 +558,9 @@ namespace AbyssDefense
                     foreach (var rf in BaseRules.Refineries)
                         if (rf.reqRegion > bestBefore && rf.reqRegion <= BestCleared) unlocked.Add(rf.name);
                 }
-                Save();
             }
+            save.run.active = false;
+            Save();
             ShowResult(won, returned, bonus, unlocked);
         }
     }
