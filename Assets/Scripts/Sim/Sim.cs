@@ -131,17 +131,40 @@ namespace AbyssDefense.Sim
 
         public bool IsUnlocked(BlockDef def) => def.tech < 0 || world.mods.tech[def.tech];
 
-        public PlaceResult CanPlace(BlockDef def, int x, int y, bool checkCost = true)
+        /// (x, y) 에 def 를 놓으면 덮어 짓게 되는 건물. 같은 자리·같은 크기의 다 지어진 아군 건물이고 같은 계열(방벽·포탑·지원 건물)의 다른 건물일 때만이다
+        public Building ReplaceTarget(BlockDef def, int x, int y)
+        {
+            var old = world.BuildAt(x, y);
+            if (old == null || old.def.enemy || !old.Built || old.dead || old.def == def) return null;
+            if (old.x != x || old.y != y || old.def.size != def.size || old.def.kind != def.kind) return null;
+            if (def.kind != BlockKind.Wall && def.kind != BlockKind.Turret && def.kind != BlockKind.Support) return null;
+            return old;
+        }
+
+        /// 덮어 지을 때 헐리는 건물에서 돌려받는 자원 (철거와 같다). 덮어 짓는 자리가 아니면 null
+        public int[] ReplaceRefund(BlockDef def, int x, int y)
+        {
+            var old = ReplaceTarget(def, x, y);
+            if (old == null) return null;
+            var r = new int[Content.Items.Length];
+            float ratio = RefundRatio * (old.health / old.maxHealth);
+            foreach (var c in old.def.cost) r[c.item] += (int)(c.amount * ratio);
+            return r;
+        }
+
+        /// allowReplace: 같은 계열의 건물 위에 놓아 덮어 짓는 것을 허락한다 (자동 재건과 재건 드론은 허락하지 않는다)
+        public PlaceResult CanPlace(BlockDef def, int x, int y, bool checkCost = true, bool allowReplace = true)
         {
             if (def.enemy) return PlaceResult.Blocked;
             if (!IsUnlocked(def)) return PlaceResult.Locked;
             int safe = rules.assault ? EnemyCoreSafeRadius : SpawnSafeRadius;
+            var old = allowReplace ? ReplaceTarget(def, x, y) : null;
             for (int dy = 0; dy < def.size; dy++)
                 for (int dx = 0; dx < def.size; dx++)
                 {
                     var t = world.At(x + dx, y + dy);
                     if (t == null) return PlaceResult.OutOfBounds;
-                    if (t.wall || t.build != null) return PlaceResult.Blocked;
+                    if (t.wall || (t.build != null && t.build != old)) return PlaceResult.Blocked;
                     if (t.hazard) return PlaceResult.Hazard;
                     foreach (int s in world.spawns)
                     {
@@ -150,16 +173,16 @@ namespace AbyssDefense.Sim
                     }
                 }
             if (def.needsWater && !NearWater(x, y, def.size)) return PlaceResult.NeedsWater;
-            if (checkCost && !CanAfford(def)) return PlaceResult.NoResources;
+            if (checkCost && !CanAfford(def, old != null ? ReplaceRefund(def, x, y) : null)) return PlaceResult.NoResources;
             return PlaceResult.Ok;
         }
 
         /// 짓고 있는 건물들이 앞으로 가져갈 자원을 빼고도 이 건물 비용이 남는가
-        public bool CanAfford(BlockDef def)
+        public bool CanAfford(BlockDef def, int[] refund = null)
         {
             var need = Committed();
             foreach (var c in def.cost) need[c.item] += c.amount;
-            for (int i = 0; i < need.Length; i++) if (Core.items[i] < need[i]) return false;
+            for (int i = 0; i < need.Length; i++) if (Core.items[i] + (refund != null ? refund[i] : 0) < need[i]) return false;
             return true;
         }
 
@@ -174,15 +197,25 @@ namespace AbyssDefense.Sim
         }
 
         /// 건설 터를 놓는다. 비용은 건설이 진행되는 만큼 핵에서 조금씩 나가고, 다 지어져야 동작한다
-        public PlaceResult Place(BlockDef def, int x, int y)
+        /// 같은 계열의 다 지어진 건물 위에 놓으면 덮어 짓는다: 헐리는 건물은 철거한 만큼 돌려받고, 새 건설 터는 헐린 건물의 남은 체력을 이어받는다
+        public PlaceResult Place(BlockDef def, int x, int y, bool allowReplace = true)
         {
             if (state != SimState.Playing) return PlaceResult.Blocked;
-            var res = CanPlace(def, x, y);
+            var res = CanPlace(def, x, y, true, allowReplace);
             if (res != PlaceResult.Ok) return res;
+            float kept = 0;
+            var old = allowReplace ? ReplaceTarget(def, x, y) : null;
+            if (old != null)
+            {
+                kept = old.health;
+                Core.Refund(old.def.cost, RefundRatio * (old.health / old.maxHealth));
+                world.Remove(old);
+                BuildingRemoved?.Invoke(old);
+            }
             var b = Building.Create(def);
             b.x = x; b.y = y;
             b.maxHealth = def.health * world.mods.healthMul;
-            b.health = b.maxHealth * Building.SiteHealth;
+            b.health = Math.Min(b.maxHealth, Math.Max(b.maxHealth * Building.SiteHealth, kept));
             b.progress = 0;
             b.paid = new int[def.cost.Length];
             world.Add(b);

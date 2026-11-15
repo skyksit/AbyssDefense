@@ -670,10 +670,10 @@ namespace AbyssDefense.Sim
             {
                 var r = ruins[i];
                 if (tick - r.tick < AutoRebuildDelay) continue;
-                var res = CanPlace(r.def, r.x, r.y);
+                var res = CanPlace(r.def, r.x, r.y, true, false);
                 if (res == PlaceResult.NoResources) continue;
                 ruins.RemoveAt(i--);
-                if (res == PlaceResult.Ok) Place(r.def, r.x, r.y);
+                if (res == PlaceResult.Ok) Place(r.def, r.x, r.y, false);
             }
         }
 
@@ -693,10 +693,10 @@ namespace AbyssDefense.Sim
             float tx = r.x + r.def.size * 0.5f, ty = r.y + r.def.size * 0.5f;
             if (!Near(u, tx, ty, 0.8f)) { MoveUnit(u, tx, ty); return; }
             u.aim = (float)Math.Atan2(ty - u.y, tx - u.x);
-            var res = CanPlace(r.def, r.x, r.y);
+            var res = CanPlace(r.def, r.x, r.y, true, false);
             if (res == PlaceResult.NoResources) return;
             ruins.Remove(r);
-            if (res == PlaceResult.Ok) Place(r.def, r.x, r.y);
+            if (res == PlaceResult.Ok) Place(r.def, r.x, r.y, false);
         }
 
         /// (x, y) 에서 가장 가까운 지형 벽 칸 (호수 제외). 없으면 -1

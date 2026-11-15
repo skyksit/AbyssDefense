@@ -176,6 +176,37 @@ static class Program
         sim.Remove(3, 20);
         Check(core.items[Content.Iron] == iron + (int)(35 * Sim.RefundRatio), "철거하면 75% 를 돌려받는다");
 
+        // 덮어 짓기: 같은 계열·같은 크기의 건물 위에 놓으면 철거 없이 바뀐다
+        var up = EmptySim(Full, Mods(Research.SpecialTurret, 1, Research.SupportBlock, 1, Research.Mortar, 1));
+        up.Place(Content.Wall, 3, 20); up.Place(Content.RapidTurret, 5, 20); up.Place(Content.MendTower, 7, 20); up.Place(Content.Wall, 9, 20);
+        Finish(up);
+        up.world.BuildAt(3, 20).health = 210;   // 절반 남은 방벽
+        int steel0 = up.Core.items[Content.Steel], iron0 = up.Core.items[Content.Iron];
+        bool sameDef = up.Place(Content.Wall, 3, 20) == PlaceResult.Blocked;
+        bool crossKind = up.Place(Content.Wall, 5, 20) == PlaceResult.Blocked && up.Place(Content.RapidTurret, 3, 20) == PlaceResult.Blocked;
+        bool crossSize = up.Place(Content.MortarTurret, 5, 20) == PlaceResult.Blocked;
+        var refund = up.ReplaceRefund(Content.SteelWall, 3, 20);
+        bool replaced = up.Place(Content.SteelWall, 3, 20) == PlaceResult.Ok;
+        var site = up.world.BuildAt(3, 20);
+        Check(sameDef && crossKind && crossSize && replaced && site.def == Content.SteelWall && !site.Built && site.health == 210 && refund[Content.Iron] == 3
+            && up.Core.items[Content.Iron] == iron0 + 3 && up.Core.items[Content.Steel] == steel0,
+            $"방벽 위에 강철 방벽을 놓으면 덮어 짓는다: 헐린 방벽 몫(철광 {refund[Content.Iron]})을 돌려받고 남은 체력({site.health})을 이어받는다. 같은 건물·다른 계열·다른 크기는 안 된다");
+        Finish(up);
+        Check(site.Built && site.health == site.maxHealth && up.Core.items[Content.Steel] == steel0 - 10, "덮어 지은 건물은 정가를 내고 다 지어진다");
+        bool turretSwap = up.Place(Content.FlakTurret, 5, 20) == PlaceResult.Ok && up.world.BuildAt(5, 20).def == Content.FlakTurret;
+        bool supportSwap = up.Place(Content.Amplifier, 7, 20) == PlaceResult.Ok;
+        bool siteBusy = up.Place(Content.SlimeTurret, 5, 20) == PlaceResult.Blocked;   // 짓고 있는 건물은 덮어 지을 수 없다
+        Check(turretSwap && supportSwap && siteBusy, "포탑과 지원 건물도 같은 크기끼리 덮어 짓는다 (짓고 있는 건물은 안 된다)");
+        var poorUp = EmptySim(new[] { 0, 0, 0, 10, 0, 0, 0 });
+        poorUp.Place(Content.Wall, 3, 20); Finish(poorUp);
+        poorUp.Core.items[Content.Steel] = 9;
+        Check(poorUp.Place(Content.SteelWall, 3, 20) == PlaceResult.NoResources && poorUp.world.BuildAt(3, 20).def == Content.Wall, "자원이 모자라면 덮어 짓지 않고 원래 건물이 남는다");
+        up.autoRebuild = true;
+        up.world.BuildAt(9, 20).health = 0; up.Tick();
+        up.Place(Content.SteelWall, 9, 20); Finish(up);
+        for (int i = 0; i < Sim.AutoRebuildDelay + 60; i++) up.Tick();
+        Check(up.world.BuildAt(9, 20).def == Content.SteelWall && up.ruins.Count == 0, "자동 재건은 그 자리에 새로 지은 건물을 덮어 짓지 않는다");
+
         var lv = new int[Research.Defs.Length];
         lv[Research.Mortar] = 1; lv[Research.Health] = 2;
         var s2 = EmptySim(null, Research.Mods(lv));
