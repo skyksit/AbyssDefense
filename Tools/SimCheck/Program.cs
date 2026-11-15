@@ -53,6 +53,16 @@ static class Program
             Console.WriteLine(sim.state);
             return 0;
         }
+        if (args.Length >= 1 && args[0] == "bots")
+        {
+            // 봇 결과표만: bots [지역 …] [-적 key …]   (-healer 처럼 쓰면 그 적의 무리를 빼고 돌린다: 어느 적이 어려운지 가려낼 때)
+            var list = new List<int>();
+            for (int i = 1; i < args.Length; i++) { if (args[i].StartsWith("-")) without.Add(args[i].Substring(1)); else list.Add(int.Parse(args[i])); }
+            if (list.Count == 0) list.AddRange(new[] { 1, 2, 5, 10, 15, 20, 45, 50, 95, 100 });
+            for (int a = 0; a < Content.Abysses.Length; a++)
+                foreach (int r in list) Console.WriteLine($"  {Content.Abysses[a].name} {r,3} → {Play(a, r, true)}");
+            return 0;
+        }
         if (args.Length >= 3 && args[0] == "map") { PrintMap(int.Parse(args[1]), int.Parse(args[2])); return 0; }
 
         Construction();
@@ -61,6 +71,7 @@ static class Program
         Armor();
         Turrets();
         SupportBlocks();
+        Enemies();
         Units();
         Assault();
         NewUnits();
@@ -103,6 +114,8 @@ static class Program
         return lv;
     }
 
+    static readonly List<string> without = new List<string>();
+
     static string Play(int abyss, int region, bool bot, bool loadout = true)
     {
         var research = ExpectedResearch(region);
@@ -118,6 +131,7 @@ static class Program
                 if (region > rf.reqRegion) take[rf.output] = rf.output == Content.Alloy ? cap / 4 : cap / 2;
         }
         var sim = new Sim(abyss, region, take, loadout ? Research.Mods(research) : null);
+        if (without.Count > 0) sim.groups.RemoveAll(g => !g.enemy.boss && (without.Contains(g.enemy.key) || (g.elite && without.Contains("elite")) || (g.shieldScaling > 0 && without.Contains("shield"))));
         var b = bot ? new AutoBot(sim) : null;
         int limit = 60 * 60 * 60;
         while (sim.state == SimState.Playing && sim.tick < limit)
@@ -531,6 +545,170 @@ static class Program
         s3.Place(Content.Wall, 5, 20); Finish(s3);
         s3.world.BuildAt(5, 20).health = 0; s3.Tick();
         Check(gone && s3.ruins.Count == 0, "부서진 자리는 철거로 지울 수 있고, 자동 재건을 끄면 적어 두지 않는다");
+    }
+
+    static void Enemies()
+    {
+        Console.WriteLine("적의 능력 (수리·분열·보호막·수송·표적 성향)과 상태 이상 (산성·젖음)");
+        var all = Mods(Research.Mortar, 1, Research.Lance, 1, Research.SpecialTurret, 1, Research.AdvTurret, 1, Research.RobotFactory, 1);
+        float hm = RegionRules.For(0, 1).enemyHealthMul;
+
+        var keys = new HashSet<string>(); bool uniq = true;
+        foreach (var ed in Content.Enemies) if (!keys.Add(ed.key)) uniq = false;
+        Check(uniq && Content.Enemies.Length == 14, $"적 {Content.Enemies.Length}종, key 가 겹치지 않는다");
+
+        // 수리병: 둘레의 다른 적을 고치고, 보스와 범위 밖은 고치지 못한다
+        var sim = EmptySim(Full, all);
+        float cx = sim.Core.Cx, cy = sim.Core.y + 10;
+        var healer = Dummy(sim, Content.Healer, cx, cy, 100);
+        var hurt = Dummy(sim, Content.Walker, cx + 1.5f, cy, 100); hurt.health = 50;
+        var far = Dummy(sim, Content.Walker, cx + 5f, cy, 100); far.health = 50;
+        var chief = Dummy(sim, Content.Chief, cx - 1.5f, cy, 1000); chief.health = 500;
+        healer.health = 60;
+        for (int i = 0; i < 60; i++) sim.Tick();
+        Check(Math.Abs(hurt.health - (50 + Content.Healer.heal * hm)) < 0.01f && far.health == 50 && chief.health == 500 && healer.health == 60,
+            $"수리병은 둘레의 적을 초당 {Content.Healer.heal * hm:0.#} 고친다 (자기 자신·보스·범위 밖은 아니다: {hurt.health:0.0})");
+
+        // 분열체: 죽으면 분열 조각 셋으로 갈라진다
+        var s2 = EmptySim(Full, all);
+        int tx = (int)s2.Core.Cx, ty = s2.Core.y + 6;
+        s2.Place(Content.RapidTurret, tx, ty);
+        Finish(s2);
+        var sp = Dummy(s2, Content.Splitter, tx + 3.5f, ty + 0.5f, 5);
+        for (int i = 0; i < 200 && !sp.dead; i++) s2.Tick();
+        int mites = 0; foreach (var e in s2.enemies) if (e.def == Content.Mite && !e.dead) mites++;
+        Check(sp.dead && mites == 3 && s2.kills == 1, $"분열체가 죽으면 분열 조각 셋이 나온다 ({mites})");
+
+        // 방패병: 보호막이 먼저 닳고, 3초 동안 맞지 않으면 다시 차오른다
+        var s3 = EmptySim(Full, all);
+        tx = (int)s3.Core.Cx; ty = s3.Core.y + 6;
+        s3.Place(Content.RapidTurret, tx, ty);
+        Finish(s3);
+        var guard = Dummy(s3, Content.Guard, tx + 3.5f, ty + 0.5f, 500, 2);
+        guard.barrier = guard.barrierMax = 80;
+        for (int i = 0; i < 300 && guard.barrier == 80; i++) s3.Tick();
+        Check(guard.barrier == 71 && guard.health == 500, $"방패병의 보호막이 체력보다 먼저 닳는다 (보호막 {guard.barrier}, 방어력 2 를 뺀 9 씩)");
+        s3.Remove(tx, ty);
+        s3.bullets.Clear();
+        guard.barrier = 10;
+        for (int i = 0; i < Content.Guard.barrierDelay; i++) s3.Tick();
+        bool held = guard.barrier == 10;
+        for (int i = 0; i < 60; i++) s3.Tick();
+        Check(held && Math.Abs(guard.barrier - (10 + Content.Guard.barrierRegen * hm)) < 0.05f, $"방패병의 보호막은 3초 뒤부터 초당 {Content.Guard.barrierRegen * hm:0.#} 씩 차오른다 ({guard.barrier:0.0})");
+
+        // 무리 보호막과 정예
+        var grp = new WaveGroup { enemy = Content.Shell, begin = 3, shields = 20, shieldScaling = 6 };
+        Check(grp.ShieldAt(3) == 20 && grp.ShieldAt(5) == 32 && grp.ShieldAt(1) == 20, "무리 보호막은 회차마다 커진다");
+        var s4 = new Sim(0, 45, Full);
+        s4.groups.RemoveAll(g => !g.elite && g.shieldScaling <= 0);
+        bool hasBoth = s4.groups.Count == 2;
+        Enemy elite = null, shielded = null;
+        for (int i = 0; i < 60 * 60 * 20 && (elite == null || shielded == null); i++)
+        {
+            if (s4.enemies.Count == 0 && s4.PendingSpawns == 0) s4.CallNextWave();
+            s4.Tick();
+            foreach (var e in s4.enemies) { if (e.elite && elite == null) elite = e; if (e.barrierMax > 0 && shielded == null) shielded = e; }
+        }
+        var r45 = RegionRules.For(0, 45);
+        Check(hasBoth && elite != null && Math.Abs(elite.maxHealth / (Content.Walker.health * r45.enemyHealthMul * (1 + 0.12f * (s4.wave - 1))) - Sim.EliteHealth) < 0.2f,
+            "정예 적은 체력이 2.5배다");
+        Check(shielded != null && shielded.def == Content.Shell && shielded.barrierMax >= 20 * r45.enemyHealthMul, "보호막 무리의 적은 보호막을 두르고 나온다");
+
+        // 수송체: 아군 건물 곁에 닿으면 실은 적을 내려놓는다. 그 전에 떨어지면 실린 적도 사라진다
+        var s5 = EmptySim(Full, all);
+        var ship = new Enemy { def = Content.Dropship, x = s5.Core.Cx, y = s5.Core.y + 12, health = 9000, maxHealth = 9000, cargo = 4, cooldown = 1 << 20 };
+        s5.enemies.Add(ship);
+        for (int i = 0; i < 60 * 30 && ship.cargo > 0; i++) s5.Tick();
+        int walkers = 0; foreach (var e in s5.enemies) if (e.def == Content.Walker) walkers++;
+        Check(ship.cargo == 0 && walkers == 4 && s5.Core.DistTo(ship.x, ship.y) <= 2.6f, $"수송체는 핵 곁에서 보행병 넷을 내려놓는다 ({walkers})");
+        var s5b = EmptySim(Full, all);
+        tx = (int)s5b.Core.Cx; ty = s5b.Core.y + 6;
+        s5b.Place(Content.FlakTurret, tx, ty);
+        Finish(s5b);
+        var ship2 = new Enemy { def = Content.Dropship, x = tx + 6f, y = ty + 0.5f, health = 5, maxHealth = 5, cargo = 4, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+        s5b.enemies.Add(ship2);
+        for (int i = 0; i < 300 && !ship2.dead; i++) s5b.Tick();
+        s5b.Tick();
+        Check(ship2.dead && s5b.enemies.Count == 0, "내려놓기 전에 떨어뜨린 수송체는 적을 남기지 않는다");
+
+        // 습격기: 핵이 아니라 공장으로 날아가 친다
+        var s6 = EmptySim(Full, all);
+        s6.Place(Content.RobotFactory, 3, s6.Core.y + 14);
+        Finish(s6);
+        var fac = s6.world.BuildAt(3, s6.Core.y + 14);
+        ((FactoryBuilding)fac).product = -1;
+        s6.enemies.Add(new Enemy { def = Content.Raider, x = s6.Core.Cx, y = s6.Core.y + 8, health = 9000, maxHealth = 9000 });
+        for (int i = 0; i < 60 * 20; i++) s6.Tick();
+        Check(fac.health < fac.maxHealth && s6.Core.health == s6.Core.maxHealth, "습격기는 핵을 두고 공장을 친다");
+        fac.health = 0;
+        for (int i = 0; i < 60 * 30 && s6.Core.health == s6.Core.maxHealth; i++) s6.Tick();
+        Check(s6.Core.health < s6.Core.maxHealth, "공장이 없으면 습격기도 핵을 친다");
+
+        // 포격병: 사거리 안의 포탑부터 치고, 속사포의 사거리 밖에 선다
+        var s7 = EmptySim(Full, all);
+        tx = (int)s7.Core.Cx; ty = s7.Core.y + 6;
+        s7.Place(Content.RapidTurret, tx, ty); s7.Place(Content.Wall, tx + 4, ty);
+        Finish(s7);
+        var bomb = new Enemy { def = Content.Bombard, x = tx + 6.8f, y = ty + 0.5f, health = 9000, maxHealth = 9000 };
+        s7.enemies.Add(bomb);
+        for (int i = 0; i < 200; i++) s7.Tick();
+        var rt = s7.world.BuildAt(tx, ty); var wl = s7.world.BuildAt(tx + 4, ty);
+        Check(rt.health < rt.maxHealth && wl.health == wl.maxHealth && bomb.health == 9000 && bomb.x == tx + 6.8f,
+            $"포격병은 더 가까운 방벽을 두고 포탑을 치고, 속사포(사거리 {Content.RapidTurret.range})는 닿지 않는다");
+        Check(!Content.Bombard.HitsAir && Content.Breaker.HitsAir && Content.Bombard.range > Content.RapidTurret.range && Content.Bombard.range < Content.MortarTurret.range, "포격병은 비행 유닛을 못 치고, 박격포보다는 사거리가 짧다");
+
+        // 산성: 방어력을 깎는다
+        var s8 = EmptySim(Full, all);
+        tx = (int)s8.Core.Cx; ty = s8.Core.y + 6;
+        s8.Place(Content.RapidTurret, tx, ty);
+        Finish(s8);
+        var shell = Dummy(s8, Content.Shell, tx + 3.5f, ty + 0.5f, 5000, 10);
+        s8.mines.Add(new Mine { def = Content.Seeder.minelay, x = shell.x, y = shell.y, damage = 0 });
+        s8.Tick();
+        float acidArmor = shell.Armor;
+        float h0 = shell.health;
+        for (int i = 0; i < 100 && shell.health == h0; i++) s8.Tick();
+        Check(shell.acidTicks > 0 && Math.Abs(acidArmor - 4f) < 0.001f && Math.Abs(h0 - shell.health - 7f) < 0.01f,
+            $"산성 지뢰를 밟은 적은 방어력이 60% 깎인다 (10 → {acidArmor}, 속사포 11 이 {h0 - shell.health} 들어간다)");
+        var tb = (TurretBuilding)s8.world.BuildAt(tx, ty);
+        tb.SetAmmo(2);
+        for (int i = 0; i < 200 && shell.burnTicks == 0; i++) s8.Tick();
+        Check(shell.burnTicks > 180 + 60, $"산성에 젖은 적은 불이 1.5배 오래 탄다 ({shell.burnTicks} 틱)");
+
+        // 젖음: 전격에 1.5배, 불이 붙지 않는다
+        var s9 = EmptySim(Full, all);
+        tx = (int)s9.Core.Cx; ty = s9.Core.y + 6;
+        s9.Place(Content.TeslaTurret, tx, ty);
+        Finish(s9);
+        var dry = Dummy(s9, Content.Walker, tx + 4f, ty + 1f);
+        for (int i = 0; i < 200 && dry.health == 90000; i++) s9.Tick();
+        float dryHit = 90000 - dry.health;
+        dry.health = 90000; dry.wetTicks = 1 << 20;
+        for (int i = 0; i < 200 && dry.health == 90000; i++) s9.Tick();
+        Check(dryHit == 30 && 90000 - dry.health == 45, $"젖은 적은 전격에 1.5배를 받는다 ({dryHit} → {90000 - dry.health})");
+
+        var s10 = EmptySim(Full, all);
+        tx = (int)s10.Core.Cx; ty = s10.Core.y + 6;
+        s10.Place(Content.RapidTurret, tx, ty); s10.Place(Content.SlimeTurret, tx, ty + 2);
+        Finish(s10);
+        var fire = (TurretBuilding)s10.world.BuildAt(tx, ty); var slime = (TurretBuilding)s10.world.BuildAt(tx, ty + 2);
+        fire.SetAmmo(2);
+        s10.Core.items[Content.Sulfur] = 0;   // 점액탑은 잠시 쉬게 둔다
+        var foe = Dummy(s10, Content.Walker, tx + 3.5f, ty + 1.5f);
+        foe.wetTicks = 1 << 20;
+        for (int i = 0; i < 200 && foe.health == 90000; i++) s10.Tick();
+        bool noFire = foe.burnTicks == 0 && foe.wetTicks == 0;
+        for (int i = 0; i < 200 && foe.burnTicks == 0; i++) s10.Tick();
+        bool burning = foe.burnTicks > 0;
+        fire.SetAmmo(0); s10.Core.items[Content.Iron] = 0; s10.bullets.Clear();
+        foe.burnTicks = 1 << 20;
+        s10.Core.items[Content.Sulfur] = 100;
+        for (int i = 0; i < 200 && foe.wetTicks == 0; i++) s10.Tick();
+        Check(noFire && burning && foe.wetTicks > 0 && foe.burnTicks == 0 && slime.ammo > 0, "젖은 적은 불이 붙는 대신 젖음이 사라지고, 불타던 적이 젖으면 불이 꺼진다");
+
+        // 웨이브 구성: 얕은 지역에는 없고 깊어질수록 종류가 늘어난다
+        int Kinds(int region) { var ks = new HashSet<string>(); foreach (var g in WaveGen.Generate(RegionRules.For(0, region))) ks.Add(g.enemy.key + (g.elite ? "+" : "") + (g.shieldScaling > 0 ? "s" : "")); return ks.Count; }
+        Check(Kinds(8) == 5 && Kinds(9) == 6 && Kinds(20) > Kinds(9) && Kinds(40) == 14, $"능력이 있는 적은 지역 9 부터 차례로 섞인다 (지역 8: {Kinds(8)}, 20: {Kinds(20)}, 40: {Kinds(40)}가지 무리)");
     }
 
     static void Units()
@@ -1506,6 +1684,67 @@ static class Program
         Console.WriteLine("재현성");
         string a = Play(1, 7, true), b = Play(1, 7, true);
         Check(a == b, "같은 지역을 두 번 돌리면 결과가 같다");
+
+        // 진행 중 저장: 명령을 적어 두었다가 같은 틱에 다시 넣으면 같은 판이 된다
+        var lv = ExpectedResearch(30);
+        int[] take = { 1500, 1500, 500, 500, 500, 500, 200 };
+        var live = new Sim(0, 30, take, Research.Mods(lv));
+        int cxp = (int)live.Core.Cx, cyp = live.Core.y;
+        FactoryBuilding fac = null; TurretBuilding tur = null;
+        int stopAt = 60 * 60 * 5;
+        while (live.tick < stopAt && live.state == SimState.Playing)
+        {
+            int t = live.tick;
+            if (t == 10) live.CmdPlace(Content.RapidTurret, cxp - 1, cyp + 5);
+            if (t == 10) live.CmdPlace(Content.RapidTurret, cxp + 1, cyp + 5);
+            if (t == 20) live.CmdPlace(Content.MortarTurret, cxp + 3, cyp + 5);
+            if (t == 30) for (int y = cyp + 7; y < live.world.H && fac == null; y++) for (int x = 2; x < live.world.W - 3 && fac == null; x++) if (live.CmdPlace(Content.RobotFactory, x, y) == PlaceResult.Ok) fac = (FactoryBuilding)live.world.BuildAt(x, y);
+            if (t == 40) live.CmdPlace(Content.Wall, cxp - 3, cyp + 5);
+            if (t == 300) live.CmdRemove(cxp - 3, cyp + 5);
+            if (t == 600) live.CmdCommand(cxp + 2.37f, cyp + 6.81f);
+            if (t == 900) { tur = live.world.BuildAt(cxp - 1, cyp + 5) as TurretBuilding; live.CmdAmmo(tur, 1); live.CmdMode(tur, TargetMode.Strongest); }
+            if (t == 1500 && fac != null) { live.CmdProduct(fac, 1); live.CmdRally(fac, cxp + 0.4f, cyp + 6.3f); }
+            if (t == 2500) live.CmdCallWave();
+            if (t == 5000) live.CmdStance(UnitStance.Attack);
+            if (t == 6000) live.CmdAutoRebuild(false);
+            if (t == 7000) live.CmdCallWave();
+            if (t == 9000) live.CmdStance(UnitStance.Defend);
+            if (t == 12000) live.CmdPlace(Content.RapidTurret, cxp - 3, cyp + 5);
+            live.Tick();
+        }
+        // 저장 → 읽기: 명령만 옮겨 새 판에 넣고 같은 틱까지 돌린다 (여러 번에 나눠서)
+        var saved = new List<SimCommand>(live.log);
+        var again = new Sim(0, 30, take, Research.Mods(lv));
+        int next = 0;
+        while (again.tick < live.tick && again.state == SimState.Playing) next = again.Replay(saved, next, live.tick, 777);
+        Check(saved.Count >= 14 && fac != null && tur != null && tur.ammoIdx == 1 && live.units.Count + live.unitsLost > 0 && live.kills > 0,
+            $"명령 기록: 받아들인 명령 {saved.Count}개 (건설·철거·탄종·표적·생산·집결·태세·웨이브·지휘기·자동 재건), 처치 {live.kills}");
+        Check(again.tick == live.tick && again.StateHash() == live.StateHash() && again.log.Count == saved.Count && next == saved.Count,
+            $"명령 기록을 되돌린 판은 원래 판과 상태가 같다 (틱 {again.tick}, 웨이브 {again.wave}, 처치 {again.kills}/{live.kills})");
+        // 이어서 둘 다 끝까지 돌려도 같다
+        for (int i = 0; i < 60 * 60 * 3; i++) { live.Tick(); again.Tick(); }
+        Check(again.StateHash() == live.StateHash(), "이어한 판을 더 돌려도 원래 판과 같다");
+        var other = new Sim(0, 30, take, Research.Mods(lv));
+        other.Replay(saved.GetRange(0, saved.Count - 1), 0, stopAt);
+        Check(other.StateHash() != live.StateHash() && Sim.RulesFingerprint() == Sim.RulesFingerprint(), "명령이 하나 빠지면 다른 판이 된다 (지문은 같은 규칙에서 같은 값)");
+
+        // 웨이브 미리보기: 실제로 나오는 수와 같다
+        var pv = new Sim(2, 40, take, Research.Mods(lv));
+        var list = new List<WavePreview>();
+        bool same = true; int bossAt = 0;
+        for (int w = 1; w <= pv.rules.winWave; w++)
+        {
+            pv.Preview(w, list);
+            int expect = 0; foreach (var it in list) expect += it.count;
+            if (w == 1 && pv.BossIn(pv.rules.winWave) != pv.rules.winWave) same = false;
+            foreach (var it in list) if (it.def.boss) bossAt = w;
+            pv.CallNextWave(); pv.Tick();
+            if (pv.wave != w || pv.PendingSpawns != expect) same = false;
+            pv.waveCountdown = 1 << 28;   // 다음 회차는 아래에서 직접 부른다
+            while (pv.PendingSpawns > 0 || pv.enemies.Count > 0) { pv.enemies.Clear(); pv.Tick(); }
+        }
+        pv.Preview(pv.rules.winWave + 1, list);
+        Check(same && bossAt == pv.rules.winWave && list.Count == 0 && pv.BossIn(3) == 0, $"웨이브 미리보기가 실제 출현 수와 같고, 보스 회차를 미리 안다 (보스 {bossAt}회차)");
     }
 
     static void PrintMap(int abyss, int region)

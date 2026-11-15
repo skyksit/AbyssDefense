@@ -11,7 +11,11 @@ namespace AbyssDefense.Sim
         List<int> path;      // 출현 지점들에서 핵까지의 길 (핵에 가까운 칸부터)
         int nextThink, turrets;
 
-        public AutoBot(Sim sim) { this.sim = sim; w = sim.world; }
+        public AutoBot(Sim sim)
+        {
+            this.sim = sim; w = sim.world;
+            sim.autoRebuild = false;   // 봇은 포탑을 스스로 다시 짓는다. 자동 재건까지 켜 두면 부서지는 자리에 철광을 계속 쏟아 탄약이 마른다
+        }
 
         public void Step()
         {

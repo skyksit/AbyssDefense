@@ -70,6 +70,15 @@ namespace AbyssDefense.Sim
         public int amount = 1;
         public float scaling = 2;        // 이만큼의 회차마다 한 마리씩 늘어난다
         public int max = 40;
+        public float shields;            // 이 무리의 적이 처음부터 두르는 보호막 (지역의 적 체력 배수를 따른다)
+        public float shieldScaling;      // 회차가 지날 때마다 더해지는 보호막
+        public bool elite;               // 정예: 체력 2.5배, 속도 1.15배, 전리품 3배
+
+        /// 화면에 적는 이름: 정예 보행병, 보호막 철갑병 …
+        public string Label => (elite ? "정예 " : shields > 0 || shieldScaling > 0 ? "보호막 " : "") + enemy.name;
+
+        /// 이 회차에 나오는 적 한 마리가 무리에서 받는 보호막 (배수 적용 전)
+        public float ShieldAt(int wave) => shields + shieldScaling * Math.Max(0, wave - begin);
 
         public int GetSpawned(int wave)
         {
@@ -96,6 +105,23 @@ namespace AbyssDefense.Sim
                 g.Add(new WaveGroup { enemy = Content.Flyer, begin = rng.Range(3, 5), spacing = rng.Range(2, 3), amount = Count(3 + d * 8, cm), scaling = 2, max = 26 });
             if (r.region >= 12)   // 장갑이 두꺼워 약한 탄은 거의 튕겨 낸다
                 g.Add(new WaveGroup { enemy = Content.Shell, begin = rng.Range(2, 4), spacing = 2, amount = Count(2 + d * 6, cm), scaling = 2.5f, max = 18 });
+            // 능력이 있는 적: 깊은 지역일수록 종류가 늘어난다 (앞의 무리들과 난수 순서가 섞이지 않게 뒤에 둔다)
+            if (r.region >= 9)    // 둘레의 적을 고친다
+                g.Add(new WaveGroup { enemy = Content.Healer, begin = rng.Range(3, 4), spacing = rng.Range(2, 3), amount = Count(1 + d * 2, cm), scaling = 4, max = 8 });
+            if (r.region >= 14)   // 속사포 밖에서 포탑을 친다
+                g.Add(new WaveGroup { enemy = Content.Bombard, begin = rng.Range(4, 5), spacing = 3, amount = Count(1 + d * 2, cm), scaling = 6, max = 6 });
+            if (r.region >= 16)   // 정예 보행병
+                g.Add(new WaveGroup { enemy = Content.Walker, begin = rng.Range(4, 6), spacing = 3, amount = Count(1 + d * 2, cm), scaling = 4, max = 6, elite = true });
+            if (r.region >= 18)   // 죽으면 셋으로 갈라진다
+                g.Add(new WaveGroup { enemy = Content.Splitter, begin = rng.Range(3, 5), spacing = rng.Range(2, 3), amount = Count(1 + d * 3, cm), scaling = 3, max = 12 });
+            if (r.region >= 22)   // 보호막이 다시 차오른다
+                g.Add(new WaveGroup { enemy = Content.Guard, begin = rng.Range(4, 6), spacing = rng.Range(2, 3), amount = Count(1 + d * 3, cm), scaling = 4, max = 10 });
+            if (r.region >= 28)   // 벽 너머에 보행병을 내려놓는다
+                g.Add(new WaveGroup { enemy = Content.Dropship, begin = rng.Range(5, 7), spacing = 3, amount = Count(1 + d * 1.5f, cm), scaling = 5, max = 4 });
+            if (r.region >= 35)   // 공장을 노린다
+                g.Add(new WaveGroup { enemy = Content.Raider, begin = rng.Range(5, 7), spacing = rng.Range(2, 3), amount = Count(2 + d * 3, cm), scaling = 3, max = 12 });
+            if (r.region >= 40)   // 회차가 지날수록 보호막이 두꺼워지는 철갑병
+                g.Add(new WaveGroup { enemy = Content.Shell, begin = rng.Range(6, 8), spacing = 3, amount = Count(1 + d * 2, cm), scaling = 4, max = 6, shields = 20, shieldScaling = 6 });
             // 마지막 웨이브에는 언제나 보스: 보통 지역은 심연 대장 한 마리, 10의 배수 지역은 심연 군주
             if (r.assault)   // 적 거점: 마지막 웨이브가 없으니 다섯 회차마다 심연 대장이 나온다
                 g.Add(new WaveGroup { enemy = Content.Chief, begin = 5, spacing = 5, amount = 1, scaling = 4, max = 4 });

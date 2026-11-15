@@ -257,11 +257,28 @@ namespace AbyssDefense
                 sr.enabled = true;
                 sr.sprite = Art.Get("enemy_" + e.def.key);
                 sr.sortingOrder = e.def.flying ? OrderEnemy + 2 : OrderEnemy;
-                sr.color = e.hitFlash > 0 ? new Color(1f, 1f, 1f, 0.6f) : e.burnTicks > 0 ? new Color(1f, 0.62f, 0.3f) : e.slowTicks > 0 ? new Color(0.72f, 1f, 0.55f) : Color.white;   // 불타면 주황색, 둔화 중이면 연두색
+                // 불타면 주황, 산성이면 보라, 젖으면 파랑, 둔화 중이면 연두
+                sr.color = e.hitFlash > 0 ? new Color(1f, 1f, 1f, 0.6f) : e.burnTicks > 0 ? new Color(1f, 0.62f, 0.3f) : e.acidTicks > 0 ? new Color(0.85f, 0.6f, 1f)
+                    : e.wetTicks > 0 ? new Color(0.55f, 0.8f, 1f) : e.slowTicks > 0 ? new Color(0.72f, 1f, 0.55f) : Color.white;
                 sr.transform.position = new Vector3(e.x, e.y);
+                sr.transform.localScale = Vector3.one * (e.elite ? 1.35f : 1f);
+                float er = e.def.radius * (e.elite ? 1.35f : 1f);
+                if (e.elite)
+                {
+                    // 정예: 머리 위의 금색 마름모
+                    bars.Quad(e.x, e.y + er + 0.3f, 0.2f, 0.2f, new Color(1f, 0.82f, 0.3f), 45);
+                }
+                if (e.barrier > 0 && e.barrierMax > 0)
+                {
+                    // 보호막: 체력 막대 위의 하늘색 막대
+                    float bw = Mathf.Max(0.6f, e.def.radius * 2), bf = Mathf.Clamp01(e.barrier / e.barrierMax);
+                    bars.Quad(e.x, e.y + er + 0.26f, bw + 0.06f, 0.1f, new Color(0, 0, 0, 0.75f));
+                    bars.Quad(e.x - bw * 0.5f * (1 - bf), e.y + er + 0.26f, bw * bf, 0.06f, new Color(0.45f, 0.85f, 1f));
+                }
+                if (e.cargo > 0) for (int k = 0; k < e.cargo; k++) bars.Quad(e.x - 0.3f + k * 0.2f, e.y - er - 0.1f, 0.14f, 0.14f, Art.C(e.def.carries.color), 45);
                 if (e.vx != 0 || e.vy != 0)
                     sr.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(e.vy, e.vx) * Mathf.Rad2Deg);
-                if (e.health < e.maxHealth) HealthBar(e.x, e.y + e.def.radius + 0.14f, Mathf.Max(0.6f, e.def.radius * 2), e.health / e.maxHealth);
+                if (e.health < e.maxHealth) HealthBar(e.x, e.y + er + 0.14f, Mathf.Max(0.6f, e.def.radius * 2), e.health / e.maxHealth);
             }
 
             // 아군 유닛

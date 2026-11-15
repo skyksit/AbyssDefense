@@ -350,7 +350,30 @@ namespace AbyssDefense
             Note($"support blocks: built {supports.Count} (expect 3), shield charging {genB.shieldHp > 0} (expect True), auto rebuild {s30.autoRebuild} (expect True), ruins waiting {s30.ruins.Count} (expect 1)");
             gm.ToggleAutoRebuild();
             Note($"auto rebuild off: {!s30.autoRebuild} (expect True), ruins {s30.ruins.Count} (expect 0)");
+
+            // 적 14종을 한 줄로 세워 그림과 표시(정예·보호막·실은 적·상태 이상)를 본다
+            s30.units.Clear();
+            float ex0 = s30.Core.Cx - 6f, ey0 = s30.Core.Cy + 9f;
+            for (int i = 0; i < Content.Enemies.Length; i++)
+            {
+                var ed = Content.Enemies[i];
+                var en = new Enemy { def = ed, x = ex0 + (i % 7) * 2f, y = ey0 + (i / 7) * 2.2f, health = 99999, maxHealth = 99999, cooldown = 1 << 20, slowTicks = 1 << 20, slowMul = 0 };
+                if (ed == Content.Walker) en.elite = true;
+                if (ed == Content.Guard || ed == Content.Shell) { en.barrierMax = 100; en.barrier = 60; }
+                if (ed == Content.Dropship) en.cargo = 4;
+                if (ed == Content.Runner) en.acidTicks = 1 << 20;
+                if (ed == Content.Breaker) en.wetTicks = 1 << 20;
+                s30.enemies.Add(en);
+            }
+            Camera.main.transform.position = new Vector3(s30.Core.Cx, ey0 + 1f, -10);
+            yield return new WaitForSeconds(0.2f);
+            yield return Shot("32_enemies");
+            s30.enemies.Clear();
             gm.Retreat();
+            sv.abysses[0].cleared = 44;
+            gm.ShowRegionMap(0);
+            gm.ShowRegionSheet(0, 45);
+            yield return Shot("33_region_sheet_45");
 
             // 깊은 지역 전투
             sv.abysses[2].cleared = 29;

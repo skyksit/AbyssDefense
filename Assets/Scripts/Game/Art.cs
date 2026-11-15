@@ -592,6 +592,64 @@ namespace AbyssDefense
                 c.Fill(Box(m - r * 0.5f, m, r * 0.5f, 2, 1), dark);
                 c.Fill(Circle(m + r * 0.2f, m, 3), Color.white);
             }
+            else if (e == Content.Healer)
+            {
+                // 수리병: 둥근 몸에 흰 십자
+                c.Fill(Circle(m, m, r), dark);
+                c.Fill(Circle(m, m, r - 3), col);
+                c.Fill(Box(m, m, r * 0.55f, r * 0.18f, 1), Color.white);
+                c.Fill(Box(m, m, r * 0.18f, r * 0.55f, 1), Color.white);
+            }
+            else if (e == Content.Bombard)
+            {
+                // 포격병: 네모난 몸에 긴 포신
+                c.Fill(Box(m - r * 0.2f, m, r * 0.8f, r * 0.8f, 4), dark);
+                c.Fill(Box(m - r * 0.2f, m, r * 0.8f - 3, r * 0.8f - 3, 3), col);
+                c.Fill(Box(m + r * 0.45f, m, r * 0.6f, 3, 1), Lite(col, 0.5f));
+                c.Fill(Circle(m - r * 0.2f, m, r * 0.3f), Lite(col, 0.3f));
+            }
+            else if (e == Content.Splitter || e == Content.Mite)
+            {
+                // 분열체: 세 덩어리가 붙은 몸 (조각은 그 한 덩어리)
+                if (e == Content.Splitter)
+                    for (int i = 0; i < 3; i++)
+                    {
+                        float a = i * Mathf.PI * 2 / 3;
+                        c.Fill(Circle(m + Mathf.Cos(a) * r * 0.42f, m + Mathf.Sin(a) * r * 0.42f, r * 0.58f), dark);
+                    }
+                else c.Fill(Circle(m, m, r), dark);
+                if (e == Content.Splitter)
+                    for (int i = 0; i < 3; i++)
+                    {
+                        float a = i * Mathf.PI * 2 / 3;
+                        c.Fill(Circle(m + Mathf.Cos(a) * r * 0.42f, m + Mathf.Sin(a) * r * 0.42f, r * 0.58f - 3), col);
+                        c.Fill(Circle(m + Mathf.Cos(a) * r * 0.42f, m + Mathf.Sin(a) * r * 0.42f, r * 0.16f), Lite(col, 0.6f));
+                    }
+                else { c.Fill(Circle(m, m, r - 2), col); c.Fill(Circle(m, m, r * 0.35f), Lite(col, 0.6f)); }
+            }
+            else if (e == Content.Guard)
+            {
+                // 방패병: 앞에 든 둥근 방패
+                c.Fill(Circle(m - r * 0.15f, m, r * 0.8f), dark);
+                c.Fill(Circle(m - r * 0.15f, m, r * 0.8f - 3), col);
+                c.Fill(Poly(m + r, m + r * 0.75f, m + r * 0.45f, m + r * 0.75f, m + r * 0.45f, m - r * 0.75f, m + r, m - r * 0.75f), Lite(col, 0.55f));
+                c.Fill(Box(m + r * 0.72f, m, 2, r * 0.5f, 1), Color.white);
+            }
+            else if (e == Content.Dropship)
+            {
+                // 수송체: 넓은 몸통과 아래에 매단 짐
+                c.Fill(Poly(m + r, m, m + r * 0.3f, m + r * 0.85f, m - r, m + r * 0.6f, m - r, m - r * 0.6f, m + r * 0.3f, m - r * 0.85f), dark);
+                c.Fill(Poly(m + r - 5, m, m + r * 0.3f, m + r * 0.85f - 4, m - r + 3, m + r * 0.6f - 3, m - r + 3, m - r * 0.6f + 3, m + r * 0.3f, m - r * 0.85f + 4), col);
+                c.Fill(Box(m - r * 0.2f, m, r * 0.35f, r * 0.35f, 2), Shade(col, 0.5f));
+                for (int i = 0; i < 4; i++) c.Fill(Circle(m - r * 0.2f + (i % 2 == 0 ? -1 : 1) * r * 0.17f, m + (i < 2 ? -1 : 1) * r * 0.17f, 2.2f), C(Content.Walker.color));
+            }
+            else if (e == Content.Raider)
+            {
+                // 습격기: 뒤로 젖힌 날개의 가는 기체
+                c.Fill(Poly(m + r, m, m - r * 0.2f, m + r * 0.35f, m - r, m + r, m - r * 0.6f, m, m - r, m - r, m - r * 0.2f, m - r * 0.35f), dark);
+                c.Fill(Poly(m + r - 5, m, m - r * 0.2f, m + r * 0.22f, m - r * 0.55f, m, m - r * 0.2f, m - r * 0.22f), col);
+                c.Fill(Circle(m + r * 0.25f, m, 2.5f), new Color(1f, 0.9f, 0.3f));
+            }
             else if (e.boss)
             {
                 for (int i = 0; i < 8; i++)

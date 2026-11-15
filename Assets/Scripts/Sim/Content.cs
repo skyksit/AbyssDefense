@@ -36,6 +36,9 @@ namespace AbyssDefense.Sim
         public int fragCount;
         public float slow;           // 맞은 적의 속도에 곱한다 (0 = 없음). 범위 피해가 있으면 범위 안의 적 모두
         public int slowTicks;        // 느려지는 시간
+        public float acid;           // 산성: 맞은 적의 방어력에 곱한다 (0 = 없음). 범위 피해가 있으면 범위 안의 적 모두. 보스는 절반만 깎인다
+        public int acidTicks;        // 방어력이 깎여 있는 시간
+        public int wetTicks;         // 점액: 맞은 적이 이 시간 동안 젖는다. 젖은 적은 전격에 1.5배를 받고, 불이 붙으면 불 대신 젖음이 사라진다
         public uint color;
         public float size = 0.18f;
     }
@@ -140,6 +143,9 @@ namespace AbyssDefense.Sim
         public uint color;
     }
 
+    /// 적이 먼저 노리는 건물
+    public enum EnemyPrefer { Core, Factory, Turret }
+
     public sealed class EnemyDef
     {
         public int id;
@@ -152,10 +158,20 @@ namespace AbyssDefense.Sim
         public bool flying;          // 길을 무시하고 핵으로 직진
         public bool siege;           // 사거리 안의 건물을 멈춰서 공격
         public bool boss;
+        public bool noAir;           // 비행 유닛은 때리지 못한다 (siege 여도)
+        public float heal, healRange;    // 둘레의 다른 적을 초당 heal 만큼 고친다 (지역의 적 체력 배수를 따른다. 보스는 고치지 못한다)
+        public EnemyDef splitInto;   // 죽으면 이 적 splitCount 마리로 갈라진다
+        public int splitCount;
+        public float barrier;        // 자기 보호막: 받는 피해를 체력보다 먼저 받는다 (지역의 적 체력 배수를 따른다)
+        public float barrierRegen;   // 초당 차오르는 양
+        public int barrierDelay;     // 마지막으로 맞은 뒤 이 틱이 지나야 차오른다
+        public EnemyDef carries;     // (수송체) 싣고 와서 아군 건물 곁에 내려놓는 적
+        public int carryCount;
+        public EnemyPrefer prefers;  // 비행체가 날아가 치는 건물, 공성 적이 사거리 안에서 먼저 치는 건물 (없으면 평소대로)
         public ItemStack[] bounty = new ItemStack[0];   // 처치하면 핵으로 바로 들어오는 자원
         public uint color;
         /// 비행 유닛을 때릴 수 있는가
-        public bool HitsAir => flying || siege || boss;
+        public bool HitsAir => !noAir && (flying || siege || boss);
     }
 
     public sealed class AbyssDef
@@ -362,10 +378,10 @@ namespace AbyssDefense.Sim
         };
         public static readonly UnitDef Spitter = new UnitDef
         {
-            key = "spitter", name = "산성 로봇", desc = "벽을 타 넘는 2단계 다리 로봇. 산성 덩어리를 던져 범위 안 지상의 적을 2.5초 동안 절반 속도로 늦춘다. 공중은 못 쏜다.",
+            key = "spitter", name = "산성 로봇", desc = "벽을 타 넘는 2단계 다리 로봇. 산성 덩어리를 던져 범위 안 지상의 적을 2.5초 동안 절반 속도로 늦추고 방어력을 절반으로 깎는다. 공중은 못 쏜다.",
             tier = 2, legs = true, shape = "legs", health = 460, armor = 5, speed = 0.026f, radius = 0.36f, range = 4.5f, reloadTicks = 50, color = 0xE67700, tech = Research.Tier2,
             targetAir = false,
-            bullet = new BulletDef { speed = 0.12f, damage = 22, splash = 1.3f, lifeTicks = 60, artillery = true, slow = 0.5f, slowTicks = 150, color = 0xA9E34B, size = 0.22f },
+            bullet = new BulletDef { speed = 0.12f, damage = 22, splash = 1.3f, lifeTicks = 60, artillery = true, slow = 0.5f, slowTicks = 150, acid = 0.5f, acidTicks = 150, color = 0xA9E34B, size = 0.22f },
             cost = new[] { new ItemStack(Steel, 35), new ItemStack(Circuit, 25), new ItemStack(Powder, 10) }, buildTicks = 18 * 60, supply = 2,
         };
         public static readonly UnitDef Leech = new UnitDef
@@ -634,10 +650,10 @@ namespace AbyssDefense.Sim
         };
         public static readonly UnitDef Slimebug = new UnitDef
         {
-            key = "slimebug", name = "산성 벌레", desc = "붙어서 터지는 2단계 벌레. 넓은 범위의 적을 4초 동안 60% 늦춘다.",
+            key = "slimebug", name = "산성 벌레", desc = "붙어서 터지는 2단계 벌레. 넓은 범위의 적을 4초 동안 60% 늦추고 방어력을 절반으로 깎는다.",
             tier = 2, health = 200, armor = 0, speed = 0.045f, radius = 0.28f, range = 0.3f, reloadTicks = 0, color = 0x94D82D, tech = Research.Tier2,
             shape = "bug", suicide = true,
-            bullet = new BulletDef { damage = 60, splash = 2.2f, slow = 0.4f, slowTicks = 240, color = 0xA9E34B },
+            bullet = new BulletDef { damage = 60, splash = 2.2f, slow = 0.4f, slowTicks = 240, acid = 0.5f, acidTicks = 240, color = 0xA9E34B },
             cost = new[] { new ItemStack(Steel, 15), new ItemStack(Circuit, 10), new ItemStack(Powder, 15) }, buildTicks = 12 * 60, supply = 2,
         };
         public static readonly UnitDef Blaster = new UnitDef
@@ -692,10 +708,10 @@ namespace AbyssDefense.Sim
         };
         public static readonly UnitDef Mireship = new UnitDef
         {
-            key = "mireship", name = "산성함", desc = "산성 곡사포를 쏘는 3단계 함정. 넓은 범위 지상의 적을 3초 넘게 절반 속도로 늦춘다. 공중은 못 쏜다.",
+            key = "mireship", name = "산성함", desc = "산성 곡사포를 쏘는 3단계 함정. 넓은 범위 지상의 적을 3초 넘게 절반 속도로 늦추고 방어력을 60% 깎는다. 공중은 못 쏜다.",
             tier = 3, health = 2600, armor = 11, speed = 0.017f, radius = 0.50f, range = 8.5f, reloadTicks = 70, color = 0x82C91E, tech = Research.Tier3,
             naval = true, shape = "boat", targetAir = false,
-            bullet = new BulletDef { speed = 0.11f, damage = 54, splash = 1.9f, lifeTicks = 100, artillery = true, slow = 0.5f, slowTicks = 200, color = 0xA9E34B, size = 0.28f },
+            bullet = new BulletDef { speed = 0.11f, damage = 54, splash = 1.9f, lifeTicks = 100, artillery = true, slow = 0.5f, slowTicks = 200, acid = 0.4f, acidTicks = 200, color = 0xA9E34B, size = 0.28f },
             cost = new[] { new ItemStack(Steel, 115), new ItemStack(Circuit, 90), new ItemStack(Powder, 40), new ItemStack(Alloy, 30) }, buildTicks = 65 * 60, supply = 3,
         };
         public static readonly UnitDef Wardship = new UnitDef
@@ -848,9 +864,9 @@ namespace AbyssDefense.Sim
         };
         public static readonly UnitDef Seeder = new UnitDef
         {
-            key = "seeder", name = "산성 기뢰 부설기", desc = "싸우지 않고 4초마다 큰 산성 지뢰를 깐다 (여덟 개까지). 터지면 범위 안의 적이 3초 동안 절반 속도로 느려진다.",
+            key = "seeder", name = "산성 기뢰 부설기", desc = "싸우지 않고 4초마다 큰 산성 지뢰를 깐다 (여덟 개까지). 터지면 범위 안의 적이 3초 동안 절반 속도로 느려지고 방어력이 60% 깎인다.",
             tier = 4, hover = true, shape = "hover", health = 2600, armor = 8, speed = 0.032f, radius = 0.50f, color = 0xA9E34B, tech = Research.Tier4,
-            mineEvery = 4 * 60, mineMax = 8, minelay = new BulletDef { damage = 275, splash = 1.9f, slow = 0.5f, slowTicks = 180, color = 0xA9E34B },
+            mineEvery = 4 * 60, mineMax = 8, minelay = new BulletDef { damage = 275, splash = 1.9f, slow = 0.5f, slowTicks = 180, acid = 0.4f, acidTicks = 180, color = 0xA9E34B },
             cost = new[] { new ItemStack(Steel, 145), new ItemStack(Circuit, 110), new ItemStack(Powder, 130), new ItemStack(Alloy, 55) }, buildTicks = 110 * 60, supply = 4,
         };
         public static readonly UnitDef Leviathan = new UnitDef
@@ -1030,11 +1046,11 @@ namespace AbyssDefense.Sim
 
         public static readonly BlockDef SlimeTurret = new BlockDef
         {
-            key = "slime", name = "점액탑", desc = "점액을 뿌려 둘레의 적을 느리게 한다. 피해는 거의 없다.",
+            key = "slime", name = "점액탑", desc = "점액을 뿌려 둘레의 적을 느리게 하고 적신다. 젖은 적은 전격에 1.5배를 받지만 불은 붙지 않는다.",
             kind = BlockKind.Turret, health = 180, color = 0x94D82D, tech = Research.SpecialTurret,
             cost = new[] { new ItemStack(Iron, 45), new ItemStack(Sulfur, 25) },
             range = 5f, reloadTicks = 45, ammoItem = Sulfur, ammoPerItem = 5,
-            bullet = new BulletDef { speed = 0.20f, damage = 5, splash = 1.3f, lifeTicks = 28, slow = 0.55f, slowTicks = 120, color = 0xC0EB75, size = 0.22f },
+            bullet = new BulletDef { speed = 0.20f, damage = 5, splash = 1.3f, lifeTicks = 28, slow = 0.55f, slowTicks = 120, wetTicks = 240, color = 0xC0EB75, size = 0.22f },
             ammoName = "황석 점액",
         };
 
@@ -1226,7 +1242,59 @@ namespace AbyssDefense.Sim
             bounty = new[] { new ItemStack(Iron, 40), new ItemStack(Sulfur, 25) },
         };
 
-        public static readonly EnemyDef[] Enemies = { Walker, Runner, Breaker, Flyer, Boss, Shell, Chief };
+        // ───────── 능력이 있는 적 ─────────
+
+        /// 수리병: 싸움은 못 하지만 둘레의 다른 적을 고친다. 먼저 잡아야 한다
+        public static readonly EnemyDef Healer = new EnemyDef
+        {
+            key = "healer", name = "수리병", health = 70, speed = 0.017f, radius = 0.30f,
+            damage = 4, attackTicks = 60, range = 0.6f, heal = 8, healRange = 2.5f, color = 0x2F9E44,
+            bounty = new[] { new ItemStack(Iron, 6), new ItemStack(Sulfur, 3) },
+        };
+        /// 포격병: 속사포의 사거리 밖에서 멈춰 서서 포탑부터 부순다. 비행 유닛은 못 친다
+        public static readonly EnemyDef Bombard = new EnemyDef
+        {
+            key = "bombard", name = "포격병", health = 80, speed = 0.011f, radius = 0.36f, armor = 1,
+            damage = 16, attackTicks = 120, range = 6.0f, siege = true, noAir = true, prefers = EnemyPrefer.Turret, color = 0xE8590C,
+            bounty = new[] { new ItemStack(Iron, 9), new ItemStack(Sulfur, 5) },
+        };
+        /// 분열 조각: 분열체가 죽으면 나오는 작고 빠른 적
+        public static readonly EnemyDef Mite = new EnemyDef
+        {
+            key = "mite", name = "분열 조각", health = 22, speed = 0.034f, radius = 0.18f,
+            damage = 4, attackTicks = 35, range = 0.55f, color = 0xF783AC,
+            bounty = new[] { new ItemStack(Iron, 1) },
+        };
+        /// 분열체: 죽으면 분열 조각 셋으로 갈라진다. 범위 피해로 한꺼번에 잡아야 한다
+        public static readonly EnemyDef Splitter = new EnemyDef
+        {
+            key = "splitter", name = "분열체", health = 130, speed = 0.016f, radius = 0.40f,
+            damage = 12, attackTicks = 55, range = 0.65f, splitInto = Mite, splitCount = 3, color = 0xC2255C,
+            bounty = new[] { new ItemStack(Iron, 6), new ItemStack(Sulfur, 2) },
+        };
+        /// 방패병: 보호막이 피해를 먼저 받고, 3초 동안 맞지 않으면 다시 차오른다. 끊기지 않는 화력이나 불로 잡는다
+        public static readonly EnemyDef Guard = new EnemyDef
+        {
+            key = "guard", name = "방패병", health = 120, speed = 0.015f, radius = 0.38f, armor = 2,
+            damage = 14, attackTicks = 60, range = 0.7f, barrier = 80, barrierRegen = 18, barrierDelay = 180, color = 0x1C7ED6,
+            bounty = new[] { new ItemStack(Iron, 8), new ItemStack(Sulfur, 4) },
+        };
+        /// 수송체: 벽을 넘어 날아와 아군 건물 곁에 보행병 넷을 내려놓는다. 내려놓기 전에 떨어뜨리면 실린 적도 함께 사라진다
+        public static readonly EnemyDef Dropship = new EnemyDef
+        {
+            key = "dropship", name = "수송체", health = 160, speed = 0.018f, radius = 0.50f, armor = 1,
+            damage = 6, attackTicks = 50, range = 1.0f, flying = true, carries = Walker, carryCount = 4, color = 0x862E9C,
+            bounty = new[] { new ItemStack(Iron, 10), new ItemStack(Sulfur, 6) },
+        };
+        /// 습격기: 핵이 아니라 가장 가까운 공장으로 날아가 친다
+        public static readonly EnemyDef Raider = new EnemyDef
+        {
+            key = "raider", name = "습격기", health = 55, speed = 0.034f, radius = 0.28f,
+            damage = 14, attackTicks = 40, range = 1.0f, flying = true, prefers = EnemyPrefer.Factory, color = 0xF03E3E,
+            bounty = new[] { new ItemStack(Iron, 5), new ItemStack(Sulfur, 2) },
+        };
+
+        public static readonly EnemyDef[] Enemies = { Walker, Runner, Breaker, Flyer, Boss, Shell, Chief, Healer, Bombard, Mite, Splitter, Guard, Dropship, Raider };
 
         public static readonly AbyssDef[] Abysses =
         {

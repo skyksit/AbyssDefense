@@ -425,19 +425,26 @@ namespace AbyssDefense
             var close = Ui.Btn(sheet, "닫기", 30, Ui.Card, () => { if (sheet != null) Destroy(sheet.gameObject); sheet = null; });
             close.Rt().At(new Vector2(1, 1), new Vector2(1, 1), -30, -28, 140, 76);
 
-            var names = new System.Text.StringBuilder();
-            foreach (var g in WaveGen.Generate(r))
-            {
-                if (names.Length > 0) names.Append(", ");
-                names.Append(g.enemy.name);
-            }
+            var groups = WaveGen.Generate(r);
             string body =
                 (r.assault ? $"맵 {r.mapW}×{r.mapH}칸  ·  적 핵 {r.spawnCount}개를 유닛으로 모두 부수면 점령  ·  웨이브는 끝없이 옵니다\n"
                            : $"맵 {r.mapW}×{r.mapH}칸  ·  웨이브 {r.winWave}회  ·  출현 지점 {r.spawnCount}곳  ·  적 체력 ×{r.enemyHealthMul:0.0}\n") +
-                $"적: {names}";
+                "적";
             var info = Ui.Label(sheet, body, 29, Ui.Dim, TextAnchor.UpperLeft);
             info.lineSpacing = 1.3f;
             info.rectTransform.Fill(40, 0, 40, 118);
+            // 나오는 적은 그림으로 한 줄에 (정예는 금색 점, 보호막은 하늘색 점). 이름과 능력은 도감에 있다
+            for (int i = 0; i < groups.Count; i++)
+            {
+                var g = groups[i];
+                var ic = Ui.Icon(sheet, Art.Get("enemy_" + g.enemy.key));
+                ic.Rt().At(new Vector2(0, 1), new Vector2(0, 1), 92 + i * 62, -118 - 36, 46, 46);
+                if (g.elite || g.shields > 0 || g.shieldScaling > 0)
+                {
+                    var dot = Ui.Icon(ic.transform, Art.Get("fx_disc"), g.elite ? Ui.Gold : new Color(0.45f, 0.85f, 1f));
+                    dot.Rt().At(new Vector2(1, 1), new Vector2(0.5f, 0.5f), -2, -2, 16, 16);
+                }
+            }
 
             // 첫 점령 보상
             string reward;
