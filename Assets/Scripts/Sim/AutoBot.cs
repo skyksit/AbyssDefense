@@ -9,7 +9,7 @@ namespace AbyssDefense.Sim
         readonly Sim sim;
         readonly World w;
         List<int> path;      // 출현 지점들에서 핵까지의 길 (핵에 가까운 칸부터)
-        int nextThink, turrets;
+        int nextThink, turrets, sent;
 
         public AutoBot(Sim sim)
         {
@@ -26,10 +26,14 @@ namespace AbyssDefense.Sim
 
             // 적 거점 지역: 유닛이 몇 대 모이면 적 핵을 치러 보낸다
             // (한도가 찰 때까지 모았다가 한꺼번에 보내고, 거의 다 잃으면 불러들여 다시 모은다)
+            bool raiding = false;
             if (sim.rules.assault)
             {
-                if (sim.SupplyUsed >= sim.UnitCap) sim.stance = UnitStance.Attack;
-                else if (sim.units.Count <= 1) sim.stance = UnitStance.Defend;
+                bool making = false;
+                foreach (var b in w.buildings) if (b is FactoryBuilding fb && fb.making != null) making = true;
+                if (sim.stance == UnitStance.Defend && sim.SupplyUsed >= sim.UnitCap && !making) { sim.stance = UnitStance.Attack; sent = sim.units.Count; }
+                else if (sim.stance == UnitStance.Attack && sim.units.Count * 3 <= sent) sim.stance = UnitStance.Defend;   // 셋 중 둘을 잃으면 불러들여 다시 모은다
+                raiding = sim.stance == UnitStance.Attack;   // 치러 나간 동안은 새로 만들지 않는다 (하나씩 뒤따라가 죽지 않게)
             }
 
             // 포탑의 탄: 강철이 넉넉하면 속사포에 철갑탄(방어력 무시, 철광도 아낀다), 화약이 넉넉하면 대공포에 화약 대공탄
@@ -43,6 +47,9 @@ namespace AbyssDefense.Sim
                 else if (b.def == Content.Amplifier) amp++;
                 else if (b.def == Content.ShieldGen) shield++;
                 if (!(b is TurretBuilding t) || !b.Built) continue;
+                // 회로가 넉넉하면 과부하를 켠다
+                if (!t.overcharge && items[Content.Circuit] >= 400) t.overcharge = true;
+                else if (t.overcharge && items[Content.Circuit] < 150) t.overcharge = false;
                 if (b.def == Content.RapidTurret)
                 {
                     if (t.ammoIdx == 0 && items[Content.Steel] >= 300) t.SetAmmo(1);
@@ -65,8 +72,10 @@ namespace AbyssDefense.Sim
                 if (!(b is FactoryBuilding f)) continue;
                 if (f.def == Content.RobotFactory) robot++; else air++;
                 f.product = 0;
+                int room = sim.UnitCap - sim.SupplyUsed;
                 for (int k = f.def.units.Length - 1; k > 0; k--)
-                    if (sim.IsUnlocked(f.def.units[k]) && sim.Core.Has(f.def.units[k].cost)) { f.product = k; break; }
+                    if (sim.IsUnlocked(f.def.units[k]) && sim.Core.Has(f.def.units[k].cost) && (!sim.rules.assault || f.def.units[k].supply <= room)) { f.product = k; break; }
+                if (raiding) { f.product = -1; continue; }
                 bool usesIron = false;
                 foreach (var c in f.def.units[f.product].cost) if (c.item == Content.Iron) usesIron = true;
                 if (usesIron && items[Content.Iron] < 80 + turrets * 6) f.product = -1;   // 탄약으로 쓸 철광까지 유닛에 쓰지 않는다

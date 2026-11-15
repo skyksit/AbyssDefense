@@ -669,6 +669,21 @@ namespace AbyssDefense.Sim
             if (any) ruins.Add(new Ruin { def = b.def, x = b.x, y = b.y, tick = tick });
         }
 
+        public const int AmmoReservePerTurret = 8;
+
+        /// 이 건물을 짓고도 지금 서 있는 포탑들의 탄약 몫이 남는가: 포탑 하나에 그 포탑이 쓰는 탄약 자원 AmmoReservePerTurret 개씩.
+        /// 자동 재건만 이 몫을 지킨다 (직접 짓는 것과 재건 드론은 지키지 않는다)
+        public bool LeavesAmmo(BlockDef def)
+        {
+            var need = Committed();
+            foreach (var c in def.cost) need[c.item] += c.amount;
+            var bs = world.buildings;
+            for (int i = 0; i < bs.Count; i++)
+                if (bs[i] is TurretBuilding t && t.Built) need[t.Ammo.item] += AmmoReservePerTurret;
+            foreach (var c in def.cost) if (Core.items[c.item] < need[c.item]) return false;
+            return true;
+        }
+
         /// 자동 재건: 부서진 지 AutoRebuildDelay 가 지난 자리에 같은 건물의 건설 터를 다시 놓는다. 비용과 건설 순서는 직접 지을 때와 같다.
         /// 자원이 모자라면 기다리고, 그 자리에 다시는 지을 수 없으면(다른 건물이 들어섰다) 그 자리를 버린다
         void AutoRebuild()
@@ -680,6 +695,7 @@ namespace AbyssDefense.Sim
                 if (tick - r.tick < AutoRebuildDelay) continue;
                 var res = CanPlace(r.def, r.x, r.y, true, false);
                 if (res == PlaceResult.NoResources) continue;
+                if (res == PlaceResult.Ok && !LeavesAmmo(r.def)) continue;   // 탄약 몫까지 헐어 짓지는 않는다
                 ruins.RemoveAt(i--);
                 if (res == PlaceResult.Ok) Place(r.def, r.x, r.y, false);
             }

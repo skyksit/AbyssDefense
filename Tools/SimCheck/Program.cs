@@ -29,8 +29,11 @@ static class Program
             if (rg > BaseRules.CrystalMineRegion) take[2] = cap / 2;
             foreach (var rf in BaseRules.Refineries) if (rg > rf.reqRegion) take[rf.output] = rf.output == Content.Alloy ? cap / 4 : cap / 2;
             var sim = new Sim(ab, rg, take, Research.Mods(research));
+            // trace 심연 지역 [유닛 수] [-적key …]: -healer 처럼 쓰면 그 적의 무리를 빼고 돌린다
+            foreach (var arg in args) if (arg.StartsWith("-")) without.Add(arg.Substring(1));
+            if (without.Count > 0) sim.groups.RemoveAll(g => !g.enemy.boss && (without.Contains(g.enemy.key) || (g.elite && without.Contains("elite"))));
             var bot = new AutoBot(sim);
-            if (args.Length >= 4)
+            if (args.Length >= 4 && !args[3].StartsWith("-"))
             {
                 FactoryBuilding hf = null;
                 for (int y = sim.Core.y + 4; y < sim.world.H && hf == null; y++)
@@ -465,6 +468,28 @@ static class Program
         }
         Check(bad == "" && kinds == 15, $"포탑 7종의 탄 {kinds}가지가 모두 사거리까지 닿고 피해를 준다" + bad);
 
+        // 과부하: 쏠 적이 있는 동안 회로 하나로 10초씩 1.5배 빨리 쏜다
+        var so = EmptySim(Full, all);
+        tx = (int)so.Core.Cx; ty = so.Core.y + 6;
+        so.Place(Content.RapidTurret, tx, ty);
+        Finish(so);
+        var ot = (TurretBuilding)so.world.BuildAt(tx, ty);
+        int CountShots(int ticks) { int n = 0, last = ot.reload; for (int i = 0; i < ticks; i++) { so.Tick(); if (ot.reload > last) n++; last = ot.reload; } return n; }
+        int circ0 = so.Core.items[Content.Circuit];
+        so.CmdOvercharge(ot, true);
+        for (int i = 0; i < 300; i++) so.Tick();
+        bool idleFree = so.Core.items[Content.Circuit] == circ0 && ot.overchargeLeft == 0;
+        var od = Dummy(so, Content.Walker, tx + 3.5f, ty + 0.5f);
+        int fast = CountShots(600);
+        int used = circ0 - so.Core.items[Content.Circuit];
+        so.CmdOvercharge(ot, false);
+        for (int i = 0; i < 600; i++) so.Tick();   // 남은 과부하가 다 타게 둔다
+        int slow = CountShots(600);
+        so.Core.items[Content.Circuit] = 0; so.CmdOvercharge(ot, true);
+        int dry2 = CountShots(600);
+        Check(idleFree && fast >= 42 && fast <= 45 && used == 1 && slow == 30 && dry2 == 30 && so.log.Count == 3,
+            $"과부하: 쏠 적이 없으면 회로를 쓰지 않고, 있으면 회로 1개로 10초 동안 약 1.5배 (10초에 {slow} → {fast}발. 재장전이 짧은 포탑은 틱 반올림만큼 덜 빨라진다), 회로가 없으면 평소대로");
+
         // 전격탑: 번개가 곁의 적으로 건너뛴다
         var s4 = EmptySim(Full, all);
         tx = (int)s4.Core.Cx; ty = s4.Core.y + 6;
@@ -570,6 +595,17 @@ static class Program
         s3.Core.items[Content.Iron] = 100;
         for (int i = 0; i < 60; i++) s3.Tick();
         Check(poor && s3.world.BuildAt(5, 20) != null, "자동 재건: 자원이 없으면 기다렸다가 생기면 놓는다");
+        // 탄약 몫: 서 있는 포탑 하나에 탄약 자원 8개씩은 남기고 짓는다
+        s3.Core.items[Content.Iron] = 200;
+        s3.Place(Content.RapidTurret, 10, 20); s3.Place(Content.RapidTurret, 12, 20);
+        Finish(s3);
+        s3.world.BuildAt(5, 20).health = 0;
+        s3.Core.items[Content.Iron] = 35 + 2 * Sim.AmmoReservePerTurret - 1;
+        for (int i = 0; i < Sim.AutoRebuildDelay + 120; i++) s3.Tick();
+        bool keeps = s3.world.BuildAt(5, 20) == null && s3.ruins.Count == 1 && !s3.LeavesAmmo(Content.RapidTurret);
+        s3.Core.items[Content.Iron] += 1;
+        for (int i = 0; i < 60; i++) s3.Tick();
+        Check(keeps && s3.world.BuildAt(5, 20) != null, $"자동 재건: 포탑 둘의 탄약 몫(철광 {2 * Sim.AmmoReservePerTurret})을 헐어야 하면 기다린다");
         s3.world.BuildAt(5, 20).health = 0;
         s3.Tick();
         bool gone = s3.Remove(5, 20) && s3.ruins.Count == 0;

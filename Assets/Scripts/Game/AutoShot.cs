@@ -332,8 +332,9 @@ namespace AbyssDefense
             bool picked = play.Turret == rapid;
             gm.SetAmmo(1);
             gm.SetTargetMode(TargetMode.Strongest);
+            gm.ToggleOvercharge();
             yield return Shot("30_turret_panel");
-            Note($"turrets: built {turrets.Count} (expect 7), tap selects turret {picked} (expect True), ammo {rapid.Ammo.name} (expect 철갑탄), target mode {rapid.mode} (expect Strongest)");
+            Note($"turrets: built {turrets.Count} (expect 7), tap selects turret {picked} (expect True), ammo {rapid.Ammo.name} (expect 철갑탄), target mode {rapid.mode} (expect Strongest), overcharge {rapid.overcharge} (expect True)");
             play.Cancel();
 
             // 지원 건물 셋과 부서진 자리(자동 재건 대기)

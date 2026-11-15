@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace AbyssDefense.Sim
 {
-    public enum CmdKind { Place, Remove, Product, Rally, Stance, CallWave, Command, Ammo, Mode, AutoRebuild, FactoryStance }
+    public enum CmdKind { Place, Remove, Product, Rally, Stance, CallWave, Command, Ammo, Mode, AutoRebuild, FactoryStance, Overcharge }
 
     /// 플레이어가 내린 명령 하나. 같은 지역에 같은 명령을 같은 틱에 다시 넣으면 같은 판이 된다 (진행 중 저장이 이것만 적어 둔다)
     [Serializable]
@@ -46,6 +46,7 @@ namespace AbyssDefense.Sim
         public bool CmdAmmo(TurretBuilding t, int k) => t != null && Do(new SimCommand { kind = CmdKind.Ammo, a = t.x, b = t.y, c = k });
         public bool CmdMode(TurretBuilding t, TargetMode m) => t != null && Do(new SimCommand { kind = CmdKind.Mode, a = t.x, b = t.y, c = (int)m });
         public bool CmdFactoryStance(FactoryBuilding f, FactoryStance st) => f != null && Do(new SimCommand { kind = CmdKind.FactoryStance, a = f.x, b = f.y, c = (int)st });
+        public bool CmdOvercharge(TurretBuilding t, bool on) => t != null && Do(new SimCommand { kind = CmdKind.Overcharge, a = t.x, b = t.y, c = on ? 1 : 0 });
         public bool CmdAutoRebuild(bool on) => Do(new SimCommand { kind = CmdKind.AutoRebuild, a = on ? 1 : 0 });
 
         /// 가리킨 곳은 1/16 칸으로 맞춘다 (저장했다 읽어도 값이 그대로이게)
@@ -96,6 +97,12 @@ namespace AbyssDefense.Sim
                     t2.mode = (TargetMode)c.c;
                     return true;
                 }
+                case CmdKind.Overcharge:
+                {
+                    if (!(world.BuildAt(c.a, c.b) is TurretBuilding to)) return false;
+                    to.overcharge = c.c != 0;
+                    return true;
+                }
                 case CmdKind.FactoryStance:
                 {
                     if (!(world.BuildAt(c.a, c.b) is FactoryBuilding fs) || c.c < 0 || c.c > (int)FactoryStance.Attack) return false;
@@ -142,7 +149,7 @@ namespace AbyssDefense.Sim
                 void Mix(float v) { h = (h ^ BitConverter.SingleToInt32Bits(v)) * 1099511628211L; }
                 Mix(tick); Mix(wave); Mix(kills); Mix(waveCountdown); Mix((int)state); Mix((int)stance); Mix(autoRebuild ? 1 : 0);
                 foreach (int it in Core.items) Mix(it);
-                foreach (var b in world.buildings) { Mix(b.def.id); Mix(b.x); Mix(b.y); Mix(b.health); Mix(b.progress); if (b is FactoryBuilding fb) Mix((int)fb.stance); }
+                foreach (var b in world.buildings) { Mix(b.def.id); Mix(b.x); Mix(b.y); Mix(b.health); Mix(b.progress); if (b is FactoryBuilding fb) Mix((int)fb.stance); if (b is TurretBuilding tb) { Mix(tb.overchargeLeft); Mix(tb.overcharge ? 1 : 0); } }
                 foreach (var e in enemies) { Mix(e.def.id); Mix(e.x); Mix(e.y); Mix(e.health); Mix(e.barrier); }
                 foreach (var u in units) { Mix(u.def.id); Mix(u.x); Mix(u.y); Mix(u.health); }
                 foreach (var bl in bullets) { Mix(bl.x); Mix(bl.y); }
@@ -151,8 +158,10 @@ namespace AbyssDefense.Sim
             }
         }
 
+        public const int OverchargeItem = Content.Circuit, OverchargeTicks = 10 * 60;
+
         /// 규칙이 바뀌면(코드의 동작이 달라지면) 올린다. 진행 중 저장은 이 값과 수치 지문이 같을 때만 이어진다
-        public const int RulesVersion = 4;   // 2: 덮어 짓기, 3: 적이 길 둘레의 유닛·건물을 먼저 친다, 4: 공장별 태세, 적이 유닛을 쫓는 한도
+        public const int RulesVersion = 5;   // 2: 덮어 짓기, 3: 적이 길 둘레의 유닛·건물을 먼저 친다, 4: 공장별 태세, 적이 유닛을 쫓는 한도, 5: 포탑 과부하, 자동 재건의 탄약 몫
 
         /// 수치 지문: 유닛·적·건물·지역 규칙·웨이브의 숫자를 한 값으로 줄인다. 밸런스를 고치면 값이 달라져, 예전 판의 명령 기록을 잘못 되돌리지 않는다
         public static int RulesFingerprint()

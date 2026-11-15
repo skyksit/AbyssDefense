@@ -240,6 +240,8 @@ namespace AbyssDefense.Sim
         public int ammo, reload;
         public int ammoIdx;              // def.ammos 의 번호: 지금 넣는 탄
         public TargetMode mode;          // 누구를 겨누는가
+        public bool overcharge;          // 과부하: 겨눌 적이 있는 동안 핵의 회로를 태워 1.5배 빨리 쏜다
+        public int overchargeLeft;       // 회로 하나로 남은 과부하 틱
         public float aim = 1.5708f;      // 그림용 포신 방향 (라디안)
         public Enemy target;
         int retarget;
@@ -269,6 +271,18 @@ namespace AbyssDefense.Sim
                 target = sim.PickEnemy(Cx, Cy, Range, def.targetAir, def.targetGround, mode);
             }
             if (target == null) return;
+
+            // 과부하: 쏠 적이 있을 때만 회로 하나를 태워 OverchargeTicks 동안 두 틱에 한 번 재장전을 한 틱 더 줄인다
+            if (overcharge && overchargeLeft <= 0 && world.core.items[Sim.OverchargeItem] > 0)
+            {
+                world.core.items[Sim.OverchargeItem]--;
+                overchargeLeft = Sim.OverchargeTicks;
+            }
+            if (overchargeLeft > 0)
+            {
+                overchargeLeft--;
+                if (reload > 0 && sim.tick % 2 == 0) reload--;
+            }
 
             // 탄이 닿을 때의 적 위치를 겨눈다
             var bl = Ammo.bullet;

@@ -72,6 +72,8 @@ namespace AbyssDefense
         readonly Text[] ammoText = new Text[AmmoButtons];
         readonly Image[] ammoBg = new Image[AmmoButtons];
         readonly Image[] modeBg = new Image[4];
+        Image overBg;
+        Text overText;
 
         void BuildHud()
         {
@@ -264,13 +266,20 @@ namespace AbyssDefense
                 ammoText[i] = ab.GetComponentInChildren<Text>();
                 ammoText[i].supportRichText = true;
             }
+            float mwid = (ProductRowPx - ProductGapPx * 4) / 5;
             for (int i = 0; i < modeBg.Length; i++)
             {
                 int k = i;
-                var mb = Ui.Btn(tp.transform, ModeNames[i], 25, Ui.Card, () => SetTargetMode((TargetMode)k));
-                mb.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 20 + i * (aw + ProductGapPx), 12, aw, 84);
+                var mb = Ui.Btn(tp.transform, ModeNames[i], 22, Ui.Card, () => SetTargetMode((TargetMode)k));
+                mb.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 20 + i * (mwid + ProductGapPx), 12, mwid, 84);
                 modeBg[i] = mb.GetComponent<Image>();
             }
+            // 과부하: 회로를 태워 1.5배 빨리 쏜다
+            var ob = Ui.Btn(tp.transform, "과부하", 22, Ui.Card, ToggleOvercharge);
+            ob.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 20 + 4 * (mwid + ProductGapPx), 12, mwid, 84);
+            overBg = ob.GetComponent<Image>();
+            overText = ob.GetComponentInChildren<Text>();
+            overText.supportRichText = true;
             turretPanel.SetActive(false);
 
             UpdateHud();
@@ -322,6 +331,15 @@ namespace AbyssDefense
             var t = play != null ? play.Turret : null;
             if (t == null || k >= t.def.ammos.Length) return;
             if (sim.CmdAmmo(t, k) && sim.Core.items[t.Ammo.item] <= 0) Toast($"{t.Ammo.name}: 핵에 {Content.Items[t.Ammo.item].name}이(가) 없습니다");
+        }
+
+        /// 고른 포탑의 과부하를 켜고 끈다
+        public void ToggleOvercharge()
+        {
+            var t = play != null ? play.Turret : null;
+            if (t == null) return;
+            sim.CmdOvercharge(t, !t.overcharge);
+            Toast(t.overcharge ? "과부하 켬: 쏠 적이 있는 동안 회로 하나로 10초씩 1.5배 빨리 쏩니다" : "과부하 끔");
         }
 
         /// 고른 포탑이 겨눌 적의 기준을 바꾼다
@@ -442,6 +460,9 @@ namespace AbyssDefense
                 ammoText[i].color = stock > 0 || (t.ammoIdx == i && t.ammo > 0) ? Ui.TextCol : Ui.Dim;
             }
             for (int i = 0; i < modeBg.Length; i++) modeBg[i].color = (int)t.mode == i ? new Color(0.25f, 0.45f, 0.42f) : Ui.Card;
+            int oc = sim.Core.items[Sim.Sim.OverchargeItem];
+            overBg.color = t.overcharge ? (oc > 0 || t.overchargeLeft > 0 ? new Color(0.62f, 0.44f, 0.16f) : new Color(0.5f, 0.24f, 0.26f)) : Ui.Card;
+            overText.text = (t.overcharge ? "과부하 켬" : "과부하 끔") + $"\n<color=#{Content.Items[Sim.Sim.OverchargeItem].color:X6}>회로 {oc}</color>";
         }
 
         /// 건물을 탭했을 때 설명 줄에 잠깐 보여 준다
