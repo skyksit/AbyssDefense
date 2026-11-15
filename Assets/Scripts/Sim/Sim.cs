@@ -26,6 +26,8 @@ namespace AbyssDefense.Sim
         public Unit preyUnit;        // 가는 길 둘레에서 찾아 먼저 치러 가는 아군 유닛
         public Building preyBuild;   // 가는 길 둘레에서 찾아 먼저 치러 가는 아군 건물
         public int preyTick;         // 먹잇감을 다시 고를 틱
+        public float preyX, preyY;   // 유닛을 쫓기 시작한 자리
+        public int noUnitUntil;      // 이 틱까지는 유닛을 쫓지 않는다 (너무 멀리 끌려갔다)
         public float Armor => acidTicks > 0 ? armor * acidMul : armor;
         public bool dead;
         public int hitFlash;
@@ -456,6 +458,12 @@ namespace AbyssDefense.Sim
             if (tick >= e.preyTick) FindPrey(e);
             if (e.preyUnit != null && (e.preyUnit.dead || e.preyUnit.carrier != null)) e.preyUnit = null;
             if (e.preyBuild != null && (e.preyBuild.dead || e.preyBuild.health <= 0)) e.preyBuild = null;
+            if (e.preyUnit != null)
+            {
+                // 유닛에게 끌려다니지 않는다: 쫓기 시작한 자리에서 ChaseLeash 넘게 벗어나면 그만두고 한동안 유닛을 쫓지 않는다
+                float lx = e.x - e.preyX, ly = e.y - e.preyY, leash = e.def.aggro + ChaseLeash;
+                if (lx * lx + ly * ly > leash * leash) { e.preyUnit = null; e.noUnitUntil = tick + ChaseRest; e.preyTick = tick; }
+            }
 
             if (e.def.flying)
             {
@@ -511,24 +519,36 @@ namespace AbyssDefense.Sim
         }
 
         /// 적이 가는 길 둘레에서 먼저 칠 것을 고른다: aggro 안의 가장 가까운 아군 유닛(때릴 수 있는 것) 또는 건물. 방벽은 고르지 않는다 (길을 막을 때만 친다)
+        public const float ChaseLeash = 1.5f, TurretLure = 0.4f;
+        public const int ChaseRest = 3 * 60;
+
         void FindPrey(Enemy e)
         {
             e.preyTick = tick + 20;
+            var was = e.preyUnit;
             e.preyUnit = null; e.preyBuild = null;
             float r = e.def.aggro;
             if (r <= 0) return;
-            var u = NearestUnit(e.x, e.y, r, e.def.HitsAir);
+            var u = tick >= e.noUnitUntil ? NearestUnit(e.x, e.y, r, e.def.HitsAir) : null;
             float ud = u != null ? (float)Math.Sqrt((u.x - e.x) * (u.x - e.x) + (u.y - e.y) * (u.y - e.y)) : float.MaxValue;
-            Building best = null; float bd = r;
+            // 건물은 가장 가까운 것부터, 포탑은 TurretLure 만큼 더 가까운 것으로 친다
+            Building best = null; float bd = float.MaxValue;
             var bs = world.buildings;
             for (int i = 0; i < bs.Count; i++)
             {
                 var b = bs[i];
                 if (b.def.enemy || b.dead || b.def.kind == BlockKind.Wall) continue;
                 float d = b.DistTo(e.x, e.y);
-                if (d <= bd) { bd = d; best = b; }
+                if (d > r) continue;
+                if (b.def.kind == BlockKind.Turret) d -= TurretLure;
+                if (d < bd) { bd = d; best = b; }
             }
-            if (u != null && ud <= bd) e.preyUnit = u; else e.preyBuild = best;
+            if (u != null && ud <= bd)
+            {
+                e.preyUnit = u;
+                if (was != u) { e.preyX = e.x; e.preyY = e.y; }   // 새로 쫓기 시작했다
+            }
+            else e.preyBuild = best;
         }
 
         /// 지상의 적이 (tx, ty) 쪽으로 곧게 한 걸음 간다. 디딜 칸이 벽이거나 건물이면 가지 않고 false

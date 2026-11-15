@@ -63,6 +63,8 @@ namespace AbyssDefense
                 () => Count(b => b is FactoryBuilding && b.Built) > 0, () => play.Factory != null);
             Add("stance", "유닛이 모였으면 위의 '방어 중' 단추로 공격 태세로 바꿔 적 출현 지점 앞에서 싸우게 할 수 있습니다.",
                 () => sim.units.Count >= 3 && sim.stance == UnitStance.Defend, () => sim.stance == UnitStance.Attack);
+            Add("facstance", "공장 창 가운데의 '태세' 단추로 그 공장의 유닛만 늘 지키거나 늘 공격하게 할 수 있습니다. 수리 유닛은 남기고 공격 유닛만 보낼 때 씁니다.",
+                () => Count(b => b is FactoryBuilding && b.Built) >= 2 && sim.units.Count >= 2, () => Count(b => b is FactoryBuilding f && f.stance != FactoryStance.Follow) > 0);
             Add("replace", "방벽 위에 강철 방벽을 놓으면 철거하지 않고 바뀝니다. 포탑도 같은 크기끼리 덮어 지을 수 있습니다.",
                 () => sim.IsUnlocked(Content.SteelWall) && sim.Core.items[Content.Steel] >= 10 && Count(b => b.def == Content.Wall && b.Built) > 0, () => Count(b => b.def == Content.SteelWall) > 0);
             Add("rebuild", "부서진 건물은 10초 뒤 같은 자리에 다시 지어집니다. 철광이 탄약에 모자라면 오른쪽 아래의 '자동 재건'을 끄세요.",

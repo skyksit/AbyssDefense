@@ -160,7 +160,7 @@ namespace AbyssDefense.Sim
         public bool siege;           // 사거리 안의 건물을 멈춰서 공격
         public bool boss;
         public bool noAir;           // 비행 유닛은 때리지 못한다 (siege 여도)
-        public float aggro = 2.5f;   // 가는 길에서 이 거리 안에 아군 유닛이나 건물(방벽 제외)이 있으면 핵보다 그것부터 친다
+        public float aggro = 2.5f;   // 가는 길에서 이 거리 안에 아군 유닛이나 건물(방벽 제외)이 있으면 핵보다 그것부터 친다. 포탑은 0.4칸 더 가까운 것으로 쳐서 먼저 고른다
         public float heal, healRange;    // 둘레의 다른 적을 초당 heal 만큼 고친다 (지역의 적 체력 배수를 따른다. 보스는 고치지 못한다)
         public EnemyDef splitInto;   // 죽으면 이 적 splitCount 마리로 갈라진다
         public int splitCount;

@@ -198,6 +198,8 @@ namespace AbyssDefense.Sim
     }
 
     public enum FactoryStatus { Stopped, Producing, NoResources, Cap, Locked }
+    /// 공장에서 나온 유닛의 태세: 위의 전역 태세를 따르거나, 이 공장의 유닛만 늘 지키거나 늘 공격한다
+    public enum FactoryStance { Follow, Defend, Attack }
 
     /// 유닛 공장. 고른 유닛을 핵의 자원으로 계속 만든다. 비용은 생산을 시작할 때 낸다
     public sealed class FactoryBuilding : Building
@@ -206,6 +208,7 @@ namespace AbyssDefense.Sim
         public UnitDef making;           // 지금 만들고 있는 유닛
         public float work;               // 생산 진행도 0~1
         public float rallyX, rallyY;     // 만든 유닛이 모이는 곳
+        public FactoryStance stance;     // 이 공장에서 나온 유닛의 태세 (기본: 전역 태세를 따른다)
         public FactoryStatus status;
 
         public override void Update(Sim sim)

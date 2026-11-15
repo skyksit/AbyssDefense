@@ -391,6 +391,15 @@ namespace AbyssDefense
             return screen;
         }
 
+        /// 화면에 처음 들어왔을 때 한 번만 뜨는 안내 (본 것은 힌트와 함께 세이브에 적는다). 띄웠으면 true
+        bool Tip(string key, string msg)
+        {
+            if (save.hints.Contains(key)) return false;
+            save.hints.Add(key);
+            Toast(msg, 8f);
+            return true;
+        }
+
         public void Toast(string msg, float seconds = 2.4f)
         {
             if (toastText == null) return;
@@ -486,7 +495,7 @@ namespace AbyssDefense
 
         void EndRegion()
         {
-            if (playRoot != null) Destroy(playRoot);
+            if (playRoot != null) { Destroy(playRoot); toastUntil = 0; }   // 지역이 끝나면 그 지역에서 뜬 알림은 다음 화면으로 넘기지 않는다
             playRoot = null; sim = null; play = null; bot = null;
             cam.backgroundColor = Ui.Bg;
         }

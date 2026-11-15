@@ -202,7 +202,10 @@ namespace AbyssDefense
             gm.SetSpeed(1);
             play.SelectFactory(robots);
             gm.SetProduct(1);
+            gm.CycleFactoryStance(); gm.CycleFactoryStance();
             yield return Shot("20_factory_panel");
+            Note($"factory stance: robots {robots.stance} (expect Attack), a robot unit would {s13.StanceOf(new Unit { home = robots })} (expect Attack) while everyone else is {s13.stance} (expect Defend)");
+            gm.CycleFactoryStance();
             float rally0 = robots.rallyY;
             play.BeginRally();
             Vector2 rp = Camera.main.WorldToScreenPoint(new Vector3(s13.Core.Cx + 0.5f, s13.Core.y + 6.5f));

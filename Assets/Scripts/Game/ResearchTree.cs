@@ -138,6 +138,7 @@ namespace AbyssDefense
             LayoutTree();
             var root = NewScreen("Research", ShowResearch, 40);
             Ui.Panel(root, Ui.Bg).Rt().Fill();
+            Tip("tip_research", "연구: 노드를 탭하면 효과와 비용이 나옵니다. 자원이 모자라도 가진 만큼 먼저 넣어 둘 수 있고, 지역을 점령하면 새 연구가 열립니다.");
 
             // 끌어서 옮기고 벌려서 확대하는 판
             var view = Ui.Panel(root, new Color(0, 0, 0, 0.01f), false, "View");

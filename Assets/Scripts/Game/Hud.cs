@@ -43,7 +43,9 @@ namespace AbyssDefense
         Text factoryTitle;
         readonly Text[] prodText = new Text[ProductButtons];
         readonly Image[] prodBg = new Image[ProductButtons];
-        Image stopBg, rallyBg;
+        Image stopBg, rallyBg, facStanceBg;
+        Text facStanceText;
+        static readonly string[] FactoryStanceNames = { "태세: 전체를 따름", "태세: 늘 방어", "태세: 늘 공격" };
 
         // 다음 회차에 나올 적 (위 단추 줄 아래의 띠), 보스 체력 막대, 미니맵
         const int PreviewSlots = 9;
@@ -234,10 +236,15 @@ namespace AbyssDefense
                 prodText[i].supportRichText = true;
             }
             var sb = Ui.Btn(fp.transform, "생산 정지", 27, Ui.Card, () => SetProduct(-1));
-            sb.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 20, 12, 500, 84);
+            sb.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 20, 12, 300, 84);
+            // 이 공장에서 나온 유닛만 따로 태세를 정한다 (누를 때마다 전체를 따름 → 늘 방어 → 늘 공격)
+            var fsb = Ui.Btn(fp.transform, FactoryStanceNames[0], 25, Ui.Card, CycleFactoryStance);
+            fsb.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 330, 12, 340, 84);
+            facStanceBg = fsb.GetComponent<Image>();
+            facStanceText = fsb.GetComponentInChildren<Text>();
             stopBg = sb.GetComponent<Image>();
             var rb = Ui.Btn(fp.transform, "집결 지점 옮기기", 27, Ui.Card, () => play.BeginRally());
-            rb.Rt().At(new Vector2(1, 0), new Vector2(1, 0), -20, 12, 500, 84);
+            rb.Rt().At(new Vector2(1, 0), new Vector2(1, 0), -20, 12, 350, 84);
             rallyBg = rb.GetComponent<Image>();
             factoryPanel.SetActive(false);
 
@@ -283,6 +290,16 @@ namespace AbyssDefense
             if (sim == null) return;
             sim.CmdAutoRebuild(!sim.autoRebuild);
             Toast(sim.autoRebuild ? "자동 재건 켬: 적에게 부서진 건물을 10초 뒤 같은 자리에 다시 짓습니다 (비용은 그대로)" : "자동 재건 끔");
+        }
+
+        /// 고른 공장의 유닛 태세를 다음 것으로 바꾼다
+        public void CycleFactoryStance()
+        {
+            var f = play != null ? play.Factory : null;
+            if (f == null) return;
+            var next = (FactoryStance)(((int)f.stance + 1) % 3);
+            sim.CmdFactoryStance(f, next);
+            Toast(next == FactoryStance.Follow ? $"{f.def.name}의 유닛은 위의 전체 태세를 따릅니다" : next == FactoryStance.Defend ? $"{f.def.name}의 유닛은 전체 태세와 상관없이 집결 지점을 지킵니다" : $"{f.def.name}의 유닛은 전체 태세와 상관없이 적 출현 지점 앞으로 나갑니다");
         }
 
         /// 고른 공장이 만들 유닛을 바꾼다 (-1 = 정지). 만들던 유닛은 끝까지 만든다
@@ -498,6 +515,8 @@ namespace AbyssDefense
             }
             stopBg.color = f.product < 0 ? new Color(0.5f, 0.24f, 0.26f) : Ui.Card;
             rallyBg.color = play.RallyMode ? new Color(0.55f, 0.45f, 0.18f) : Ui.Card;
+            facStanceText.text = FactoryStanceNames[(int)f.stance];
+            facStanceBg.color = f.stance == FactoryStance.Attack ? new Color(0.6f, 0.34f, 0.16f) : f.stance == FactoryStance.Defend ? new Color(0.16f, 0.36f, 0.42f) : Ui.Card;
         }
 
         void UpdateHud()
@@ -565,7 +584,7 @@ namespace AbyssDefense
             else if (play.Selected != null) { infoText.text = $"{play.Selected.name} — {play.Selected.desc}  건설 {play.Selected.buildTicks / 60f / sim.world.mods.buildSpeedMul:0.#}초"; infoText.color = Ui.TextCol; }
             else if (play.CommandMode) { infoText.text = "지휘기를 보낼 곳을 맵에서 탭하세요. 지휘기 곁의 건설은 1.5배 빠릅니다."; infoText.color = Ui.Gold; }
             else if (play.Turret != null) { infoText.text = "넣을 탄과 겨눌 적을 고르세요. 탄을 바꾸면 장전해 둔 탄은 버립니다."; infoText.color = Ui.Dim; }
-            else if (play.Factory != null) { infoText.text = "만들 유닛을 고르세요. 방어 태세의 유닛은 집결 지점(기본: 핵 옆)을 지킵니다."; infoText.color = Ui.Dim; }
+            else if (play.Factory != null) { infoText.text = "만들 유닛을 고르세요. 방어 태세의 유닛은 집결 지점을 지킵니다. 가운데 단추로 이 공장만 태세를 따로 정합니다."; infoText.color = Ui.Dim; }
             else if (assault) { infoText.text = "적 거점: 유닛을 모아 공격 태세로 보내 적 핵을 모두 부수세요. 웨이브는 끝없이 옵니다."; infoText.color = Ui.Gold; }
             else { infoText.text = "건물을 골라 탭하거나 끌어서 짓습니다. 공장 탭 = 유닛, 포탑 탭 = 탄종, 핵 탭 = 지휘기."; infoText.color = Ui.Dim; }
         }

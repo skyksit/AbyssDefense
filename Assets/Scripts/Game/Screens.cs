@@ -244,6 +244,8 @@ namespace AbyssDefense
             go.Rt().At(new Vector2(1, 0), new Vector2(1, 0), -30, 56, 512, 150);
 
             if (offlineNote != null) { Toast(offlineNote); offlineNote = null; }
+            else if (Tip("tip_base", "기지: 채굴장과 창고를 강화하고 '심연으로 출격'으로 지역을 점령하세요. 점령한 지역이 많을수록 생산량이 늘어납니다.")) { }
+            else if (BestCleared >= BaseRules.Refineries[0].reqRegion) Tip("tip_refine", "가공 건물이 열렸습니다. 강철·회로·화약은 공장, 특수 포탑, 포탑의 다른 탄에 씁니다. 원료가 아까우면 '가동 중'을 눌러 멈추세요.");
         }
 
         // ───────── 심연 선택 ─────────
@@ -253,6 +255,7 @@ namespace AbyssDefense
             EndRegion();
             var root = NewScreen("AbyssSelect");
             Ui.Panel(root, Ui.Bg).Rt().Fill();
+            Tip("tip_abyss", "심연마다 적의 성질이 다르고, 지역 5 부터는 용암 틈·눈보라·산성 웅덩이 같은 고유한 규칙이 생깁니다. 연구와 기지는 모든 심연이 함께 씁니다.");
             var head = Ui.Label(root, "심연 선택", 72, null, TextAnchor.MiddleCenter, true);
             head.rectTransform.TopBar(70, 110);
             var hint = Ui.Label(root, "내려갈 심연을 고르세요. 심연마다 100개의 지역이 있습니다.", 32, Ui.Dim);
@@ -526,6 +529,7 @@ namespace AbyssDefense
                 unlocked ? Primary : Ui.Card, () => { if (unlocked) StartRegion(abyss, region); }, unlocked ? Ui.TextCol : Ui.Dim);
             go.Rt().At(new Vector2(0.5f, 0), new Vector2(0.5f, 0), 0, 40, 1000, 130);
             go.interactable = unlocked;
+            if (unlocked) Tip("tip_sheet", "가져갈 자원을 정하세요. 이기면 남은 자원이 모두 돌아오고, 지면 모두 잃고, 후퇴하면 절반만 돌아옵니다. 오른쪽 위에서 난이도를 바꿀 수 있습니다.");
         }
     }
 }

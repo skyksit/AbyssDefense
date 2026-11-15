@@ -144,6 +144,14 @@ namespace AbyssDefense.Sim
             }
         }
 
+        /// 그 유닛이 따르는 태세: 태어난 공장이 따로 정해 두었으면 그것, 아니면 전역 태세 (공장을 잃으면 전역 태세)
+        public UnitStance StanceOf(Unit u)
+        {
+            var h = u.home;
+            if (h == null || h.dead || h.stance == FactoryStance.Follow) return stance;
+            return h.stance == FactoryStance.Attack ? UnitStance.Attack : UnitStance.Defend;
+        }
+
         public int UnitCap => world.mods.unitCap;
         public bool IsUnlocked(UnitDef u) => u.tech < 0 || world.mods.tech[u.tech];
 
@@ -357,7 +365,7 @@ namespace AbyssDefense.Sim
 
             // 지키는 곳: 방어면 집결 지점, 공격이면 가장 가까운 출현 지점
             float ax = u.rallyX, ay = u.rallyY;
-            bool attack = stance == UnitStance.Attack && world.spawns.Count > 0 && !d.commander && u.parent == null;
+            bool attack = StanceOf(u) == UnitStance.Attack && world.spawns.Count > 0 && !d.commander && u.parent == null;
             if (attack)
             {
                 float bd = float.MaxValue;

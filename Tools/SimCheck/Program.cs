@@ -783,6 +783,59 @@ static class Program
         for (int i = 0; i < 60 * 20 && bait.health == 90000; i++) { sc.Tick(); bait.reload = 1 << 20; }
         Check(bait.health < 90000 && sc.Core.health == sc.Core.maxHealth, "보행병은 길 곁에 선 유닛에게 다가가 먼저 친다");
 
+        // 유닛에게 끌려다니지 않는다: 쫓기 시작한 자리에서 4칸 넘게 벗어나면 그만두고 3초 동안 유닛을 쫓지 않는다
+        var sk = EmptySim(Full, all);
+        sk.Place(Content.RobotFactory, 3, 20);
+        Finish(sk);
+        var fk = (FactoryBuilding)sk.world.BuildAt(3, 20);
+        fk.product = -1; fk.making = null; sk.units.Clear();
+        sk.SpawnUnit(Content.Scout, fk);
+        var kite = sk.units[0];
+        kite.health = kite.maxHealth = 90000;
+        var chaser = new Enemy { def = Content.Walker, x = ax + 0.5f, y = ay + 22.5f, health = 90000, maxHealth = 90000 };
+        sk.enemies.Add(chaser);
+        float kx = ax + 2.2f, ky = ay + 22.5f, farthest = 0; bool gaveUp = false;
+        for (int i = 0; i < 60 * 30 && !gaveUp; i++)
+        {
+            kx += 0.02f;   // 보행병과 같은 속도로 옆으로 달아난다
+            kite.x = kx; kite.y = ky; kite.ox = kite.oy = 0; kite.reload = 1 << 20; sk.SetRally(fk, kx, ky);
+            sk.Tick();
+            farthest = Math.Max(farthest, chaser.x - (ax + 0.5f));
+            if (chaser.noUnitUntil > sk.tick) gaveUp = true;
+        }
+        Check(gaveUp && farthest > 2f && farthest <= Content.Walker.aggro + Sim.ChaseLeash + 0.1f, $"달아나는 유닛은 {Content.Walker.aggro + Sim.ChaseLeash}칸까지만 쫓고 그만둔다 ({farthest:0.0}칸)");
+
+        // 포탑을 먼저: 거리가 비슷하면(0.4칸 안쪽 차이) 포탑을 고른다
+        var sp2 = EmptySim(Full, all);
+        sp2.Place(Content.RobotFactory, ax + 2, ay + 12); sp2.Place(Content.RapidTurret, ax - 2, ay + 13);
+        Finish(sp2);
+        sp2.Core.items[Content.Iron] = 0; ((FactoryBuilding)sp2.world.BuildAt(ax + 2, ay + 12)).product = -1;
+        var chooser = new Enemy { def = Content.Walker, x = ax + 0.5f, y = ay + 13.5f, health = 9000, maxHealth = 9000 };
+        sp2.enemies.Add(chooser);
+        var pt = sp2.world.BuildAt(ax - 2, ay + 13); var pf = sp2.world.BuildAt(ax + 2, ay + 12);
+        for (int i = 0; i < 60 * 20 && pt.health == pt.maxHealth && pf.health == pf.maxHealth; i++) sp2.Tick();
+        Check(pt.health < pt.maxHealth && pf.health == pf.maxHealth, "거리가 같으면 공장보다 포탑을 먼저 친다");
+
+        // 공장별 태세
+        var st = EmptySim(Full, Mods(Research.RobotFactory, 1, Research.Airfield, 1));
+        st.Place(Content.RobotFactory, 3, 20); st.Place(Content.Airfield, 6, 20);
+        Finish(st);
+        var f1 = (FactoryBuilding)st.world.BuildAt(3, 20); var f2 = (FactoryBuilding)st.world.BuildAt(6, 20);
+        f1.product = -1; f2.product = -1; f1.making = null; f2.making = null; st.units.Clear();
+        st.SpawnUnit(Content.Scout, f1); st.SpawnUnit(Content.Recon, f2);
+        var u1 = st.units[0]; var u2 = st.units[1];
+        bool follow = st.StanceOf(u1) == UnitStance.Defend && st.StanceOf(u2) == UnitStance.Defend;
+        bool set = st.CmdFactoryStance(f2, FactoryStance.Attack);
+        bool split = st.StanceOf(u1) == UnitStance.Defend && st.StanceOf(u2) == UnitStance.Attack;
+        st.CmdStance(UnitStance.Attack); st.CmdFactoryStance(f1, FactoryStance.Defend);
+        bool split2 = st.StanceOf(u1) == UnitStance.Defend && st.StanceOf(u2) == UnitStance.Attack;
+        float y0 = u2.y;
+        for (int i = 0; i < 60 * 10; i++) st.Tick();
+        bool moved = u2.y > y0 + 3 && u1.y < y0 - 3;   // 비행장의 유닛은 출현 지점 쪽으로, 로봇 공장의 유닛은 집결 지점 쪽으로
+        f1.health = 0; st.Tick();
+        Check(follow && set && split && split2 && moved && st.StanceOf(u1) == UnitStance.Attack && st.log.Count == 3,
+            "공장별 태세: 그 공장의 유닛만 늘 공격하거나 늘 지키고, 공장을 잃으면 전체 태세를 따른다");
+
         // 웨이브 구성: 얕은 지역에는 없고 깊어질수록 종류가 늘어난다
         int Kinds(int region) { var ks = new HashSet<string>(); foreach (var g in WaveGen.Generate(RegionRules.For(0, region))) ks.Add(g.enemy.key + (g.elite ? "+" : "") + (g.shieldScaling > 0 ? "s" : "")); return ks.Count; }
         Check(Kinds(8) == 5 && Kinds(9) == 6 && Kinds(20) > Kinds(9) && Kinds(40) == 14, $"능력이 있는 적은 지역 9 부터 차례로 섞인다 (지역 8: {Kinds(8)}, 20: {Kinds(20)}, 40: {Kinds(40)}가지 무리)");
@@ -1882,6 +1935,7 @@ static class Program
             if (t == 6000) live.CmdAutoRebuild(false);
             if (t == 7000) live.CmdCallWave();
             if (t == 9000) live.CmdStance(UnitStance.Defend);
+            if (t == 9500 && fac != null) live.CmdFactoryStance(fac, FactoryStance.Attack);
             if (t == 12000) live.CmdPlace(Content.RapidTurret, cxp - 3, cyp + 5);
             live.Tick();
         }
