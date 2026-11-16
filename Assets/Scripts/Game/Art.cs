@@ -21,6 +21,18 @@ namespace AbyssDefense
         /// 스프라이트·색 메시가 함께 쓰는 재질
         public static Material Mat => mat != null ? mat : mat = new Material(Shader.Find("Sprites/Default"));
 
+        static Material liquidMat;
+        /// 물·용암·산성 바닥의 재질 (셰이더를 못 찾으면 움직이지 않는 색으로 그린다)
+        public static Material LiquidMat
+        {
+            get
+            {
+                if (liquidMat != null) return liquidMat;
+                var sh = Resources.Load<Shader>("Shaders/Liquid");
+                return liquidMat = sh != null && sh.isSupported ? new Material(sh) : Mat;
+            }
+        }
+
         public static Sprite Get(string name)
         {
             if (cache.TryGetValue(name, out var s)) return s;

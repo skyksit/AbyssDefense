@@ -63,7 +63,7 @@ namespace AbyssDefense
     {
         // 아래에서 위로: 바닥 → 액체 → 그을음 → 바닥 위의 것(건물 그림자·폐허·지뢰) → 건물 → 포신
         //   → 지상 그림자 → 지상의 적·유닛 → 비행 그림자 → 비행하는 적·유닛 → 탄 → 이펙트 → 막대
-        const int OrderFloor = -20, OrderScorch = -18, OrderGround = -15, OrderBlock = -10, OrderBlockTop = -8,
+        const int OrderFloor = -20, OrderLiquid = -19, OrderScorch = -18, OrderGround = -15, OrderBlock = -10, OrderBlockTop = -8,
             OrderGroundShadow = 0, OrderEnemy = 2, OrderAirShadow = 8, OrderAir = 10, OrderBullet = 14, OrderFx = 16, OrderBars = 20;
 
         // 빛은 왼쪽 위에서 온다: 그림자는 오른쪽 아래로 떨어지고, 높이 뜬 것일수록 멀리 떨어진다
@@ -157,57 +157,132 @@ namespace AbyssDefense
             sh.transform.localScale = tr.localScale * (flying ? 0.92f : 1f);
         }
 
-        // ───────── 지형: 바닥·벽을 색 사각형 메시 하나로 ─────────
+        // ───────── 지형: 바닥·벽은 색 사각형 메시 하나, 물·용암·산성은 일렁이는 셰이더를 쓰는 메시 하나 ─────────
+
+        static Color Mul(Color c, float m) => new Color(c.r * m, c.g * m, c.b * m, 1f);
 
         void BuildTerrain()
         {
             var w = sim.world;
             var floor = Art.C(sim.abyss.floorColor);
             var wall = Art.C(sim.abyss.wallColor);
+            bool lava = sim.rules.hazard == Hazard.Lava;
             var verts = new List<Vector3>(); var cols = new List<Color32>(); var tris = new List<int>();
+            var lverts = new List<Vector3>(); var lcols = new List<Color32>(); var luvs = new List<Vector2>(); var ltris = new List<int>();
 
-            void Q(float x, float y, float sx, float sy, Color c)
+            // 네 꼭짓점의 색이 다른 사각형 (c0 왼쪽 아래, c1 오른쪽 아래, c2 오른쪽 위, c3 왼쪽 위)
+            void G(float x, float y, float sx, float sy, Color c0, Color c1, Color c2, Color c3)
             {
                 int n = verts.Count;
                 verts.Add(new Vector3(x, y)); verts.Add(new Vector3(x + sx, y));
                 verts.Add(new Vector3(x + sx, y + sy)); verts.Add(new Vector3(x, y + sy));
-                Color32 c32 = c;
-                cols.Add(c32); cols.Add(c32); cols.Add(c32); cols.Add(c32);
+                cols.Add(c0); cols.Add(c1); cols.Add(c2); cols.Add(c3);
                 tris.Add(n); tris.Add(n + 1); tris.Add(n + 2); tris.Add(n); tris.Add(n + 2); tris.Add(n + 3);
             }
+            void Q(float x, float y, float sx, float sy, Color c) => G(x, y, sx, sy, c, c, c, c);
+            // 액체 메시의 사각형. kind: 0 물, 1 용암, 2 산성, 3 움직이지 않는 테두리
+            void L(float x, float y, float sx, float sy, Color c, float kind)
+            {
+                int n = lverts.Count;
+                lverts.Add(new Vector3(x, y)); lverts.Add(new Vector3(x + sx, y));
+                lverts.Add(new Vector3(x + sx, y + sy)); lverts.Add(new Vector3(x, y + sy));
+                Color32 c32 = c; var uv = new Vector2(kind, 0);
+                for (int i = 0; i < 4; i++) { lcols.Add(c32); luvs.Add(uv); }
+                ltris.Add(n); ltris.Add(n + 1); ltris.Add(n + 2); ltris.Add(n); ltris.Add(n + 2); ltris.Add(n + 3);
+            }
 
-            // 맵 바깥도 벽 색으로 넓게 깔아 가장자리가 비어 보이지 않게
-            Q(-30, -30, w.W + 60, w.H + 60, wall);
+            bool Rock(int x, int y) => !w.In(x, y) || (w.tiles[w.Idx(x, y)].wall && !w.tiles[w.Idx(x, y)].water);
+            bool Wet(int x, int y) => w.In(x, y) && (w.tiles[w.Idx(x, y)].water || w.tiles[w.Idx(x, y)].hazard);
+
+            // 벽의 깊이: 가장 가까운 바닥·호수에서 몇 칸 들어갔는가 (깊을수록 어둡다)
+            var depth = new int[w.W * w.H];
+            var queue = new Queue<int>();
+            for (int i = 0; i < depth.Length; i++)
+            {
+                bool rock = w.tiles[i].wall && !w.tiles[i].water;
+                depth[i] = rock ? -1 : 0;
+                if (!rock) queue.Enqueue(i);
+            }
+            while (queue.Count > 0)
+            {
+                int i = queue.Dequeue(), cx = i % w.W, cy = i / w.W;
+                for (int oy = -1; oy <= 1; oy++)
+                    for (int ox = -1; ox <= 1; ox++)
+                    {
+                        int nx = cx + ox, ny = cy + oy;
+                        if (!w.In(nx, ny) || depth[w.Idx(nx, ny)] >= 0) continue;
+                        depth[w.Idx(nx, ny)] = depth[i] + 1;
+                        queue.Enqueue(w.Idx(nx, ny));
+                    }
+            }
+
+            var deepWall = Mul(wall, 0.7f);
+            var shadow = new Color(0, 0, 0, 0.34f);
+            var clear = new Color(0, 0, 0, 0);
+            const float Sh = 0.38f;   // 벽이 바닥에 드리우는 그늘의 너비
+
+            // 맵 바깥도 깊은 벽 색으로 넓게 깔아 가장자리가 비어 보이지 않게
+            Q(-30, -30, w.W + 60, w.H + 60, deepWall);
             for (int y = 0; y < w.H; y++)
                 for (int x = 0; x < w.W; x++)
                 {
                     var t = w.tiles[w.Idx(x, y)];
                     float v = t.shade / 255f;
+                    int h = unchecked(x * 73856093 ^ y * 19349663 ^ t.shade * 83492791) & 0x7fffffff;
                     if (t.water)
                     {
-                        // 호수: 물결 무늬
                         var deep = new Color(0.07f, 0.22f, 0.36f);
-                        Q(x, y, 1, 1, Color.Lerp(deep, deep * 1.35f, v));
-                        if (((x + y) & 1) == 0) Q(x + 0.15f, y + 0.42f, 0.7f, 0.08f, new Color(0.35f, 0.62f, 0.8f, 0.55f));
+                        L(x, y, 1, 1, Color.Lerp(deep, Mul(deep, 1.35f), v), 0);
+                        // 물가: 땅이나 벽과 맞닿은 변의 밝은 띠
+                        var foam = new Color(0.62f, 0.82f, 0.92f, 0.55f);
+                        if (!Wet(x - 1, y)) L(x, y, 0.07f, 1, foam, 3);
+                        if (!Wet(x + 1, y)) L(x + 0.93f, y, 0.07f, 1, foam, 3);
+                        if (!Wet(x, y - 1)) L(x, y, 1, 0.07f, foam, 3);
+                        if (!Wet(x, y + 1)) L(x, y + 0.93f, 1, 0.07f, foam, 3);
                         continue;
                     }
                     if (t.wall)
                     {
-                        // 바닥과 맞닿은 벽은 조금 밝게 (절벽 가장자리)
-                        bool edge = !w.Solid(x + 1, y) || !w.Solid(x - 1, y) || !w.Solid(x, y + 1) || !w.Solid(x, y - 1);
-                        if (edge) Q(x, y, 1, 1, Color.Lerp(wall, floor, 0.45f + v * 0.1f));
+                        // 바닥과 맞닿은 벽은 밝고(절벽 가장자리), 안쪽으로 들어갈수록 어두워진다
+                        int d = depth[w.Idx(x, y)];
+                        if (d > 3) continue;
+                        var wc = d == 1 ? Color.Lerp(wall, floor, 0.45f + v * 0.1f) : d == 2 ? Color.Lerp(wall, floor, 0.16f + v * 0.06f) : Color.Lerp(deepWall, wall, 0.6f);
+                        Q(x, y, 1, 1, wc);
+                        if (d == 1)
+                        {
+                            // 빛을 받는 쪽(왼쪽·위)의 모서리는 밝게
+                            var rim = Color.Lerp(wc, Color.white, 0.16f);
+                            if (!Rock(x - 1, y)) Q(x, y, 0.08f, 1, rim);
+                            if (!Rock(x, y + 1)) Q(x, y + 0.92f, 1, 0.08f, rim);
+                            if ((h & 7) < 3) Q(x + 0.2f + 0.4f * v, y + 0.25f + ((h >> 4) & 7) * 0.05f, 0.22f, 0.1f, Mul(wc, 0.86f));
+                        }
                         continue;
                     }
-                    Q(x, y, 1, 1, Color.Lerp(floor, floor * 1.25f, v));
-                    if (((x + y) & 1) == 0) Q(x + 0.04f, y + 0.04f, 0.92f, 0.92f, Color.Lerp(floor, floor * 1.25f, v) * 1.06f);
+                    var fc = Color.Lerp(floor, Mul(floor, 1.25f), v);
+                    Q(x, y, 1, 1, fc);
+                    if (((x + y) & 1) == 0) Q(x + 0.04f, y + 0.04f, 0.92f, 0.92f, Mul(fc, 1.06f));
+                    // 얼룩: 칸마다 자리와 크기가 다른 작은 조각
+                    if ((h & 3) != 0)
+                    {
+                        float sx = 0.1f + ((h >> 2) & 7) * 0.09f, sy = 0.1f + ((h >> 5) & 7) * 0.09f, ss = 0.07f + ((h >> 8) & 3) * 0.03f;
+                        Q(x + sx, y + sy, ss * (1 + ((h >> 10) & 1)), ss, Mul(fc, ((h >> 11) & 1) == 0 ? 0.86f : 1.13f));
+                    }
+                    if ((h & 15) == 5) Q(x + 0.55f, y + 0.6f, 0.26f, 0.05f, Mul(fc, 0.8f));
                     if (t.hazard)
                     {
-                        // 위험 바닥: 용암 틈은 붉은 바탕에 밝은 금, 산성 웅덩이는 탁한 연두 바탕에 밝은 방울
-                        bool lava = sim.rules.hazard == Hazard.Lava;
-                        Q(x, y, 1, 1, lava ? new Color(0.55f, 0.13f, 0.05f, 0.85f) : new Color(0.25f, 0.42f, 0.08f, 0.85f));
-                        if (lava) Q(x + 0.12f + 0.3f * v, y + 0.2f, 0.5f, 0.13f, new Color(1f, 0.62f, 0.18f, 0.9f));
-                        else Q(x + 0.2f + 0.4f * v, y + 0.25f + 0.3f * (1 - v), 0.2f, 0.2f, new Color(0.75f, 0.95f, 0.35f, 0.9f));
+                        // 위험 바닥: 용암 틈은 붉은 바탕, 산성 웅덩이는 탁한 연두 바탕. 흐르는 무늬는 셰이더가 얹는다
+                        L(x, y, 1, 1, lava ? new Color(0.55f, 0.13f, 0.05f, 0.9f) : new Color(0.25f, 0.42f, 0.08f, 0.9f), lava ? 1 : 2);
+                        var crust = lava ? new Color(0.16f, 0.05f, 0.03f, 0.75f) : new Color(0.1f, 0.18f, 0.04f, 0.7f);
+                        if (!Wet(x - 1, y)) L(x, y, 0.09f, 1, crust, 3);
+                        if (!Wet(x + 1, y)) L(x + 0.91f, y, 0.09f, 1, crust, 3);
+                        if (!Wet(x, y - 1)) L(x, y, 1, 0.09f, crust, 3);
+                        if (!Wet(x, y + 1)) L(x, y + 0.91f, 1, 0.09f, crust, 3);
                     }
+                    // 벽의 그늘: 왼쪽·위에 벽이 있으면 그쪽 변에서 옅어지는 그늘
+                    bool wl = Rock(x - 1, y), wu = Rock(x, y + 1);
+                    if (wl) G(x, y, Sh, 1, shadow, clear, clear, shadow);
+                    if (wu) G(x, y + 1 - Sh, 1, Sh, clear, clear, shadow, shadow);
+                    if (!wl && !wu && Rock(x - 1, y + 1)) G(x, y + 1 - Sh, Sh, Sh, clear, clear, clear, shadow);
                 }
 
             var mesh = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
@@ -218,6 +293,16 @@ namespace AbyssDefense
             var mr = go.AddComponent<MeshRenderer>();
             mr.sharedMaterial = Art.Mat;
             mr.sortingOrder = OrderFloor;
+
+            if (lverts.Count == 0) return;
+            var lmesh = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            lmesh.SetVertices(lverts); lmesh.SetColors(lcols); lmesh.SetUVs(0, luvs); lmesh.SetTriangles(ltris, 0);
+            var lgo = new GameObject("Liquid");
+            lgo.transform.SetParent(transform, false);
+            lgo.AddComponent<MeshFilter>().sharedMesh = lmesh;
+            var lmr = lgo.AddComponent<MeshRenderer>();
+            lmr.sharedMaterial = Art.LiquidMat;
+            lmr.sortingOrder = OrderLiquid;
         }
 
         // ───────── 건물 ─────────
