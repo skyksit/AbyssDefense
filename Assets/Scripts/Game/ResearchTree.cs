@@ -80,7 +80,7 @@ namespace AbyssDefense
         }
 
         /// 앞 연구를 마쳤고 지역 조건도 맞아 지금 연구할 수 있다
-        public bool ResearchAvailable(ResearchDef d) => save.research[d.id] < d.maxLevel && ResearchOpen(d) && Research.ParentDone(save.research, d);
+        public bool ResearchAvailable(ResearchDef d) => save.research[d.id] < ResearchMax(d) && ResearchOpen(d) && Research.ParentDone(save.research, d);
 
         // ───────── 배치: 뿌리 가지의 절반은 위로, 절반은 아래로 ─────────
 
@@ -239,7 +239,7 @@ namespace AbyssDefense
                 return;
             }
 
-            bool open = ResearchOpen(d), max = lv >= d.maxLevel, done = lv > 0;
+            bool open = ResearchOpen(d), max = lv >= ResearchMax(d), done = lv > 0;
             bool afford = !max && open && CanPay(ResearchRemaining(d));
             Color rim = max ? TreeAccent : done ? TreeDone : !open ? new Color(0.22f, 0.23f, 0.28f) : afford ? new Color(0.85f, 0.87f, 0.92f) : new Color(0.62f, 0.27f, 0.29f);
             Color fill = max ? new Color(0.22f, 0.19f, 0.10f) : done ? new Color(0.17f, 0.15f, 0.27f) : !open ? new Color(0.10f, 0.11f, 0.14f) : afford ? Ui.Card : new Color(0.20f, 0.13f, 0.15f);
@@ -262,10 +262,12 @@ namespace AbyssDefense
             float prog = max ? 0 : ResearchProgress(d);
             if (d.maxLevel > 1)
             {
-                float pw = (NodeW - 30 - (d.maxLevel - 1) * 3) / d.maxLevel;
-                for (int p = 0; p < d.maxLevel; p++)
+                // 상한이 늘어난 연구는 칸이 너무 잘아지지 않게 12칸까지만 그리고 비율로 채운다
+                int cap = ResearchMax(d), pips = Mathf.Min(cap, 12), lit = cap <= 12 ? lv : Mathf.CeilToInt(lv * pips / (float)cap);
+                float pw = (NodeW - 30 - (pips - 1) * 3) / pips;
+                for (int p = 0; p < pips; p++)
                 {
-                    var pip = Ui.Panel(inner.transform, p < lv ? (max ? TreeAccent : TreeDone) : new Color(0, 0, 0, 0.5f), false, "Pip");
+                    var pip = Ui.Panel(inner.transform, p < lit ? (max ? TreeAccent : TreeDone) : new Color(0, 0, 0, 0.5f), false, "Pip");
                     pip.raycastTarget = false;
                     pip.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 10 + p * (pw + 3), 20, pw, 10);
                     if (p == lv && prog > 0)
@@ -299,7 +301,7 @@ namespace AbyssDefense
         void ResearchInfo(Transform root, ResearchDef d)
         {
             int lv = save.research[d.id];
-            bool open = ResearchOpen(d), max = lv >= d.maxLevel;
+            bool open = ResearchOpen(d), max = lv >= ResearchMax(d);
             var panel = Ui.Panel(root, Ui.PanelCol, false, "Info");
             panel.Rt().BottomBar(0, InfoH);
             var line = Ui.Panel(panel.transform, max ? TreeAccent : TreeDone, false, "Line");
@@ -308,7 +310,7 @@ namespace AbyssDefense
             Ui.Icon(panel.transform, Art.Get(open ? d.icon : "icon_lock")).Rt().At(new Vector2(0, 1), new Vector2(0, 1), 36, -30, 96, 96);
             var title = Ui.Label(panel.transform, open ? d.name : "???", 48, null, TextAnchor.UpperLeft, true);
             title.rectTransform.Fill(156, 0, 190, 26);
-            string lvText = d.maxLevel > 1 ? $"단계 {lv} / {d.maxLevel}" : lv > 0 ? "연구 완료" : "미연구";
+            string lvText = d.maxLevel > 1 ? $"단계 {lv} / {ResearchMax(d)}" : lv > 0 ? "연구 완료" : "미연구";
             var sub = Ui.Label(panel.transform, open ? $"{lvText}   ·   {d.desc}" : "아직 알 수 없는 연구입니다", 27, Ui.Dim, TextAnchor.UpperLeft);
             sub.rectTransform.Fill(156, 0, 40, 90);
             var close = Ui.Btn(panel.transform, "닫기", 30, Ui.Card, () => { treeSel = -1; ShowResearch(); });
@@ -316,7 +318,7 @@ namespace AbyssDefense
 
             if (!open)
             {
-                var need = Ui.Label(panel.transform, $"목표   어느 심연에서든 지역 {d.reqRegion} 점령   (지금 가장 깊은 점령: 지역 {BestCleared})", 30, Ui.Bad, TextAnchor.UpperLeft, true);
+                var need = Ui.Label(panel.transform, $"목표   {Content.StageName(d.reqRegion)} 점령   (그 지역을 직접 점령해야 열립니다)", 30, Ui.Bad, TextAnchor.UpperLeft, true);
                 need.rectTransform.Fill(40, 0, 40, 170);
                 return;
             }
@@ -326,7 +328,7 @@ namespace AbyssDefense
             ef.rectTransform.Fill(40, 0, 40, 150);
             if (max)
             {
-                var doneText = Ui.Label(panel.transform, "연구를 모두 마쳤습니다.", 32, TreeAccent, TextAnchor.UpperLeft, true);
+                var doneText = Ui.Label(panel.transform, d.expands && Expansions < Research.MaxExpansions ? "지금 상한까지 마쳤습니다. 서리 심연부터 군주·거점 지역을 점령할 때마다 상한이 한 단계씩 늘어납니다." : "연구를 모두 마쳤습니다.", 32, TreeAccent, TextAnchor.UpperLeft, true);
                 doneText.rectTransform.Fill(40, 0, 40, 210);
                 return;
             }

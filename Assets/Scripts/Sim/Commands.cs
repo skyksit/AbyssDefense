@@ -161,7 +161,7 @@ namespace AbyssDefense.Sim
         public const int OverchargeItem = Content.Circuit, OverchargeTicks = 10 * 60;
 
         /// 규칙이 바뀌면(코드의 동작이 달라지면) 올린다. 진행 중 저장은 이 값과 수치 지문이 같을 때만 이어진다
-        public const int RulesVersion = 5;   // 2: 덮어 짓기, 3: 적이 길 둘레의 유닛·건물을 먼저 친다, 4: 공장별 태세, 적이 유닛을 쫓는 한도, 5: 포탑 과부하, 자동 재건의 탄약 몫
+        public const int RulesVersion = 7;   // 2: 덮어 짓기, 3: 적이 길 둘레의 유닛·건물을 먼저 친다, 4: 공장별 태세, 적이 유닛을 쫓는 한도, 5: 포탑 과부하, 자동 재건의 탄약 몫, 6: 난이도를 심연이 정한다, 7: 난이도가 전체 단계로 이어진다
 
         /// 수치 지문: 유닛·적·건물·지역 규칙·웨이브의 숫자를 한 값으로 줄인다. 밸런스를 고치면 값이 달라져, 예전 판의 명령 기록을 잘못 되돌리지 않는다
         public static int RulesFingerprint()
@@ -195,7 +195,7 @@ namespace AbyssDefense.Sim
                     foreach (int reg in new[] { 1, 15, 40, 100 })
                     {
                         var r = RegionRules.For(a, reg);
-                        Mix((int)r.hazard); Mix(r.mapW); Mix(r.mapH); Mix(r.winWave); Mix(r.waveTicks); Mix(r.firstWaveTicks); Mix(r.enemyHealthMul); Mix(r.enemyDamageMul); Mix(r.enemyArmorMul);
+                        Mix((int)r.hazard); Mix(r.mapW); Mix(r.mapH); Mix(r.winWave); Mix(r.waveTicks); Mix(r.firstWaveTicks); Mix(r.enemyHealthMul); Mix(r.enemyDamageMul); Mix(r.enemyArmorMul); Mix(r.enemySpeedMul); Mix(r.countMul); Mix(r.bountyMul);
                         foreach (var g in WaveGen.Generate(r)) { Mix(g.enemy.id); Mix(g.begin); Mix(g.spacing); Mix(g.amount); Mix(g.scaling); Mix(g.max); Mix(g.shields); Mix(g.shieldScaling); }
                     }
                 return h;

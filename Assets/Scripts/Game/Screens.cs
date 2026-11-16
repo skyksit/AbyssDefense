@@ -174,7 +174,7 @@ namespace AbyssDefense
             int rn = BaseRules.Refineries.Length;
             var list = ScrollList(root, "base", TopH, 226, 10 + headH * 2 + (Content.RawCount + 1 + rn) * (rowH + gap) + 20);
             float y = 10;
-            var cleared = Cleared;
+            var cleared = Done;
 
             var h1 = Ui.Label(list, "채굴  ·  점령한 지역이 많을수록 생산량이 늘어납니다", 27, Ui.Dim, TextAnchor.MiddleLeft);
             h1.rectTransform.TopBar(y, headH, 40, 30);
@@ -188,7 +188,7 @@ namespace AbyssDefense
                 float conquest = BaseRules.ConquestRate(i, cleared);
                 string desc = $"분당 {Content.Items[i].name} {now:0.#}" + (conquest > 0 ? $"  +  점령 지역 {conquest:0.##}" : "");
                 string effect = max ? "최대" : $"→ {next:0.#}/분";
-                string locked = CanBuildMine(i) ? null : $"지역 {BaseRules.CrystalMineRegion}\n점령 시 해금";
+                string locked = !CanBuildMine(i) ? $"지역 {BaseRules.CrystalMineRegion}\n점령 시 해금" : !max && !CanUpgrade(lv) ? $"지역 {BaseRules.UpgradeRegion(lv)}\n점령 시 강화" : null;
                 UpgradeRow(list, y, rowH, $"{BaseRules.MineNames[i]}  Lv {lv}", desc, effect, lv, BaseRules.MaxMineLevel,
                     Art.C(Content.Items[i].color), locked, max ? null : BaseRules.MineCost(i, lv), lv == 0 ? "건설" : "강화", () => { if (UpgradeMine(item)) ShowBase(); });
                 y += rowH + gap;
@@ -197,7 +197,7 @@ namespace AbyssDefense
                 int lv = save.storageLv;
                 bool max = lv >= BaseRules.MaxStorageLevel;
                 UpgradeRow(list, y, rowH, $"창고  Lv {lv}", $"자원마다 {StorageCap:N0} 까지 쌓인다", max ? "최대" : $"→ {BaseRules.StorageCap(lv + 1):N0}",
-                    lv, BaseRules.MaxStorageLevel, accent, null, max ? null : BaseRules.StorageCost(lv), "강화", () => { if (UpgradeStorage()) ShowBase(); });
+                    lv, BaseRules.MaxStorageLevel, accent, !max && !CanUpgrade(lv) ? $"지역 {BaseRules.UpgradeRegion(lv)}\n점령 시 강화" : null, max ? null : BaseRules.StorageCost(lv), "강화", () => { if (UpgradeStorage()) ShowBase(); });
                 y += rowH + gap;
             }
 
@@ -215,7 +215,7 @@ namespace AbyssDefense
                     sb.Append(j > 0 ? " + " : "").Append(Content.Items[d.inputs[j].item].name).Append(' ').Append((now * d.inputs[j].amount).ToString("0.#"));
                 sb.Append(" → ").Append(Content.Items[d.output].name).Append(' ').Append(now.ToString("0.#"));
                 string effect = max ? "최대" : lv == 0 ? "" : $"→ {next:0.#}/분";
-                string locked = CanBuildRefinery(k) ? null : $"지역 {d.reqRegion}\n점령 시 해금";
+                string locked = !CanBuildRefinery(k) ? $"지역 {d.reqRegion}\n점령 시 해금" : !max && !CanUpgrade(lv) ? $"지역 {BaseRules.UpgradeRegion(lv)}\n점령 시 강화" : null;
                 UpgradeRow(list, y, rowH, lv > 0 ? $"{d.name}  Lv {lv}" : d.name, sb.ToString(), effect, lv, BaseRules.MaxRefineryLevel,
                     Art.C(Content.Items[d.output].color), locked, max ? null : BaseRules.RefineryCost(d, lv), lv == 0 ? "건설" : "강화", () => { if (UpgradeRefinery(id)) ShowBase(); },
                     lv > 0 ? (on ? "가동 중" : "정지") : null, on, () => { ToggleRefinery(id); ShowBase(); });
@@ -244,8 +244,8 @@ namespace AbyssDefense
             go.Rt().At(new Vector2(1, 0), new Vector2(1, 0), -30, 56, 512, 150);
 
             if (offlineNote != null) { Toast(offlineNote); offlineNote = null; }
-            else if (Tip("tip_base", "기지: 채굴장과 창고를 강화하고 '심연으로 출격'으로 지역을 점령하세요. 점령한 지역이 많을수록 생산량이 늘어납니다.")) { }
-            else if (BestCleared >= BaseRules.Refineries[0].reqRegion) Tip("tip_refine", "가공 건물이 열렸습니다. 강철·회로·화약은 공장, 특수 포탑, 포탑의 다른 탄에 씁니다. 원료가 아까우면 '가동 중'을 눌러 멈추세요.");
+            else if (Tip("tip_base", "기지: '심연으로 출격'으로 지역을 점령하세요. 점령한 지역이 많을수록 생산량이 늘고, 더 깊이 점령할수록(지역 6, 10, 15, 20 …) 채굴장·창고·가공 건물의 강화가 한 단계씩 열립니다.")) { }
+            else if (StageDone(BaseRules.Refineries[0].reqRegion)) Tip("tip_refine", "가공 건물이 열렸습니다. 강철·회로·화약은 공장, 특수 포탑, 포탑의 다른 탄에 씁니다. 원료가 아까우면 '가동 중'을 눌러 멈추세요.");
         }
 
         // ───────── 심연 선택 ─────────
@@ -255,10 +255,10 @@ namespace AbyssDefense
             EndRegion();
             var root = NewScreen("AbyssSelect");
             Ui.Panel(root, Ui.Bg).Rt().Fill();
-            Tip("tip_abyss", "심연마다 적의 성질이 다르고, 지역 5 부터는 용암 틈·눈보라·산성 웅덩이 같은 고유한 규칙이 생깁니다. 연구와 기지는 모든 심연이 함께 씁니다.");
+            Tip("tip_abyss", "심연은 차례로 열립니다. 한 심연의 마지막 지역(지역 100)을 점령하면 다음 심연이 열리고, 다음 심연은 첫 지역부터 앞 심연의 끝보다 적이 강합니다. 연구와 기지는 모든 심연이 함께 씁니다.");
             var head = Ui.Label(root, "심연 선택", 72, null, TextAnchor.MiddleCenter, true);
             head.rectTransform.TopBar(70, 110);
-            var hint = Ui.Label(root, "내려갈 심연을 고르세요. 심연마다 100개의 지역이 있습니다.", 32, Ui.Dim);
+            var hint = Ui.Label(root, "내려갈 심연을 고르세요. 앞 심연의 바닥을 점령해야 다음 심연이 열립니다.", 32, Ui.Dim);
             hint.rectTransform.TopBar(180, 50);
 
             for (int i = 0; i < Content.Abysses.Length; i++)
@@ -266,7 +266,10 @@ namespace AbyssDefense
                 var a = Content.Abysses[i];
                 int id = i;
                 var accent = Art.C(a.accent);
-                var card = Ui.Btn(root, null, 0, Ui.Card, () => ShowRegionMap(id));
+                bool open = IsAbyssUnlocked(i);
+                var card = Ui.Btn(root, null, 0, open ? Ui.Card : new Color(0.11f, 0.12f, 0.15f), () => { if (IsAbyssUnlocked(id)) ShowRegionMap(id); });
+                card.interactable = open;
+                if (!open) accent = Color.Lerp(accent, new Color(0.3f, 0.32f, 0.38f), 0.7f);
                 card.Rt().TopBar(280 + i * 430, 400, 50, 50);
 
                 var swatch = Ui.Panel(card.transform, Art.C(a.floorColor), true, "Swatch");
@@ -279,15 +282,20 @@ namespace AbyssDefense
 
                 var name = Ui.Label(card.transform, a.name, 58, accent, TextAnchor.UpperLeft, true);
                 name.rectTransform.Fill(310, 0, 30, 34);
-                var desc = Ui.Label(card.transform, a.desc, 31, Ui.TextCol, TextAnchor.UpperLeft);
+                var desc = Ui.Label(card.transform, a.desc, 31, open ? Ui.TextCol : Ui.Dim, TextAnchor.UpperLeft);
                 desc.rectTransform.Fill(310, 0, 30, 120);
-                string traits = $"적 체력 ×{a.enemyHealthMul:0.##}   속도 ×{a.enemySpeedMul:0.##}\n적 수 ×{a.enemyCountMul:0.##}   전리품 ×{a.bountyMul:0.##}";
+                // 그 심연의 첫 지역과 마지막 지역의 적 (난이도는 심연을 넘어 끊기지 않고 올라간다)
+                RegionRules r0 = RegionRules.For(i, 1), r1 = RegionRules.For(i, Content.RegionCount);
+                string traits = $"적 체력 ×{r0.enemyHealthMul:0.#} → ×{r1.enemyHealthMul:0.#}   속도 ×{r0.enemySpeedMul:0.0#} → ×{r1.enemySpeedMul:0.0#}\n적 수 ×{r0.countMul:0.0#} → ×{r1.countMul:0.0#}   전리품 ×{r0.bountyMul:0.#} → ×{r1.bountyMul:0.#}";
                 var tr = Ui.Label(card.transform, traits, 28, Ui.Dim, TextAnchor.UpperLeft);
                 tr.rectTransform.Fill(310, 0, 30, 215);
 
-                int cleared = save.abysses[i].cleared;
-                var prog = Ui.Label(card.transform, cleared >= Content.RegionCount ? "점령 완료" : $"지역 {cleared} / {Content.RegionCount} 점령", 34, Ui.Gold, TextAnchor.LowerLeft, true);
+                int cleared = DoneCount(i);
+                string progText = !open ? $"{Content.Abysses[i - 1].name} 지역 {Content.RegionCount} 점령 시 열림"
+                    : cleared >= Content.RegionCount ? "모든 지역 점령" : IsDone(i, Content.RegionCount) ? $"바닥 점령  ·  지역 {cleared} / {Content.RegionCount}" : $"지역 {cleared} / {Content.RegionCount} 점령";
+                var prog = Ui.Label(card.transform, progText, 34, open ? Ui.Gold : Ui.Dim, TextAnchor.LowerLeft, true);
                 prog.rectTransform.Fill(310, 34, 30, 0);
+                if (!open) continue;   // 잠긴 심연은 진행 막대를 그리지 않는다
                 var barBack = Ui.Panel(card.transform, new Color(0, 0, 0, 0.5f), true, "Bar");
                 barBack.raycastTarget = false;
                 barBack.Rt().At(new Vector2(1, 0), new Vector2(1, 0), -30, 40, 300, 22);
@@ -301,11 +309,17 @@ namespace AbyssDefense
             back.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 50, 50, 240, 96);
         }
 
-        // ───────── 지역 지도: 100개 지역이 아래로 이어진다 ─────────
+        // ───────── 지역 지도: 10지역씩의 그물(3×3 과 군주)이 아래로 이어진다. 이음은 RegionGraph 가 정한다 ─────────
 
-        const float NodeGap = 190, NodeTop = 160;
+        const float NodeTop = 170, SegH = 800, ColGap = 300, RowGap = 175, BossDrop = 545;
 
-        static Vector2 NodePos(int region) => new Vector2(Mathf.Sin(region * 0.85f) * 300, -(NodeTop + (region - 1) * NodeGap));
+        static Vector2 NodePos(int region)
+        {
+            int seg = (region - 1) / RegionGraph.Segment, slot = RegionGraph.Slot(region);
+            float top = NodeTop + seg * SegH;
+            if (slot == RegionGraph.Segment) return new Vector2(0, -(top + BossDrop));
+            return new Vector2(((slot - 1) % 3 - 1) * ColGap, -(top + (slot - 1) / 3 * RowGap));
+        }
 
         public void ShowRegionMap(int abyss)
         {
@@ -324,7 +338,7 @@ namespace AbyssDefense
             mapScroll = view.gameObject.AddComponent<ScrollRect>();
             var content = Ui.Node("Content", view.transform);
             content.anchorMin = new Vector2(0, 1); content.anchorMax = new Vector2(1, 1); content.pivot = new Vector2(0.5f, 1);
-            float height = NodeTop + Content.RegionCount * NodeGap + 900;
+            float height = NodeTop + Content.RegionCount / RegionGraph.Segment * SegH + 900;
             content.sizeDelta = new Vector2(0, height);
             mapScroll.content = content; mapScroll.viewport = view.Rt();
             mapScroll.horizontal = false; mapScroll.vertical = true;
@@ -339,31 +353,36 @@ namespace AbyssDefense
                 band.Rt().TopBar(i * height / 10f, height / 10f + 2);
             }
 
-            // 이음선
-            for (int r = 1; r < Content.RegionCount; r++)
-            {
-                Vector2 p = NodePos(r), q = NodePos(r + 1);
-                var line = Ui.Panel(content, r <= sv.cleared ? accent : new Color(1, 1, 1, 0.12f), false, "Line");
-                line.raycastTarget = false;
-                var rt = line.Rt();
-                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1); rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = (p + q) * 0.5f;
-                rt.sizeDelta = new Vector2((q - p).magnitude, r <= sv.cleared ? 10 : 6);
-                rt.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(q.y - p.y, q.x - p.x) * Mathf.Rad2Deg);
-            }
+            // 이음선: 양쪽을 다 점령했으면 밝게, 한쪽만 점령했으면(갈 수 있는 길) 옅게
+            for (int r = 1; r <= Content.RegionCount; r++)
+                foreach (int n in RegionGraph.Neighbors(r))
+                {
+                    if (n < r) continue;
+                    Vector2 p = NodePos(r), q = NodePos(n);
+                    bool both = sv.done[r] && sv.done[n], one = sv.done[r] || sv.done[n];
+                    var line = Ui.Panel(content, both ? accent : one ? new Color(accent.r, accent.g, accent.b, 0.4f) : new Color(1, 1, 1, 0.1f), false, "Line");
+                    line.raycastTarget = false;
+                    var rt = line.Rt();
+                    rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1); rt.pivot = new Vector2(0.5f, 0.5f);
+                    rt.anchoredPosition = (p + q) * 0.5f;
+                    rt.sizeDelta = new Vector2((q - p).magnitude, both ? 10 : 6);
+                    rt.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(q.y - p.y, q.x - p.x) * Mathf.Rad2Deg);
+                }
 
-            // 지역 노드
+            // 지역 노드: 점령한 곳, 지금 고를 수 있는 곳(점령한 곳과 이어진 곳), 아직 닿지 않는 곳
+            int focus = 0;
             for (int r = 1; r <= Content.RegionCount; r++)
             {
                 int region = r;
-                bool cleared = r <= sv.cleared, current = r == sv.cleared + 1, boss = r % 10 == 0;
-                float size = boss ? 150 : 118;
+                bool cleared = sv.done[r], current = !cleared && IsUnlocked(abyss, r), boss = RegionRules.IsBoss(r);
+                if (current && focus == 0) focus = r;
+                float size = boss ? 150 : 108;
                 Color col = cleared ? accent * 0.75f : current ? accent : new Color(0.2f, 0.21f, 0.26f);
                 col.a = 1;
                 if (current)
                 {
                     var halo = Ui.Icon(content, Art.Get("fx_circle"), accent);
-                    halo.Rt().At(new Vector2(0.5f, 1), new Vector2(0.5f, 0.5f), NodePos(r).x, NodePos(r).y, size * 2.1f, size * 2.1f);
+                    halo.Rt().At(new Vector2(0.5f, 1), new Vector2(0.5f, 0.5f), NodePos(r).x, NodePos(r).y, size * 1.7f, size * 1.7f);
                 }
                 if (boss)
                 {
@@ -377,7 +396,7 @@ namespace AbyssDefense
                 btn.targetGraphic = img;
                 btn.onClick.AddListener(() => ShowRegionSheet(abyss, region));
                 Ui.Label(img.transform, r.ToString(), boss ? 52 : 44, cleared || current ? new Color(0.06f, 0.07f, 0.09f) : Ui.Dim, TextAnchor.MiddleCenter, true);
-                bool assault = RegionRules.IsAssault(r);
+                bool assault = RegionRules.IsAssault(Content.Stage(abyss, r));
                 string tag = cleared ? "점령" : boss ? "군주" : assault ? "적 거점" : null;
                 if (tag != null)
                 {
@@ -395,12 +414,13 @@ namespace AbyssDefense
             name.rectTransform.Fill(220, 0, 230, 22);
             var baseBtn = Ui.Btn(top.transform, "기지", 34, Violet, ShowBase);
             baseBtn.Rt().At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), -24, 0, 190, 96);
-            var sub = Ui.Label(top.transform, $"지역 {sv.cleared} / {Content.RegionCount} 점령\n{StockRich()}", 27, Ui.Dim, TextAnchor.LowerLeft);
+            var sub = Ui.Label(top.transform, $"지역 {DoneCount(abyss)} / {Content.RegionCount} 점령\n{StockRich()}", 27, Ui.Dim, TextAnchor.LowerLeft);
             sub.supportRichText = true;
             sub.rectTransform.Fill(220, 16, 230, 0);
 
-            ScrollToRegion(Mathf.Min(sv.cleared + 1, Content.RegionCount));
+            ScrollToRegion(focus > 0 ? focus : Mathf.Max(1, Deepest(abyss)));
             sheet = null;
+            Tip("tip_web", "지역은 그물처럼 이어져 있습니다. 점령한 지역과 이어진 지역이면 어디든 갈 수 있어 모든 지역을 점령하지 않아도 되지만, 군주(10의 배수)는 넘어야 다음 구간이 열립니다. 건너뛴 지역의 기술과 생산 보너스는 그 지역을 점령해야 얻습니다.");
         }
 
         public void ScrollToRegion(int region)
@@ -419,9 +439,10 @@ namespace AbyssDefense
             if (sheet != null) Destroy(sheet.gameObject);
             Accrue();
             var a = Content.Abysses[abyss];
-            var r = RegionRules.For(abyss, region, save.difficulty);
+            var r = RegionRules.For(abyss, region);
             bool unlocked = IsUnlocked(abyss, region);
-            bool first = region > save.abysses[abyss].cleared;
+            bool first = !IsDone(abyss, region);
+            const float Shift = 38;   // 적의 강도를 적는 한 줄만큼 아래를 민다
             var accent = Art.C(a.accent);
 
             // 가진 자원만 줄로 보여 준다 (철광·황석은 언제나)
@@ -431,38 +452,35 @@ namespace AbyssDefense
 
             var panel = Ui.Panel(screen, Ui.PanelCol, false, "Sheet");
             sheet = panel.Rt();
-            sheet.BottomBar(0, 404 + shown.Count * rowStep + 186);
+            sheet.BottomBar(0, 404 + Shift + shown.Count * rowStep + 186);
             var line = Ui.Panel(sheet, accent, false, "Line");
             line.Rt().TopBar(0, 6);
 
             var title = Ui.Label(sheet, $"지역 {region}" + (r.hasBoss ? "  ·  심연 군주" : r.assault ? "  ·  적 거점" : ""), 58, r.hasBoss ? Ui.Gold : r.assault ? Ui.Bad : Ui.TextCol, TextAnchor.UpperLeft, true);
             title.rectTransform.Fill(40, 0, 420, 30);
-            // 난이도: 누를 때마다 쉬움 → 보통 → 어려움 (적 체력·수·웨이브 간격·전리품이 달라진다)
-            Color[] dcol = { new Color(0.2f, 0.42f, 0.3f), Ui.Card, new Color(0.55f, 0.22f, 0.25f) };
-            var diff = Ui.Btn(sheet, "난이도 " + RegionRules.DifficultyNames[save.difficulty], 30, dcol[save.difficulty], () => { save.difficulty = (save.difficulty + 1) % 3; Save(); ShowRegionSheet(abyss, region); });
-            diff.Rt().At(new Vector2(1, 1), new Vector2(1, 1), -184, -28, 220, 76);
             var close = Ui.Btn(sheet, "닫기", 30, Ui.Card, () => { if (sheet != null) Destroy(sheet.gameObject); sheet = null; });
             close.Rt().At(new Vector2(1, 1), new Vector2(1, 1), -30, -28, 140, 76);
 
             var groups = WaveGen.Generate(r);
             string body =
                 (r.assault ? $"맵 {r.mapW}×{r.mapH}칸  ·  적 핵 {r.spawnCount}개를 유닛으로 모두 부수면 점령  ·  웨이브는 끝없이 옵니다\n"
-                           : $"맵 {r.mapW}×{r.mapH}칸  ·  웨이브 {r.winWave}회  ·  출현 지점 {r.spawnCount}곳  ·  적 체력 ×{r.enemyHealthMul:0.0}\n") +
-                "적";
+                           : $"맵 {r.mapW}×{r.mapH}칸  ·  웨이브 {r.winWave}회  ·  출현 지점 {r.spawnCount}곳\n") +
+                $"적 체력 ×{r.enemyHealthMul:0.0}  ·  속도 ×{r.enemySpeedMul:0.00}  ·  수 ×{r.countMul:0.00}  ·  전리품 ×{r.bountyMul:0.0#}" +
+                (r.hasBoss ? "  (군주 지역 가산)" : r.assault ? "  (거점 지역 가산)" : "") + "\n적";
             var info = Ui.Label(sheet, body, 29, Ui.Dim, TextAnchor.UpperLeft);
             info.lineSpacing = 1.3f;
             info.rectTransform.Fill(40, 0, 40, 118);
             if (r.hazard != Hazard.None)
             {
                 var hz = Ui.Label(sheet, a.hazardName, 27, accent, TextAnchor.UpperRight, true);
-                hz.rectTransform.Fill(40, 0, 40, 118 + 40);
+                hz.rectTransform.Fill(40, 0, 40, 118 + 40 + Shift);
             }
             // 나오는 적은 그림으로 한 줄에 (정예는 금색 점, 보호막은 하늘색 점). 이름과 능력은 도감에 있다
             for (int i = 0; i < groups.Count; i++)
             {
                 var g = groups[i];
                 var ic = Ui.Icon(sheet, Art.Get("enemy_" + g.enemy.key));
-                ic.Rt().At(new Vector2(0, 1), new Vector2(0, 1), 92 + i * 62, -118 - 36, 46, 46);
+                ic.Rt().At(new Vector2(0, 1), new Vector2(0, 1), 92 + i * 62, -118 - 36 - Shift, 46, 46);
                 if (g.elite || g.shields > 0 || g.shieldScaling > 0)
                 {
                     var dot = Ui.Icon(ic.transform, Art.Get("fx_disc"), g.elite ? Ui.Gold : new Color(0.45f, 0.85f, 1f));
@@ -474,36 +492,27 @@ namespace AbyssDefense
             string reward;
             if (first)
             {
-                BaseRules.RegionBonus(region, out int item, out float perMin);
+                BaseRules.RegionBonus(abyss, region, out int item, out float perMin);
                 reward = $"첫 점령 보상   기지 생산 {Content.Items[item].name} +{perMin:0.##}/분" + (r.assault ? "  (거점 보상 2배)" : "");
-                int best = BestCleared;
-                if (best < region)
-                {
-                    string res = "", bld = "";
-                    foreach (var d in Research.Defs)
-                        if (d.reqRegion == region) res += (res.Length > 0 ? ", " : "") + d.name;
-                    if (region == BaseRules.CrystalMineRegion) bld = BaseRules.MineNames[Content.Crystal];
-                    foreach (var rf in BaseRules.Refineries)
-                        if (rf.reqRegion == region) bld += (bld.Length > 0 ? ", " : "") + rf.name;
-                    if (res.Length > 0) reward += $"\n새 연구 해금   {res}";
-                    if (bld.Length > 0) reward += $"\n새 기지 건물 해금   {bld}";
-                }
+                // 이 지역에 묶인 기술: 이 지역을 점령해야만 열린다
+                var opens = StageUnlocks(r.stage, BestStage, Mathf.Max(BestStage, r.stage));
+                if (opens.Count > 0) reward += "\n해금   " + string.Join(", ", opens);
             }
             else reward = "이미 점령한 지역입니다. 전리품만 얻습니다.";
             var rw = Ui.Label(sheet, reward, 30, first ? Ui.Gold : Ui.Dim, TextAnchor.UpperLeft, true);
             rw.lineSpacing = 1.25f;
-            rw.rectTransform.Fill(40, 0, 40, 216);
+            rw.rectTransform.Fill(40, 0, 40, 216 + Shift);
 
             // 가져갈 자원
             int cap = LoadoutCap;
             var lt = Ui.Label(sheet, $"가져갈 자원  (종류마다 최대 {cap:N0}, 기본 보급 철광 {r.startItems[Content.Iron]} 은 따로 받습니다)", 27, Ui.TextCol, TextAnchor.UpperLeft);
-            lt.rectTransform.Fill(40, 0, 40, 356);
+            lt.rectTransform.Fill(40, 0, 40, 356 + Shift);
             for (int k = 0; k < shown.Count; k++)
             {
                 int item = shown[k];
                 int have = (int)save.stock[item], limit = Mathf.Min(cap, have);
                 var row = Ui.Panel(sheet, Ui.Card, true, "Loadout");
-                row.Rt().TopBar(404 + k * rowStep, rowStep - 10, 30, 30);
+                row.Rt().TopBar(404 + Shift + k * rowStep, rowStep - 10, 30, 30);
                 Ui.Icon(row.transform, Art.Get("item_" + Content.Items[item].key)).Rt().At(new Vector2(0, 0.5f), new Vector2(0, 0.5f), 18, 0, 52, 52);
                 var nm = Ui.Label(row.transform, Content.Items[item].name, 31, null, TextAnchor.UpperLeft, true);
                 nm.rectTransform.Fill(86, 0, 600, 12);
@@ -525,11 +534,11 @@ namespace AbyssDefense
                 show();
             }
 
-            var go = Ui.Btn(sheet, unlocked ? "출격" : "이전 지역을 먼저 점령하세요", unlocked ? 54 : 34,
+            var go = Ui.Btn(sheet, unlocked ? "출격" : IsAbyssUnlocked(abyss) ? "이어진 지역을 먼저 점령하세요" : "앞 심연을 먼저 점령하세요", unlocked ? 54 : 34,
                 unlocked ? Primary : Ui.Card, () => { if (unlocked) StartRegion(abyss, region); }, unlocked ? Ui.TextCol : Ui.Dim);
             go.Rt().At(new Vector2(0.5f, 0), new Vector2(0.5f, 0), 0, 40, 1000, 130);
             go.interactable = unlocked;
-            if (unlocked) Tip("tip_sheet", "가져갈 자원을 정하세요. 이기면 남은 자원이 모두 돌아오고, 지면 모두 잃고, 후퇴하면 절반만 돌아옵니다. 오른쪽 위에서 난이도를 바꿀 수 있습니다.");
+            if (unlocked) Tip("tip_sheet", "가져갈 자원을 정하세요. 이기면 남은 자원이 모두 돌아오고, 지면 모두 잃고, 후퇴하면 절반만 돌아옵니다.");
         }
     }
 }

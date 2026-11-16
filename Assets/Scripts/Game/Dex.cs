@@ -142,7 +142,7 @@ namespace AbyssDefense
 
         void DexEnemies(List<System.Action<Transform, float>> rows)
         {
-            int seen = BestCleared + 1;
+            int seen = BestStage + 1;
             foreach (var e in Content.Enemies)
             {
                 int first = FirstRegion(e);

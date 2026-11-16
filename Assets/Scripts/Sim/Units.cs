@@ -897,9 +897,9 @@ namespace AbyssDefense.Sim
         /// 적 거점: 출현 지점마다 적 핵을 세우고, 그 둘레에 적 포탑과 (아군 쪽을 보는) 적 방벽을 두른다
         void BuildEnemyBase()
         {
-            float d = rules.depth;
+            float d = rules.depth, p = rules.power;   // 포탑 수는 판의 규모를, 건물 체력과 포탑 화력은 적의 강도를 따른다
             float lateBase = 1 + RegionRules.LateBase * rules.late;   // 후반의 적 거점은 건물도 포탑도 훨씬 단단하고 세다
-            float hp = (1 + 3f * d) * lateBase;
+            float hp = (1 + 3f * p) * lateBase;
             for (int k = 0; k < world.spawns.Count; k++)
             {
                 int s = world.spawns[k];
@@ -922,7 +922,7 @@ namespace AbyssDefense.Sim
                     var t = world.At(x, y);
                     if (far < 3 || t == null || t.wall || t.build != null || field.cost[world.Idx(x, y)] == float.MaxValue) continue;
                     var tb = (EnemyTurretBuilding)AddEnemy(Content.EnemyTurret, x, y, hp);
-                    tb.damage = Content.EnemyTurret.bullet.damage * (1 + 1.5f * d) * lateBase;
+                    tb.damage = Content.EnemyTurret.bullet.damage * (1 + 1.5f * p) * lateBase;
                     placed++;
                     // 포탑의 아군 쪽 면에 방벽
                     float here = field.cost[world.Idx(x, y)];

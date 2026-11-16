@@ -17,7 +17,8 @@ namespace AbyssDefense.Sim
         public string key, name, desc;
         public int maxLevel;
         public float perLevel;            // 단계마다 더해지는 양 (비율 또는 개수)
-        public int reqRegion;             // 어느 심연에서든 이 지역을 점령해야 연구할 수 있다 (0 = 처음부터)
+        public int reqRegion;             // 이 단계(전체 단계: 잿불 1~100, 서리 101~ …)의 지역을 직접 점령해야 연구할 수 있다 (0 = 처음부터)
+        public bool expands;              // 서리 심연부터 군주·거점 지역을 점령할 때마다 최대 단계가 하나씩 늘어난다
         public int iron, sulfur, crystal; // 1단계 비용. crystal 은 crystalFrom 단계부터 든다
         public int crystalFrom = 3;
         public ItemStack[] extra = new ItemStack[0];   // 가공 자원 비용 (1단계 기준)
@@ -26,7 +27,8 @@ namespace AbyssDefense.Sim
         public string icon;               // 트리 노드에 쓰는 그림 이름
     }
 
-    /// 기지에서 하는 연구. 모든 심연에 함께 적용된다. 지역을 점령하면 새 연구가 열린다.
+    /// 기지에서 하는 연구. 모든 심연에 함께 적용된다. 연구는 그것이 묶인 지역을 점령하면 열린다:
+    /// 잿불 2·4·6·8 과, 지역 10 부터는 군주(10의 배수)·거점(15, 25, …) 지역.
     public static class Research
     {
         public const int Damage = 0, Health = 1, Loadout = 2, Mortar = 3, Core = 4, Range = 5, Mining = 6, Ammo = 7, Bounty = 8, Lance = 9, Build = 10,
@@ -36,32 +38,32 @@ namespace AbyssDefense.Sim
 
         public static readonly ResearchDef[] Defs =
         {
-            new ResearchDef { key = "damage", name = "포탑 화력", desc = "모든 포탑의 피해가 늘어난다", maxLevel = 8, perLevel = 0.15f, iron = 100, sulfur = 60, crystal = 40 },
-            new ResearchDef { key = "health", name = "강화 장갑", desc = "방벽·포탑·공장의 체력이 늘어난다", maxLevel = 5, perLevel = 0.2f, reqRegion = 1, iron = 110, sulfur = 20, crystal = 30 },
-            new ResearchDef { key = "loadout", name = "출격 물자", desc = "출격할 때 가져갈 수 있는 자원 한도가 늘어난다. 단계가 오를수록 더 크게 늘어난다", maxLevel = 10, perLevel = 150, percent = false, reqRegion = 1, iron = 120, sulfur = 40, crystal = 30 },
+            new ResearchDef { key = "damage", name = "포탑 화력", desc = "모든 포탑의 피해가 늘어난다", expands = true, maxLevel = 8, perLevel = 0.15f, iron = 100, sulfur = 60, crystal = 40 },
+            new ResearchDef { key = "health", name = "강화 장갑", desc = "방벽·포탑·공장의 체력이 늘어난다", expands = true, maxLevel = 5, perLevel = 0.2f, reqRegion = 2, iron = 110, sulfur = 20, crystal = 30 },
+            new ResearchDef { key = "loadout", name = "출격 물자", desc = "출격할 때 가져갈 수 있는 자원 한도가 늘어난다. 단계가 오를수록 더 크게 늘어난다", maxLevel = 10, perLevel = 150, percent = false, reqRegion = 2, iron = 120, sulfur = 40, crystal = 30 },
             new ResearchDef { key = "mortar", name = "박격포 기술", desc = "박격포를 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 2, iron = 150, sulfur = 100 },
-            new ResearchDef { key = "core", name = "핵 보호막", desc = "심연 핵의 체력이 늘어난다", maxLevel = 5, perLevel = 0.3f, reqRegion = 3, iron = 120, sulfur = 50, crystal = 40 },
+            new ResearchDef { key = "core", name = "핵 보호막", desc = "심연 핵의 체력이 늘어난다", expands = true, maxLevel = 5, perLevel = 0.3f, reqRegion = 4, iron = 120, sulfur = 50, crystal = 40 },
             new ResearchDef { key = "range", name = "조준 장치", desc = "모든 포탑의 사거리가 늘어난다", maxLevel = 4, perLevel = 0.07f, reqRegion = 4, iron = 90, sulfur = 70, crystal = 40, crystalFrom = 2 },
-            new ResearchDef { key = "mining", name = "채굴 기술", desc = "기지 채굴장의 생산량이 늘어난다", maxLevel = 5, perLevel = 0.1f, reqRegion = 5, iron = 160, sulfur = 60, crystal = 30 },
+            new ResearchDef { key = "mining", name = "채굴 기술", desc = "기지 채굴장의 생산량이 늘어난다", maxLevel = 5, perLevel = 0.1f, reqRegion = 6, iron = 160, sulfur = 60, crystal = 30 },
             new ResearchDef { key = "ammo", name = "탄약 절약", desc = "자원 하나로 더 많은 탄을 만든다", maxLevel = 4, perLevel = 0.25f, reqRegion = 6, iron = 70, sulfur = 80, crystal = 30 },
             new ResearchDef { key = "bounty", name = "전리품 회수", desc = "적을 처치하고 얻는 자원이 늘어난다", maxLevel = 5, perLevel = 0.2f, reqRegion = 8, iron = 130, sulfur = 70, crystal = 30 },
             new ResearchDef { key = "lance", name = "결정포 기술", desc = "결정포를 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 10, iron = 300, sulfur = 200, crystal = 40, crystalFrom = 0 },
-            new ResearchDef { key = "build", name = "건설 드론", desc = "지역에서 건물을 더 빨리 짓는다", maxLevel = 4, perLevel = 0.25f, reqRegion = 3, iron = 100, sulfur = 40, crystal = 30 },
-            new ResearchDef { key = "robotfactory", name = "로봇 공장 기술", desc = "로봇 공장을 짓고 척후 로봇을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 5, iron = 200, sulfur = 100,
+            new ResearchDef { key = "build", name = "건설 드론", desc = "지역에서 건물을 더 빨리 짓는다", maxLevel = 4, perLevel = 0.25f, reqRegion = 4, iron = 100, sulfur = 40, crystal = 30 },
+            new ResearchDef { key = "robotfactory", name = "로봇 공장 기술", desc = "로봇 공장을 짓고 척후 로봇을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 6, iron = 200, sulfur = 100,
                 extra = new[] { new ItemStack(Content.Steel, 40) } },
             new ResearchDef { key = "airfield", name = "비행장 기술", desc = "비행장을 짓고 정찰기를 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 8, iron = 250, sulfur = 150,
                 extra = new[] { new ItemStack(Content.Steel, 60), new ItemStack(Content.Circuit, 40) } },
-            new ResearchDef { key = "tier2", name = "기체 개량 I", desc = "2단계 유닛(돌격 로봇·폭격기)을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 12, iron = 300, sulfur = 200,
+            new ResearchDef { key = "tier2", name = "기체 개량 I", desc = "2단계 유닛(돌격 로봇·폭격기)을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 10, iron = 300, sulfur = 200,
                 extra = new[] { new ItemStack(Content.Steel, 100), new ItemStack(Content.Circuit, 80) } },
             new ResearchDef { key = "tier3", name = "기체 개량 II", desc = "3단계 유닛(중장 로봇·강습기)을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 25, iron = 500, sulfur = 300, crystal = 100, crystalFrom = 0,
                 extra = new[] { new ItemStack(Content.Circuit, 150), new ItemStack(Content.Alloy, 60) } },
             new ResearchDef { key = "command", name = "지휘 체계", desc = "지역에서 거느릴 수 있는 유닛 한도가 늘어난다", maxLevel = 6, perLevel = 2, percent = false, reqRegion = 6, iron = 150, sulfur = 80,
                 extra = new[] { new ItemStack(Content.Circuit, 20) } },
-            new ResearchDef { key = "unitpower", name = "기체 강화", desc = "유닛의 피해와 체력이 늘어난다", maxLevel = 5, perLevel = 0.12f, reqRegion = 16, iron = 150, sulfur = 100,
+            new ResearchDef { key = "unitpower", name = "기체 강화", desc = "유닛의 피해와 체력이 늘어난다", expands = true, maxLevel = 5, perLevel = 0.12f, reqRegion = 15, iron = 150, sulfur = 100,
                 extra = new[] { new ItemStack(Content.Steel, 40), new ItemStack(Content.Circuit, 30) } },
             new ResearchDef { key = "support", name = "지원 공방 기술", desc = "지원 공방을 짓고 정비 로봇·수리 드론을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 10, iron = 250, sulfur = 150,
                 extra = new[] { new ItemStack(Content.Steel, 60), new ItemStack(Content.Circuit, 40) } },
-            new ResearchDef { key = "legs", name = "다리 공방 기술", desc = "다리 공방을 짓고 자폭 벌레와 다리 로봇들을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 18, iron = 300, sulfur = 250,
+            new ResearchDef { key = "legs", name = "다리 공방 기술", desc = "다리 공방을 짓고 자폭 벌레와 다리 로봇들을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 20, iron = 300, sulfur = 250,
                 extra = new[] { new ItemStack(Content.Steel, 80), new ItemStack(Content.Powder, 60) } },
             new ResearchDef { key = "shipyard", name = "조선소 기술", desc = "물가에 조선소를 짓고 초계정을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 20, iron = 350, sulfur = 200,
                 extra = new[] { new ItemStack(Content.Steel, 120), new ItemStack(Content.Circuit, 80) } },
@@ -69,9 +71,9 @@ namespace AbyssDefense.Sim
                 extra = new[] { new ItemStack(Content.Circuit, 250), new ItemStack(Content.Alloy, 150) } },
             new ResearchDef { key = "tier5", name = "기체 개량 IV", desc = "5단계 유닛(거신 로봇·모함)을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 70, iron = 1500, sulfur = 900, crystal = 400, crystalFrom = 0,
                 extra = new[] { new ItemStack(Content.Circuit, 400), new ItemStack(Content.Alloy, 350) } },
-            new ResearchDef { key = "tank", name = "전차 공장 기술", desc = "전차 공장을 짓고 장갑차를 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 14, iron = 300, sulfur = 150,
+            new ResearchDef { key = "tank", name = "전차 공장 기술", desc = "전차 공장을 짓고 장갑차를 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 15, iron = 300, sulfur = 150,
                 extra = new[] { new ItemStack(Content.Steel, 100) } },
-            new ResearchDef { key = "hover", name = "부양 공방 기술", desc = "부양 공방을 짓고 부양 척후·부양 정비를 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 22, iron = 350, sulfur = 200,
+            new ResearchDef { key = "hover", name = "부양 공방 기술", desc = "부양 공방을 짓고 부양 척후·부양 정비를 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 20, iron = 350, sulfur = 200,
                 extra = new[] { new ItemStack(Content.Steel, 100), new ItemStack(Content.Circuit, 80) } },
             new ResearchDef { key = "assembler", name = "심연 조립 기술", desc = "심연 조립소를 짓고 6단계 유닛(심연 거신·심연 모함·심연 거미)을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 75, iron = 2500, sulfur = 1500, crystal = 800, crystalFrom = 0,
                 extra = new[] { new ItemStack(Content.Steel, 800), new ItemStack(Content.Circuit, 600), new ItemStack(Content.Alloy, 500) } },
@@ -79,9 +81,9 @@ namespace AbyssDefense.Sim
                 extra = new[] { new ItemStack(Content.Steel, 1200), new ItemStack(Content.Circuit, 900), new ItemStack(Content.Alloy, 900) } },
             new ResearchDef { key = "specialturret", name = "특수 포탑 기술", desc = "대공포와 점액탑을 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 6, iron = 250, sulfur = 150,
                 extra = new[] { new ItemStack(Content.Steel, 40) } },
-            new ResearchDef { key = "advturret", name = "고급 포탑 기술", desc = "전격탑과 화염탑을 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 16, iron = 400, sulfur = 250,
+            new ResearchDef { key = "advturret", name = "고급 포탑 기술", desc = "전격탑과 화염탑을 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 15, iron = 400, sulfur = 250,
                 extra = new[] { new ItemStack(Content.Circuit, 80), new ItemStack(Content.Powder, 60) } },
-            new ResearchDef { key = "supportblock", name = "지원 건물 기술", desc = "수리탑·증폭탑·역장 발생기를 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 9, iron = 250, sulfur = 120,
+            new ResearchDef { key = "supportblock", name = "지원 건물 기술", desc = "수리탑·증폭탑·역장 발생기를 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 10, iron = 250, sulfur = 120,
                 extra = new[] { new ItemStack(Content.Steel, 60), new ItemStack(Content.Circuit, 30) } },
         };
 
@@ -139,7 +141,15 @@ namespace AbyssDefense.Sim
 
         static int Round10(float v) => (int)Math.Round(v / 10f) * 10;
 
-        public static int Level(int[] lv, int id) => lv != null && id < lv.Length ? Math.Min(lv[id], Defs[id].maxLevel) : 0;
+        /// 첫 심연 다음의 심연마다 있는 군주·거점 지역의 수 (군주 10 + 거점 10). 그 지역을 하나 점령할 때마다 연구 상한이 하나 늘어난다
+        public const int ExpansionsPerAbyss = 20;
+        public static int MaxExpansions => (Content.Abysses.Length - 1) * ExpansionsPerAbyss;
+
+        /// 연구의 최대 단계. expansions = 서리 심연부터 점령한 군주·거점 지역의 수
+        public static int MaxLevel(ResearchDef d, int expansions) => d.maxLevel + (d.expands ? Math.Max(0, Math.Min(expansions, MaxExpansions)) : 0);
+
+        /// 연구 단계. 단계는 그때의 상한 안에서만 살 수 있으므로, 여기서는 닿을 수 있는 가장 높은 상한으로만 자른다
+        public static int Level(int[] lv, int id) => lv != null && id < lv.Length ? Math.Min(lv[id], MaxLevel(Defs[id], MaxExpansions)) : 0;
 
         public static SimMods Mods(int[] lv)
         {
@@ -167,7 +177,7 @@ namespace AbyssDefense.Sim
         public int output;
         public ItemStack[] inputs;        // 산출물 하나에 드는 원료
         public float baseRate;            // 1단계의 분당 산출량
-        public int reqRegion;             // 이 지역을 점령해야 지을 수 있다
+        public int reqRegion;             // 이 단계의 지역을 직접 점령해야 지을 수 있다
         public ItemStack[] buildCost, upgradeCost;
     }
 
@@ -176,6 +186,11 @@ namespace AbyssDefense.Sim
     {
         public const int MaxMineLevel = 10, MaxStorageLevel = 10, MaxRefineryLevel = 8;
         public const int CrystalMineRegion = 10;     // 이 지역을 점령해야 결정 채굴장을 지을 수 있다
+        public const int UpgradeRegionStep = 5;      // 기지 건물의 강화는 Lv 3 부터 단계 5 마다 한 단계씩 열린다
+
+        /// 기지 건물을 level → level+1 로 강화하려면 그만큼 깊이 점령해 두어야 하는 단계 (Lv 2 는 6, Lv 3 은 10, Lv 4 는 15, …).
+        /// 특정 지역이 아니라 "가장 깊이 점령한 단계"와 견준다: 거점 하나를 건너뛰어도 그 위 단계가 막히지 않게. 건설(0 → 1)은 건물마다 따로 정한 지역을 따른다
+        public static int UpgradeRegion(int level) => level <= 0 ? 0 : level == 1 ? 6 : level * UpgradeRegionStep;
         public const int OfflineCapSeconds = 8 * 3600;
         public static readonly string[] MineNames = { "철광 채굴장", "황석 채굴장", "결정 채굴장" };
         static readonly float[] baseRate = { 30, 12, 6 };
@@ -190,11 +205,11 @@ namespace AbyssDefense.Sim
                 inputs = new[] { new ItemStack(Content.Iron, 2), new ItemStack(Content.Sulfur, 1) },
                 buildCost = new[] { new ItemStack(Content.Iron, 250), new ItemStack(Content.Sulfur, 150), new ItemStack(Content.Steel, 30) },
                 upgradeCost = new[] { new ItemStack(Content.Iron, 150), new ItemStack(Content.Sulfur, 100), new ItemStack(Content.Steel, 20) } },
-            new RefineryDef { name = "화약 합성소", output = Content.Powder, baseRate = 4, reqRegion = 7,
+            new RefineryDef { name = "화약 합성소", output = Content.Powder, baseRate = 4, reqRegion = 8,
                 inputs = new[] { new ItemStack(Content.Sulfur, 2) },
                 buildCost = new[] { new ItemStack(Content.Iron, 200), new ItemStack(Content.Sulfur, 250), new ItemStack(Content.Steel, 40) },
                 upgradeCost = new[] { new ItemStack(Content.Iron, 120), new ItemStack(Content.Sulfur, 150), new ItemStack(Content.Steel, 30) } },
-            new RefineryDef { name = "합금 융합로", output = Content.Alloy, baseRate = 2, reqRegion = 14,
+            new RefineryDef { name = "합금 융합로", output = Content.Alloy, baseRate = 2, reqRegion = 15,
                 inputs = new[] { new ItemStack(Content.Steel, 2), new ItemStack(Content.Crystal, 1) },
                 buildCost = new[] { new ItemStack(Content.Iron, 400), new ItemStack(Content.Crystal, 200), new ItemStack(Content.Steel, 100), new ItemStack(Content.Circuit, 60) },
                 upgradeCost = new[] { new ItemStack(Content.Iron, 200), new ItemStack(Content.Crystal, 60), new ItemStack(Content.Steel, 80), new ItemStack(Content.Circuit, 40) } },
@@ -247,40 +262,53 @@ namespace AbyssDefense.Sim
         public static int LoadoutCap(int[] research) => BaseLoadout + LoadoutBonus(Research.Level(research, Research.Loadout));
 
         /// 지역 하나를 처음 점령했을 때 영구히 늘어나는 생산량: (자원, 분당 양)
-        public static void RegionBonus(int region, out int item, out float perMin)
+        public static void RegionBonus(int abyss, int region, out int item, out float perMin)
         {
             int k = region % 3;
             if (k == 1) { item = Content.Iron; perMin = 3; }
             else if (k == 2) { item = Content.Sulfur; perMin = 1.5f; }
-            else if (region >= CrystalMineRegion) { item = Content.Crystal; perMin = 0.75f; }
+            else if (Content.Stage(abyss, region) >= CrystalMineRegion) { item = Content.Crystal; perMin = 0.75f; }
             else { item = Content.Iron; perMin = 3; }
-            if (RegionRules.IsAssault(region)) perMin *= 2;   // 적 거점을 부순 지역은 보상이 두 배
+            if (RegionRules.IsAssault(Content.Stage(abyss, region))) perMin *= 2;   // 적 거점을 부순 지역은 보상이 두 배
         }
 
-        /// 점령한 지역들에서 들어오는 분당 생산량 (cleared = 심연별 점령한 가장 깊은 지역)
-        public static float ConquestRate(int item, int[] cleared)
+        /// 점령한 지역들에서 들어오는 분당 생산량 (done[심연][지역] = 그 지역을 점령했는가). 건너뛴 지역은 세지 않는다
+        public static float ConquestRate(int item, bool[][] done)
         {
-            if (item >= Content.RawCount) return 0;
+            if (item >= Content.RawCount || done == null) return 0;
             float sum = 0;
-            foreach (int c in cleared)
-                for (int r = 1; r <= c; r++)
+            for (int a = 0; a < done.Length; a++)
+                for (int r = 1; done[a] != null && r < done[a].Length; r++)
                 {
-                    RegionBonus(r, out int it, out float v);
+                    if (!done[a][r]) continue;
+                    RegionBonus(a, r, out int it, out float v);
                     if (it == item) sum += v;
                 }
             return sum;
         }
 
+        /// 심연마다 지역 1~n 을 모두 점령한 상태 (검사·봇용)
+        public static bool[][] DoneUpTo(params int[] cleared)
+        {
+            var done = new bool[cleared.Length][];
+            for (int a = 0; a < cleared.Length; a++)
+            {
+                done[a] = new bool[Content.RegionCount + 1];
+                for (int r = 1; r <= cleared[a] && r <= Content.RegionCount; r++) done[a][r] = true;
+            }
+            return done;
+        }
+
         /// 기지 채굴의 분당 총생산량 (가공 건물이 쓰는 양은 빼지 않은 값)
-        public static float Rate(int item, int mineLevel, int[] research, int[] cleared) =>
+        public static float Rate(int item, int mineLevel, int[] research, bool[][] done) =>
             MineRate(item, mineLevel) * (1 + Research.Level(research, Research.Mining) * Research.Defs[Research.Mining].perLevel)
-            + ConquestRate(item, cleared);
+            + ConquestRate(item, done);
 
         /// 가공 건물이 모두 돌 때 자원별 분당 증감 (채굴 + 가공 산출 − 가공 원료)
-        public static float[] NetRates(int[] mineLv, int[] refLv, bool[] refOn, int[] research, int[] cleared)
+        public static float[] NetRates(int[] mineLv, int[] refLv, bool[] refOn, int[] research, bool[][] done)
         {
             var net = new float[Content.Items.Length];
-            for (int i = 0; i < Content.RawCount; i++) net[i] = Rate(i, mineLv[i], research, cleared);
+            for (int i = 0; i < Content.RawCount; i++) net[i] = Rate(i, mineLv[i], research, done);
             for (int k = 0; k < Refineries.Length; k++)
             {
                 if (!refOn[k]) continue;
@@ -293,11 +321,11 @@ namespace AbyssDefense.Sim
         }
 
         /// 기지를 seconds 초만큼 돌린다: 채굴장이 캐고, 켜 둔 가공 건물이 원료가 있는 만큼 가공한다. 창고 한도까지만 쌓인다
-        public static void Advance(double[] stock, int[] mineLv, int[] refLv, bool[] refOn, int[] research, int[] cleared, int storageLv, double seconds)
+        public static void Advance(double[] stock, int[] mineLv, int[] refLv, bool[] refOn, int[] research, bool[][] done, int storageLv, double seconds)
         {
             int cap = StorageCap(storageLv);
             var mine = new double[Content.RawCount];
-            for (int i = 0; i < mine.Length; i++) mine[i] = Rate(i, mineLv[i], research, cleared) / 60.0;
+            for (int i = 0; i < mine.Length; i++) mine[i] = Rate(i, mineLv[i], research, done) / 60.0;
             double left = seconds;
             while (left > 0)
             {

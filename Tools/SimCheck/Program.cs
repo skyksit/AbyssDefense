@@ -21,13 +21,13 @@ static class Program
         Console.OutputEncoding = Encoding.UTF8;
         if (args.Length >= 3 && args[0] == "trace")
         {
-            int ab = int.Parse(args[1]), rg = int.Parse(args[2]);
-            var research = ExpectedResearch(rg);
+            int ab = int.Parse(args[1]), rg = int.Parse(args[2]), stg = Content.Stage(ab, rg);
+            var research = ExpectedResearch(stg);
             int cap = BaseRules.LoadoutCap(research);
             var take = new int[Content.Items.Length];
             take[0] = cap; take[1] = cap;
-            if (rg > BaseRules.CrystalMineRegion) take[2] = cap / 2;
-            foreach (var rf in BaseRules.Refineries) if (rg > rf.reqRegion) take[rf.output] = rf.output == Content.Alloy ? cap / 4 : cap / 2;
+            if (stg > BaseRules.CrystalMineRegion) take[2] = cap / 2;
+            foreach (var rf in BaseRules.Refineries) if (stg > rf.reqRegion) take[rf.output] = rf.output == Content.Alloy ? cap / 4 : cap / 2;
             var sim = new Sim(ab, rg, take, Research.Mods(research));
             // trace 심연 지역 [유닛 수] [-적key …]: -healer 처럼 쓰면 그 적의 무리를 빼고 돌린다
             foreach (var arg in args) if (arg.StartsWith("-")) without.Add(arg.Substring(1));
@@ -61,9 +61,10 @@ static class Program
             // 봇 결과표만: bots [지역 …] [-적 key …]   (-healer 처럼 쓰면 그 적의 무리를 빼고 돌린다: 어느 적이 어려운지 가려낼 때)
             var list = new List<int>();
             for (int i = 1; i < args.Length; i++) { if (args[i].StartsWith("-")) without.Add(args[i].Substring(1)); else list.Add(int.Parse(args[i])); }
-            if (list.Count == 0) list.AddRange(new[] { 1, 2, 5, 10, 15, 20, 45, 50, 95, 100 });
+            bool all = list.Count == 0;
+            if (all) list.AddRange(new[] { 1, 2, 5, 10, 15, 20, 45, 50, 95, 100 });
             for (int a = 0; a < Content.Abysses.Length; a++)
-                foreach (int r in list) Console.WriteLine($"  {Content.Abysses[a].name} {r,3} → {Play(a, r, true)}");
+                foreach (int r in all && a > 0 ? LaterRegions : list.ToArray()) Console.WriteLine($"  {Content.Abysses[a].name} {r,3} → {Play(a, r, true)}");
             return 0;
         }
         if (args.Length >= 3 && args[0] == "map") { PrintMap(int.Parse(args[1]), int.Parse(args[2])); return 0; }
@@ -94,26 +95,31 @@ static class Program
         Check(bare.StartsWith("Won"), "빈손(기본 보급 150)으로도 지역 1 을 봇이 이긴다");
         int[] regions = { 1, 2, 5, 10, 15, 20, 45, 50, 95, 100 };
         for (int a = 0; a < Content.Abysses.Length; a++)
-            foreach (int r in regions)
+            foreach (int r in a == 0 ? regions : LaterRegions)
             {
                 string res = Play(a, r, true);
                 Console.WriteLine($"  {Content.Abysses[a].name} {r,3} → {res}");
-                if (r == 1) Check(res.StartsWith("Won"), Content.Abysses[a].name + " 지역 1 을 봇이 이긴다");
+                if (a == 0 && r == 1) Check(res.StartsWith("Won"), Content.Abysses[a].name + " 지역 1 을 봇이 이긴다");
             }
         Console.WriteLine($"\n검사 {checks}개 중 실패 {fails}개");
         return fails == 0 ? 0 : 1;
     }
 
-    /// 그 지역쯤이면 해 두었을 법한 연구 단계: 해금된 연구를 지역 60 에서 모두 끝낸다고 본다
-    static int[] ExpectedResearch(int region)
+    // 서리·독늪은 모든 지역이 가장 큰 맵에 30웨이브라 봇 결과표에는 몇 곳만 넣는다
+    static readonly int[] LaterRegions = { 1, 5, 10, 50, 100 };
+
+    /// 그 단계쯤이면 해 두었을 법한 연구 단계: 해금된 연구를 단계 60 에서 모두 끝낸다고 보고,
+    /// 서리 심연부터는 지나온 군주·거점 지역(5지역마다 하나)만큼 늘어난 상한까지 올렸다고 본다
+    static int[] ExpectedResearch(int stage)
     {
         var lv = new int[Research.Defs.Length];
-        float f = Math.Min(1f, (region - 1) / 59f);
+        float f = Math.Min(1f, (stage - 1) / 59f);
+        int expansions = stage > Content.RegionCount ? (stage - Content.RegionCount - 1) / 5 : 0;
         for (int i = 0; i < lv.Length; i++)
         {
             var d = Research.Defs[i];
-            if (region <= d.reqRegion) continue;
-            lv[i] = d.maxLevel == 1 ? 1 : (int)Math.Round(d.maxLevel * f);
+            if (stage <= d.reqRegion) continue;
+            lv[i] = d.maxLevel == 1 ? 1 : (int)Math.Round(Research.MaxLevel(d, expansions) * f);
         }
         return lv;
     }
@@ -122,7 +128,8 @@ static class Program
 
     static string Play(int abyss, int region, bool bot, bool loadout = true)
     {
-        var research = ExpectedResearch(region);
+        int stage = Content.Stage(abyss, region);
+        var research = ExpectedResearch(stage);
         int cap = BaseRules.LoadoutCap(research);
         int[] take = null;
         if (loadout)
@@ -130,9 +137,9 @@ static class Program
             // 가공 자원은 그 가공 건물이 열린 뒤부터 한도의 절반씩 가져간다
             take = new int[Content.Items.Length];
             take[Content.Iron] = cap; take[Content.Sulfur] = cap;
-            if (region > BaseRules.CrystalMineRegion) take[Content.Crystal] = cap / 2;
+            if (stage > BaseRules.CrystalMineRegion) take[Content.Crystal] = cap / 2;
             foreach (var rf in BaseRules.Refineries)
-                if (region > rf.reqRegion) take[rf.output] = rf.output == Content.Alloy ? cap / 4 : cap / 2;
+                if (stage > rf.reqRegion) take[rf.output] = rf.output == Content.Alloy ? cap / 4 : cap / 2;
         }
         var sim = new Sim(abyss, region, take, loadout ? Research.Mods(research) : null);
         if (without.Count > 0) sim.groups.RemoveAll(g => !g.enemy.boss && (without.Contains(g.enemy.key) || (g.elite && without.Contains("elite")) || (g.shieldScaling > 0 && without.Contains("shield"))));
@@ -961,16 +968,92 @@ static class Program
         int storm = Shots(600);
         int left = snow.blizzardLeft;
         for (int i = 0; i < left; i++) snow.Tick();
-        Check(before && calm == 30 && (storm == 22 || storm == 23) && Math.Abs(step - Content.Flyer.speed * Content.Abysses[1].enemySpeedMul * Sim.BlizzardFly) < 0.0001f && !snow.Blizzard && snow.blizzardIn == Sim.BlizzardEvery,
+        Check(before && calm == 30 && (storm == 22 || storm == 23) && Math.Abs(step - Content.Flyer.speed * snow.rules.enemySpeedMul * Sim.BlizzardFly) < 0.0001f && !snow.Blizzard && snow.blizzardIn == Sim.BlizzardEvery,
             $"눈보라: 75초마다 20초, 포탑이 25% 느리게 쏘고 (10초에 {calm} → {storm}발) 비행체가 40% 느려진다");
 
-        // 난이도
-        var easy = RegionRules.For(0, 20, 0); var normal = RegionRules.For(0, 20); var hard = RegionRules.For(0, 20, 2);
-        int Total(RegionRules r) { int n = 0; foreach (var g in WaveGen.Generate(r)) for (int w = 1; w <= r.winWave; w++) n += g.GetSpawned(w); return n; }
-        Check(Math.Abs(easy.enemyHealthMul / normal.enemyHealthMul - 0.7f) < 0.001f && Math.Abs(hard.enemyHealthMul / normal.enemyHealthMul - 1.4f) < 0.001f
-            && easy.waveTicks > normal.waveTicks && hard.waveTicks < normal.waveTicks && Total(easy) < Total(normal) && Total(normal) < Total(hard)
-            && new Sim(0, 20, Full, null, 2).rules.difficulty == 2 && new Sim(0, 20, Full).rules.difficulty == 1,
-            $"난이도: 쉬움은 적 체력 ×0.7·적 {Total(easy)}마리, 보통 {Total(normal)}마리, 어려움은 ×1.4·{Total(hard)}마리");
+        Progression();
+    }
+
+    /// 전체 진행: 난이도가 심연을 넘어 이어지고, 지역은 거미줄로 이어지고, 기술은 군주·거점 지역에 묶인다
+    static void Progression()
+    {
+        Console.WriteLine("진행 (이어지는 난이도, 거미줄 지역 지도, 군주·거점 해금)");
+        RegionRules e1 = RegionRules.For(0, 1), e100 = RegionRules.For(0, 100), f1 = RegionRules.For(1, 1), f100 = RegionRules.For(1, 100), m1 = RegionRules.For(2, 1), m100 = RegionRules.For(2, 100);
+        bool Harder(RegionRules x, RegionRules y) => x.enemyHealthMul > y.enemyHealthMul && x.enemyDamageMul > y.enemyDamageMul && x.enemyArmorMul > y.enemyArmorMul
+            && x.enemySpeedMul > y.enemySpeedMul && x.countMul > y.countMul && x.bountyMul > y.bountyMul;
+        Check(e1.enemySpeedMul == 1f && e1.countMul == 1f && e1.bountyMul == 1f && e1.power == 0, "잿불 1 은 배수가 모두 1 이다");
+        Check(Harder(f1, e100) && Harder(m1, f100) && Harder(m100, m1),
+            $"서리 1 은 잿불 100 보다, 독늪 1 은 서리 100 보다 적이 강하다 (체력 ×{e100.enemyHealthMul:0.#} → ×{f1.enemyHealthMul:0.#} … ×{f100.enemyHealthMul:0.#} → ×{m1.enemyHealthMul:0.#} … ×{m100.enemyHealthMul:0.#})");
+        bool rising = true;
+        for (int a = 0; a < Content.Abysses.Length; a++)
+            for (int r = 1; r < Content.RegionCount; r++)
+            {
+                // 군주·거점은 가산이 붙어 다음 지역보다 셀 수 있으니, 보통 지역끼리만 견준다
+                int s = Content.Stage(a, r);
+                if (RegionRules.IsKey(s) || RegionRules.IsKey(s + 1)) continue;
+                if (!Harder(RegionRules.For(a, r + 1), RegionRules.For(a, r))) rising = false;
+            }
+        Check(rising, "보통 지역은 깊어질수록 적의 체력·공격력·방어력·속도·수·전리품이 모두 커진다");
+        Check(Harder(RegionRules.For(0, 20), RegionRules.For(0, 21)) && Harder(RegionRules.For(0, 25), RegionRules.For(0, 26)) && Harder(RegionRules.For(1, 5), RegionRules.For(1, 6)),
+            "군주·거점 지역은 그다음 지역보다 적이 강하다 (추가 난이도)");
+        Check(f1.mapW == e100.mapW && f1.mapH == e100.mapH && f1.winWave == e100.winWave && f1.winWave == 30 && f1.waveTicks == e100.waveTicks && m100.winWave == 30 && f1.spawnCount == 3,
+            "서리·독늪의 모든 지역은 지역 100 규모다 (가장 큰 맵, 30웨이브)");
+        int Kinds(RegionRules r) { var set = new HashSet<string>(); foreach (var g in WaveGen.Generate(r)) if (!g.enemy.boss) set.Add(g.Label); return set.Count; }
+        Check(Kinds(f1) == Kinds(RegionRules.For(0, 99)) && Kinds(f1) > Kinds(e1), "서리 1 부터 모든 종류의 적이 나온다");
+        Check(RegionRules.IsAssault(Content.Stage(1, 5)) && !RegionRules.IsAssault(5) && RegionRules.IsAssault(15) && RegionRules.For(1, 5).assault, "서리·독늪은 지역 5 부터 거점이다 (잿불은 15 부터)");
+
+        // 거미줄
+        bool sym = true;
+        for (int r = 1; r <= Content.RegionCount; r++)
+            foreach (int n in RegionGraph.Neighbors(r))
+                if (n < 1 || n > Content.RegionCount || n == r || !RegionGraph.Neighbors(n).Contains(r)) sym = false;
+        Check(sym, "지역의 이음은 양쪽에서 같다");
+        int[] Dist(int blocked)
+        {
+            // 처음부터 열린 지역에서 시작해 몇 판째에 점령할 수 있는가
+            var dist = new int[Content.RegionCount + 1];
+            var q = new Queue<int>();
+            for (int r = 1; r <= Content.RegionCount; r++) if (RegionGraph.IsEntry(r) && r != blocked) { dist[r] = 1; q.Enqueue(r); }
+            while (q.Count > 0)
+            {
+                int r = q.Dequeue();
+                foreach (int n in RegionGraph.Neighbors(r)) if (dist[n] == 0 && n != blocked) { dist[n] = dist[r] + 1; q.Enqueue(n); }
+            }
+            return dist;
+        }
+        var full = Dist(0);
+        bool allReach = true; for (int r = 1; r <= Content.RegionCount; r++) if (full[r] == 0) allReach = false;
+        Check(allReach && full[10] == 4 && full[100] == 40, $"모든 지역에 닿을 수 있고, 가장 짧은 길은 구간마다 4판이다 (지역 100 까지 {full[100]}판)");
+        bool gated = true;
+        for (int b = 10; b < Content.RegionCount; b += 10)
+        {
+            var d = Dist(b);
+            for (int r = b + 1; r <= Content.RegionCount; r++) if (d[r] != 0) gated = false;
+        }
+        Check(gated, "군주를 점령하지 않고는 다음 구간에 닿을 수 없다");
+        var some = new bool[Content.RegionCount + 1]; some[1] = true;
+        Check(RegionGraph.Reachable(null, 2) && !RegionGraph.Reachable(null, 4) && RegionGraph.Reachable(some, 4) && RegionGraph.Reachable(some, 5) && !RegionGraph.Reachable(some, 7) && !RegionGraph.Reachable(some, 11),
+            "점령한 지역과 이어진 지역만 고를 수 있다 (첫 구간의 위 줄은 처음부터 열려 있다)");
+
+        // 해금
+        bool keyed = true;
+        void Gate(int stage) { if (stage > 10 ? !RegionRules.IsKey(stage) : stage > 0 && stage % 2 != 0) keyed = false; }
+        foreach (var d in Research.Defs) Gate(d.reqRegion);
+        foreach (var rf in BaseRules.Refineries) Gate(rf.reqRegion);
+        Gate(BaseRules.CrystalMineRegion);
+        for (int lv = 2; lv < BaseRules.MaxMineLevel; lv++) Gate(BaseRules.UpgradeRegion(lv));
+        Check(keyed && BaseRules.UpgradeRegion(1) == 6 && BaseRules.UpgradeRegion(2) == 10 && BaseRules.UpgradeRegion(9) == 45,
+            "해금은 지역 2·4·6·8·10 과, 그 뒤로는 군주·거점 지역에만 묶여 있다");
+        int keys = 0; for (int r = 1; r <= Content.RegionCount; r++) if (RegionRules.IsKey(Content.Stage(1, r))) keys++;
+        var deep = new int[Research.Defs.Length]; deep[Research.Damage] = 99; deep[Research.Range] = 99;
+        Check(keys == Research.ExpansionsPerAbyss && Research.MaxExpansions == 40
+            && Research.MaxLevel(Research.Defs[Research.Damage], 0) == 8 && Research.MaxLevel(Research.Defs[Research.Damage], 3) == 11 && Research.MaxLevel(Research.Defs[Research.Damage], 999) == 48
+            && Research.MaxLevel(Research.Defs[Research.Range], 3) == 4 && Research.Level(deep, Research.Damage) == 48 && Research.Level(deep, Research.Range) == 4,
+            "서리 심연부터 군주·거점 지역(심연마다 20곳)을 점령할 때마다 포탑 화력 등의 연구 상한이 하나씩 늘어난다");
+        var path = BaseRules.DoneUpTo(0, 0, 0);
+        foreach (int r in new[] { 1, 4, 7, 10 }) path[0][r] = true;
+        Check(BaseRules.ConquestRate(Content.Iron, path) == 12 && BaseRules.ConquestRate(Content.Sulfur, path) == 0 && BaseRules.ConquestRate(Content.Sulfur, BaseRules.DoneUpTo(10, 0, 0)) == 4.5f,
+            "점령 보너스는 실제로 점령한 지역만 센다 (건너뛴 지역은 없다)");
     }
 
     static void Units()
@@ -1171,8 +1254,8 @@ static class Program
         for (int i = 0; i < 60 * 60 * 30 && sim.state == SimState.Playing; i++) sim.Tick();
         Check(sim.state == SimState.Won && sim.EnemyCores == 0, $"적 핵을 모두 부수면 점령 ({sim.tick / 60}초, 잃은 유닛 {sim.unitsLost})");
 
-        BaseRules.RegionBonus(25, out int item, out float perMin);
-        BaseRules.RegionBonus(22, out int item2, out float perMin2);
+        BaseRules.RegionBonus(0, 25, out int item, out float perMin);
+        BaseRules.RegionBonus(0, 22, out int item2, out float perMin2);
         Check(item == Content.Iron && perMin == 6 && perMin2 == 3, "적 거점 지역의 점령 보상은 두 배");
     }
 
@@ -1853,17 +1936,17 @@ static class Program
     static void BaseEconomy()
     {
         Console.WriteLine("기지");
-        var none = new[] { 0, 0, 0 };
+        var none = BaseRules.DoneUpTo(0, 0, 0);
         Check(BaseRules.MineRate(Content.Iron, 1) == 30 && BaseRules.MineRate(Content.Crystal, 0) == 0, "채굴장 1단계 철광 분당 30, 안 지은 채굴장은 0");
         bool grows = true;
         for (int lv = 1; lv < BaseRules.MaxMineLevel; lv++)
             if (BaseRules.MineRate(Content.Iron, lv + 1) <= BaseRules.MineRate(Content.Iron, lv)) grows = false;
         Check(grows, "채굴장 단계가 오르면 생산량이 늘어난다");
-        Check(BaseRules.ConquestRate(Content.Iron, none) == 0 && BaseRules.ConquestRate(Content.Iron, new[] { 1, 0, 0 }) == 3, "지역 1 점령 = 철광 분당 +3");
-        Check(BaseRules.ConquestRate(Content.Sulfur, new[] { 2, 2, 0 }) == 3, "지역 2 를 두 심연에서 점령 = 황석 분당 +3");
-        Check(BaseRules.ConquestRate(Content.Crystal, new[] { 9, 0, 0 }) == 0 && BaseRules.ConquestRate(Content.Crystal, new[] { 12, 0, 0 }) == 0.75f, "결정 보너스는 지역 12 부터");
+        Check(BaseRules.ConquestRate(Content.Iron, none) == 0 && BaseRules.ConquestRate(Content.Iron, BaseRules.DoneUpTo(1, 0, 0)) == 3, "지역 1 점령 = 철광 분당 +3");
+        Check(BaseRules.ConquestRate(Content.Sulfur, BaseRules.DoneUpTo(2, 2, 0)) == 3, "지역 2 를 두 심연에서 점령 = 황석 분당 +3");
+        Check(BaseRules.ConquestRate(Content.Crystal, BaseRules.DoneUpTo(9, 0, 0)) == 0 && BaseRules.ConquestRate(Content.Crystal, BaseRules.DoneUpTo(12, 0, 0)) == 0.75f, "결정 보너스는 지역 12 부터");
         var lv5 = new int[Research.Defs.Length]; lv5[Research.Mining] = 5; lv5[Research.Loadout] = 2;
-        Check(Math.Abs(BaseRules.Rate(Content.Iron, 1, lv5, new[] { 1, 0, 0 }) - (30 * 1.5f + 3)) < 0.01f, "총생산량 = 채굴장 × 채굴 기술 + 점령 보너스");
+        Check(Math.Abs(BaseRules.Rate(Content.Iron, 1, lv5, BaseRules.DoneUpTo(1, 0, 0)) - (30 * 1.5f + 3)) < 0.01f, "총생산량 = 채굴장 × 채굴 기술 + 점령 보너스");
         var lv10 = new int[Research.Defs.Length]; lv10[Research.Loadout] = 10;
         var lv1 = new int[Research.Defs.Length]; lv1[Research.Loadout] = 1;
         Check(BaseRules.LoadoutCap(null) == 400 && BaseRules.LoadoutCap(lv1) == 550 && BaseRules.LoadoutCap(lv5) == 800 && BaseRules.LoadoutCap(lv10) == 6400 && Research.Defs[Research.Loadout].maxLevel == 10,

@@ -34,7 +34,23 @@ namespace AbyssDefense
             gm.ShowBase();
             yield return Shot("02_base");
             float rate0 = gm.Rate(Content.Iron);
+            // 진행: 심연은 차례로 열리고, 지역은 점령한 곳과 이어진 곳만 열린다 (첫 구간의 위 줄 1·2·3 은 처음부터)
+            Note($"locks at start: frost open {gm.IsAbyssUnlocked(1)} (expect False), regions 2 / 4 / 11 open {gm.IsUnlocked(0, 2)} {gm.IsUnlocked(0, 4)} {gm.IsUnlocked(0, 11)} (expect True False False)");
+            // 가장 짧은 길 1 → 4 → 7 → 10 만 점령했을 때: 그 지역에 묶인 기술만 열린다 (지역 2 의 박격포는 잠긴 채, 지역 4 의 핵 보호막과 지역 10 의 결정 채굴장은 열린다)
+            foreach (int rr in new[] { 1, 4, 7, 10 }) sv.abysses[0].done[rr] = true;
+            Note($"shortcut 1-4-7-10: mortar(region 2) open {gm.ResearchOpen(Research.Defs[Research.Mortar])} core(region 4) open {gm.ResearchOpen(Research.Defs[Research.Core])} crystal mine(region 10) {gm.CanBuildMine(Content.Crystal)} (expect False True True), region 11 open {gm.IsUnlocked(0, 11)} region 2 open {gm.IsUnlocked(0, 2)} (expect True True), deepest stage {gm.BestStage} (expect 10), done {gm.DoneCount(0)} (expect 4)");
+            gm.SetClearedUpTo(0, 100);
+            Note($"after ember 100: frost open {gm.IsAbyssUnlocked(1)} mire open {gm.IsAbyssUnlocked(2)} (expect True False), frost 1 open {gm.IsUnlocked(1, 1)} frost 4 open {gm.IsUnlocked(1, 4)} (expect True False), research cap damage {gm.ResearchMax(Research.Defs[Research.Damage])} (expect 8)");
+            sv.abysses[1].done[5] = true; sv.abysses[1].done[10] = true; sv.abysses[1].done[11] = true;
+            Note($"frost stronghold 5 and lord 10 taken: research cap damage {gm.ResearchMax(Research.Defs[Research.Damage])} range {gm.ResearchMax(Research.Defs[Research.Range])} (expect 10 4), expansions {gm.Expansions} (expect 2)");
+            gm.SetClearedUpTo(1, 0);
+            gm.SetClearedUpTo(0, 0);
+            // 강화는 지역 6 까지 점령한 뒤에 열린다: 처음에는 거절되고, 점령한 셈 치면 된다
+            bool refused = !gm.UpgradeMine(Content.Iron);
+            gm.SetClearedUpTo(0, 6);
             bool up = gm.UpgradeMine(Content.Iron);
+            gm.SetClearedUpTo(0, 0);
+            Note($"base upgrade gate: iron mine Lv 2 before region 6 refused {refused} (expect True), needs region {BaseRules.UpgradeRegion(1)} (expect 6), Lv 10 needs region {BaseRules.UpgradeRegion(9)} (expect 45)");
             Note($"iron mine upgrade {up} (expect True), rate {rate0} -> {gm.Rate(Content.Iron)} (expect 30 -> 66), iron left {(int)sv.stock[0]} (expect 380)");
             Note($"crystal mine buildable {gm.CanBuildMine(Content.Crystal)} (expect False), mortar research open {gm.ResearchOpen(Research.Defs[Research.Mortar])} (expect False)");
             // 생산: 10분 전에 마지막으로 정산했다고 치면 분당 생산량 × 10 이 쌓여야 한다
@@ -114,8 +130,8 @@ namespace AbyssDefense
             double baseIron = sv.stock[0];
             yield return new WaitForSeconds(0.3f);
             yield return Shot("10_result");
-            Note($"region 1 {gm.sim.state} (expect Won), cleared {sv.abysses[0].cleared} (expect 1), returned iron {coreIron}: base {baseIron:0} -> {sv.stock[0]:0}");
-            Note($"conquest bonus: iron rate {gm.Rate(Content.Iron)} (expect 69 = 66 + 3), health research open {gm.ResearchOpen(Research.Defs[Research.Health])} (expect True)");
+            Note($"region 1 {gm.sim.state} (expect Won), region 1 taken {gm.IsDone(0, 1)} (expect True), regions 4 / 5 / 7 open {gm.IsUnlocked(0, 4)} {gm.IsUnlocked(0, 5)} {gm.IsUnlocked(0, 7)} (expect True True False), returned iron {coreIron}: base {baseIron:0} -> {sv.stock[0]:0}");
+            Note($"conquest bonus: iron rate {gm.Rate(Content.Iron)} (expect 69 = 66 + 3), health research open {gm.ResearchOpen(Research.Defs[Research.Health])} (expect False: needs region 2)");
 
             // 점령 뒤: 기지, 연구
             gm.ShowBase();
@@ -123,7 +139,7 @@ namespace AbyssDefense
             sv.stock[0] = 600; sv.stock[1] = 300;
             bool b1 = gm.BuyResearch(Research.Defs[Research.Damage]);
             bool b2 = gm.BuyResearch(Research.Defs[Research.Mortar]);   // 지역 2 를 점령해야 열린다
-            sv.abysses[0].cleared = 12;                                  // 깊이 점령한 상태
+            gm.SetClearedUpTo(0, 12);                                    // 깊이 점령한 상태
             bool b3 = gm.BuyResearch(Research.Defs[Research.Mortar]);
             Note($"research damage {b1} mortar(locked) {b2} mortar(after region 2) {b3} (expect True False True), stock {(int)sv.stock[0]}/{(int)sv.stock[1]} (expect 350/140)");
             // 가진 만큼만 넣기: 강화 장갑(110 / 20)에 철광 50 만 있을 때
@@ -163,7 +179,7 @@ namespace AbyssDefense
             double steel0 = sv.stock[Content.Steel], iron0 = sv.stock[0];
             sv.lastTime -= 600;
             gm.Accrue();
-            Note($"smelter built {rf1}, fusion (needs region 14) {rf2} (expect True False), 10 min: steel +{sv.stock[Content.Steel] - steel0:0} (expect +60), iron {sv.stock[0] - iron0:+0;-0} (expect capped at storage or -180 + mining)");
+            Note($"smelter built {rf1}, fusion (needs region 15) {rf2} (expect True False), 10 min: steel +{sv.stock[Content.Steel] - steel0:0} (expect +60), iron {sv.stock[0] - iron0:+0;-0} (expect capped at storage or -180 + mining)");
             gm.ToggleRefinery(0);
             steel0 = sv.stock[Content.Steel];
             sv.lastTime -= 600;
@@ -228,7 +244,7 @@ namespace AbyssDefense
             gm.Retreat();
 
             // 적 거점 지역 15: 적 핵 둘레에는 못 짓고, 유닛을 공격 태세로 보내 적 핵을 부순다
-            sv.abysses[0].cleared = 14;
+            gm.SetClearedUpTo(0, 14);
             sv.research[Research.Tier3] = 1; sv.research[Research.Command] = 6;
             for (int i = 0; i < sv.stock.Length; i++) { sv.stock[i] = 5000; sv.loadout[i] = 400; }
             gm.ShowRegionMap(0);
@@ -258,7 +274,7 @@ namespace AbyssDefense
             while (gm.sim != null && gm.sim.state == SimState.Playing) yield return null;
             yield return new WaitForSeconds(0.3f);
             yield return Shot("26_stronghold_result");
-            Note($"stronghold 15: enemy cores {cores0} (expect 2), build next to enemy core {nearRes} (expect NearSpawn), result {s15.state} (expect Won), enemy cores left {s15.EnemyCores} (expect 0), structures destroyed {s15.structuresDestroyed}, units lost {s15.unitsLost}, cleared {sv.abysses[0].cleared} (expect 15), iron conquest bonus doubled {BaseRules.ConquestRate(Content.Iron, new[] { 15, 0, 0 }) - BaseRules.ConquestRate(Content.Iron, new[] { 14, 0, 0 })} (expect 0: region 15 gives crystal) crystal {BaseRules.ConquestRate(Content.Crystal, new[] { 15, 0, 0 }) - BaseRules.ConquestRate(Content.Crystal, new[] { 14, 0, 0 })} (expect 1.5)");
+            Note($"stronghold 15: enemy cores {cores0} (expect 2), build next to enemy core {nearRes} (expect NearSpawn), result {s15.state} (expect Won), enemy cores left {s15.EnemyCores} (expect 0), structures destroyed {s15.structuresDestroyed}, units lost {s15.unitsLost}, region 15 taken {gm.IsDone(0, 15)} (expect True), iron conquest bonus doubled {BaseRules.ConquestRate(Content.Iron, BaseRules.DoneUpTo(15, 0, 0)) - BaseRules.ConquestRate(Content.Iron, BaseRules.DoneUpTo(14, 0, 0))} (expect 0: region 15 gives crystal) crystal {BaseRules.ConquestRate(Content.Crystal, BaseRules.DoneUpTo(15, 0, 0)) - BaseRules.ConquestRate(Content.Crystal, BaseRules.DoneUpTo(14, 0, 0))} (expect 1.5)");
 
             // 새 유닛: 지원 공방·다리 공방·조선소, 해상·수송·지휘기
             foreach (int id in new[] { Research.Support, Research.Legs, Research.Shipyard, Research.Tier4, Research.Tier5, Research.Mortar, Research.Lance, Research.SpecialTurret, Research.AdvTurret, Research.SupportBlock }) sv.research[id] = 1;
@@ -374,17 +390,16 @@ namespace AbyssDefense
             yield return Shot("32_enemies");
             s30.enemies.Clear();
             gm.Retreat();
-            sv.abysses[0].cleared = 44;
+            gm.SetClearedUpTo(0, 44);
             gm.ShowRegionMap(0);
             gm.ShowRegionSheet(0, 45);
             yield return Shot("33_region_sheet_45");
 
             // 깊은 지역 전투
-            sv.abysses[2].cleared = 29;
             sv.research[Research.Damage] = 4; sv.research[Research.Loadout] = 3; sv.research[Research.Lance] = 1;
             sv.stock[0] = 5000; sv.stock[1] = 5000; sv.stock[2] = 2000;
             sv.loadout[0] = 2000; sv.loadout[1] = 2000; sv.loadout[2] = 2000;
-            gm.StartRegion(2, 30);
+            gm.StartRegion(0, 30);
             Note($"loadout cap with research 3: took iron {gm.Taken[0]} (expect 1150)");
             gm.bot = new AutoBot(gm.sim);
             gm.SetSpeed(8);
@@ -425,12 +440,11 @@ namespace AbyssDefense
             gm.Retreat();
             Note($"after retreat: can resume {gm.CanResume} (expect False)");
 
-            // 심연 규칙: 잿불의 용암 틈, 서리의 눈보라. 난이도
+            // 심연 규칙: 잿불의 용암 틈, 서리의 눈보라
             for (int i = 0; i < sv.stock.Length; i++) { sv.stock[i] = 5000; sv.loadout[i] = 400; }
-            sv.difficulty = 2;
             gm.ShowRegionMap(0);
             gm.ShowRegionSheet(0, 30);
-            yield return Shot("39_region_sheet_hard");
+            yield return Shot("39_region_sheet_hazard");
             gm.StartRegion(0, 30);
             play = FindAnyObjectByType<PlayController>();
             var hs = gm.sim;
@@ -441,10 +455,8 @@ namespace AbyssDefense
             var onHz = hs.CanPlace(Content.Wall, firstHz % hs.world.W, firstHz / hs.world.W, false);
             yield return new WaitForSeconds(0.3f);
             yield return Shot("40_lava");
-            Note($"hazards: ember region 30 hard, hazard tiles {hazards} (expect > 0), build on hazard {onHz} (expect Hazard), difficulty {hs.rules.difficulty} (expect 2), enemy health x{hs.rules.enemyHealthMul / RegionRules.For(0, 30).enemyHealthMul:0.00} (expect 1.40)");
+            Note($"hazards: ember region 30, hazard tiles {hazards} (expect > 0), build on hazard {onHz} (expect Hazard), lord region bonus x{hs.rules.enemyHealthMul / RegionRules.For(0, 29).enemyHealthMul:0.00} (expect > 1.10), frost 1 vs ember 100 enemy health x{RegionRules.For(1, 1).enemyHealthMul / RegionRules.For(0, 100).enemyHealthMul:0.00} (expect > 1.00), frost 1 map {RegionRules.For(1, 1).mapW}x{RegionRules.For(1, 1).mapH} waves {RegionRules.For(1, 1).winWave} (expect 40x60 30)");
             gm.Retreat();
-            sv.difficulty = 1;
-            sv.abysses[1].cleared = 29;
             for (int i = 0; i < sv.stock.Length; i++) { sv.stock[i] = 5000; sv.loadout[i] = 400; }
             gm.StartRegion(1, 30);
             var fs = gm.sim;

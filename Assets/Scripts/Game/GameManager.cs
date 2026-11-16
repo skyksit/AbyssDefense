@@ -11,13 +11,14 @@ namespace AbyssDefense
     [Serializable]
     public class AbyssSave
     {
-        public int cleared;                 // 점령한 가장 깊은 지역
+        public int cleared;                 // (예전 세이브) 지역이 한 줄로 이어져 있던 때의 가장 깊은 지역. 불러올 때 done 으로 옮기고 더는 쓰지 않는다
+        public bool[] done = new bool[0];   // done[지역] = 그 지역을 점령했는가 (지역은 거미줄처럼 이어져 있어 건너뛴 지역이 있을 수 있다)
     }
 
     [Serializable]
     public class SaveData
     {
-        public int version = 3;
+        public int version = 4;
         public List<AbyssSave> abysses = new List<AbyssSave>();
         public int[] research = new int[0];             // 연구 단계 (모든 심연 공통)
         public int[] researchPaid = new int[0];         // 다음 단계 비용 중 미리 넣어 둔 양 [연구 × 자원]
@@ -29,7 +30,6 @@ namespace AbyssDefense
         public int storageLv = 1;                       // 창고 단계
         public int[] loadout = { 400, 100, 0, 0, 0, 0, 0 };   // 출격할 때 가져갈 양 (마지막 설정)
         public double lastTime;                         // 생산을 마지막으로 정산한 시각 (초)
-        public int difficulty = 1;                      // 난이도 (0 쉬움, 1 보통, 2 어려움). 지역 정보 창에서 바꾼다
         public List<string> hints = new List<string>(); // 이미 본 힌트의 key
         public RunSave run = new RunSave();             // 진행 중인 지역 (없으면 active = false)
     }
@@ -41,7 +41,6 @@ namespace AbyssDefense
         public bool active;
         public int rules;                               // 그 판을 시작할 때의 규칙 지문. 달라졌으면 이어할 수 없다
         public int abyss, region;
-        public int difficulty = 1;
         public int[] taken = new int[0];                // 가져간 자원
         public int[] research = new int[0];             // 출격할 때의 연구 단계
         public int tick;                                // 마지막으로 저장한 틱
@@ -175,6 +174,15 @@ namespace AbyssDefense
         {
             int n = Content.Items.Length;
             while (save.abysses.Count < Content.Abysses.Length) save.abysses.Add(new AbyssSave());
+            foreach (var ab in save.abysses)
+            {
+                // 예전 세이브(가장 깊은 지역 하나만 적던 때)는 지역 1 부터 거기까지를 모두 점령한 것으로 옮긴다
+                var done = new bool[Content.RegionCount + 1];
+                if (ab.done != null) Array.Copy(ab.done, done, Math.Min(done.Length, ab.done.Length));
+                for (int r = 1; r <= ab.cleared && r <= Content.RegionCount; r++) done[r] = true;
+                ab.done = done;
+                ab.cleared = 0;
+            }
             save.research = Fit(save.research, Research.Defs.Length, new int[0]);
             if (save.researchPaid == null || save.researchPaid.Length != Research.Defs.Length * n)
             {
@@ -191,8 +199,7 @@ namespace AbyssDefense
             save.refLv = Fit(save.refLv, rn, new int[0]);
             if (save.refOn == null || save.refOn.Length != rn) { save.refOn = new bool[rn]; for (int i = 0; i < rn; i++) save.refOn[i] = true; }
             save.storageLv = Mathf.Clamp(save.storageLv, 1, BaseRules.MaxStorageLevel);
-            save.version = 3;
-            save.difficulty = Mathf.Clamp(save.difficulty, 0, 2);
+            save.version = 4;
             if (save.hints == null) save.hints = new List<string>();
             if (save.run == null) save.run = new RunSave();
             var run = save.run;
@@ -251,29 +258,78 @@ namespace AbyssDefense
 
         // ───────── 기지 경제 ─────────
 
-        public int[] Cleared
+        // ───────── 진행: 점령한 지역 ─────────
+
+        /// 심연별 점령 여부 (기지 생산 계산용)
+        public bool[][] Done
         {
             get
             {
-                var c = new int[save.abysses.Count];
-                for (int i = 0; i < c.Length; i++) c[i] = save.abysses[i].cleared;
-                return c;
+                var d = new bool[save.abysses.Count][];
+                for (int i = 0; i < d.Length; i++) d[i] = save.abysses[i].done;
+                return d;
             }
         }
 
-        /// 어느 심연에서든 가장 깊이 점령한 지역 (연구 해금 기준)
-        public int BestCleared
+        public bool IsDone(int abyss, int region) => abyss >= 0 && abyss < save.abysses.Count && region >= 1 && region <= Content.RegionCount && save.abysses[abyss].done[region];
+
+        /// 그 심연에서 점령한 지역의 수
+        public int DoneCount(int abyss) { int n = 0; foreach (bool b in save.abysses[abyss].done) if (b) n++; return n; }
+
+        /// 그 심연에서 점령한 가장 깊은 지역 (없으면 0)
+        public int Deepest(int abyss)
         {
-            get { int m = 0; foreach (var a in save.abysses) m = Mathf.Max(m, a.cleared); return m; }
+            var d = save.abysses[abyss].done;
+            for (int r = Content.RegionCount; r >= 1; r--) if (d[r]) return r;
+            return 0;
+        }
+
+        /// 가장 깊이 점령한 전체 단계 (잿불 1~100, 서리 101~ …). 기지 강화와 도감이 이것을 본다
+        public int BestStage
+        {
+            get
+            {
+                int m = 0;
+                for (int a = 0; a < save.abysses.Count; a++) { int d = Deepest(a); if (d > 0) m = Mathf.Max(m, Content.Stage(a, d)); }
+                return m;
+            }
+        }
+
+        /// 그 단계의 지역을 직접 점령했는가 (0 = 조건 없음). 연구와 기지 건물의 해금은 이것을 본다
+        public bool StageDone(int stage) => stage <= 0 || IsDone(Content.StageAbyss(stage), Content.StageRegion(stage));
+
+        /// 서리 심연부터 점령한 군주·거점 지역의 수: 그만큼 연구 상한이 늘어난다
+        public int Expansions
+        {
+            get
+            {
+                int n = 0;
+                for (int a = 1; a < save.abysses.Count; a++)
+                    for (int r = 1; r <= Content.RegionCount; r++)
+                        if (save.abysses[a].done[r] && RegionRules.IsKey(Content.Stage(a, r))) n++;
+                return n;
+            }
+        }
+
+        /// 심연은 앞 심연의 마지막 지역(군주)을 점령해야 열린다
+        public bool IsAbyssUnlocked(int abyss) => abyss <= 0 || IsDone(abyss - 1, Content.RegionCount);
+
+        /// 지역은 점령한 지역과 이어져 있어야 고를 수 있다 (첫 구간의 위 줄은 처음부터 열려 있다)
+        public bool IsUnlocked(int abyss, int region) => IsAbyssUnlocked(abyss) && RegionGraph.Reachable(save.abysses[abyss].done, region);
+
+        /// 점검용: 그 심연의 지역 1~n 을 점령한 상태로 만든다 (그 밖의 지역은 점령하지 않은 것으로)
+        public void SetClearedUpTo(int abyss, int n)
+        {
+            var d = save.abysses[abyss].done;
+            for (int r = 1; r <= Content.RegionCount; r++) d[r] = r <= n;
         }
 
         /// 채굴로 들어오는 분당 생산량 (가공 건물이 쓰는 양은 빼지 않은 값)
-        public float Rate(int item) => item < Content.RawCount ? BaseRules.Rate(item, save.mineLv[item], save.research, Cleared) : 0;
+        public float Rate(int item) => item < Content.RawCount ? BaseRules.Rate(item, save.mineLv[item], save.research, Done) : 0;
         /// 가공 건물까지 넣은 자원별 분당 증감
-        public float[] NetRates() => BaseRules.NetRates(save.mineLv, save.refLv, save.refOn, save.research, Cleared);
+        public float[] NetRates() => BaseRules.NetRates(save.mineLv, save.refLv, save.refOn, save.research, Done);
         public int StorageCap => BaseRules.StorageCap(save.storageLv);
         public int LoadoutCap => BaseRules.LoadoutCap(save.research);
-        public bool IsUnlocked(int abyss, int region) => region <= save.abysses[abyss].cleared + 1;
 
         /// 지난 시간만큼 기지를 돌린다 (채굴 + 가공). 창고 한도까지만 쌓이고, 오래 비워도 8시간치까지만
         public void Accrue()
@@ -282,7 +338,7 @@ namespace AbyssDefense
             double dt = Math.Min(Math.Max(0, now - save.lastTime), BaseRules.OfflineCapSeconds);
             save.lastTime = now;
             if (dt <= 0) return;
-            BaseRules.Advance(save.stock, save.mineLv, save.refLv, save.refOn, save.research, Cleared, save.storageLv, dt);
+            BaseRules.Advance(save.stock, save.mineLv, save.refLv, save.refOn, save.research, Done, save.storageLv, dt);
         }
 
         public bool CanPay(int[] cost)
@@ -299,22 +355,25 @@ namespace AbyssDefense
             return true;
         }
 
-        public bool CanBuildMine(int item) => item != Content.Crystal || save.mineLv[item] > 0 || BestCleared >= BaseRules.CrystalMineRegion;
+        public bool CanBuildMine(int item) => item != Content.Crystal || save.mineLv[item] > 0 || StageDone(BaseRules.CrystalMineRegion);
+
+        /// 기지 건물의 강화는 그 단계만큼 깊이 점령한 뒤에야 할 수 있다 (이미 올려 둔 단계는 그대로 남는다)
+        public bool CanUpgrade(int level) => BestStage >= BaseRules.UpgradeRegion(level);
 
         public bool UpgradeMine(int item)
         {
-            if (save.mineLv[item] >= BaseRules.MaxMineLevel || !CanBuildMine(item)) return false;
+            if (save.mineLv[item] >= BaseRules.MaxMineLevel || !CanBuildMine(item) || !CanUpgrade(save.mineLv[item])) return false;
             if (!Pay(BaseRules.MineCost(item, save.mineLv[item]))) return false;
             save.mineLv[item]++;
             Save();
             return true;
         }
 
-        public bool CanBuildRefinery(int k) => save.refLv[k] > 0 || BestCleared >= BaseRules.Refineries[k].reqRegion;
+        public bool CanBuildRefinery(int k) => save.refLv[k] > 0 || StageDone(BaseRules.Refineries[k].reqRegion);
 
         public bool UpgradeRefinery(int k)
         {
-            if (save.refLv[k] >= BaseRules.MaxRefineryLevel || !CanBuildRefinery(k)) return false;
+            if (save.refLv[k] >= BaseRules.MaxRefineryLevel || !CanBuildRefinery(k) || !CanUpgrade(save.refLv[k])) return false;
             if (!Pay(BaseRules.RefineryCost(BaseRules.Refineries[k], save.refLv[k]))) return false;
             save.refLv[k]++;
             Save();
@@ -331,14 +390,17 @@ namespace AbyssDefense
 
         public bool UpgradeStorage()
         {
-            if (save.storageLv >= BaseRules.MaxStorageLevel) return false;
+            if (save.storageLv >= BaseRules.MaxStorageLevel || !CanUpgrade(save.storageLv)) return false;
             if (!Pay(BaseRules.StorageCost(save.storageLv))) return false;
             save.storageLv++;
             Save();
             return true;
         }
 
-        public bool ResearchOpen(ResearchDef d) => BestCleared >= d.reqRegion;
+        /// 연구는 그것이 묶인 지역을 직접 점령해야 열린다
+        public bool ResearchOpen(ResearchDef d) => StageDone(d.reqRegion);
+        /// 지금 올릴 수 있는 최대 단계 (서리 심연부터의 군주·거점 점령으로 늘어난다)
+        public int ResearchMax(ResearchDef d) => Research.MaxLevel(d, Expansions);
 
         /// 연구에 자원을 넣는다. 모자라면 가진 만큼만 넣어 두고, 비용을 다 채우면 단계가 오른다 (그때 true)
         public bool BuyResearch(ResearchDef d)
@@ -429,8 +491,8 @@ namespace AbyssDefense
                 Taken[i] = LoadoutAmount(i);
                 save.stock[i] -= Taken[i];
             }
-            sim = new Sim.Sim(abyss, region, Taken, Research.Mods(save.research), save.difficulty);
-            save.run = new RunSave { active = true, rules = Sim.Sim.RulesFingerprint(), abyss = abyss, region = region, difficulty = save.difficulty, taken = (int[])Taken.Clone(), research = (int[])save.research.Clone() };
+            sim = new Sim.Sim(abyss, region, Taken, Research.Mods(save.research));
+            save.run = new RunSave { active = true, rules = Sim.Sim.RulesFingerprint(), abyss = abyss, region = region, taken = (int[])Taken.Clone(), research = (int[])save.research.Clone() };
             Save();
             EnterPlay();
             if (sim.rules.hazard != Hazard.None) Toast($"{sim.abyss.hazardName}: {sim.abyss.hazardDesc}", 6f);
@@ -475,7 +537,7 @@ namespace AbyssDefense
             var fill = Ui.Panel(back.transform, Primary, true, "Fill").Rt();
             fill.anchorMin = Vector2.zero; fill.offsetMin = new Vector2(4, 4); fill.offsetMax = new Vector2(-4, -4);
 
-            var s = new Sim.Sim(run.abyss, run.region, Taken, Research.Mods(run.research), run.difficulty);
+            var s = new Sim.Sim(run.abyss, run.region, Taken, Research.Mods(run.research));
             var cmds = new List<SimCommand>(run.cmds);
             int next = 0;
             var watch = new System.Diagnostics.Stopwatch();
@@ -553,6 +615,24 @@ namespace AbyssDefense
             if (sim.state != SimState.Playing && !ResultShown) Finish();
         }
 
+        /// 그 단계의 지역을 처음 점령하면 열리는 것들의 이름. 가장 깊은 단계가 before → after 로 바뀔 때 열리는 기지 강화도 함께 적는다
+        public List<string> StageUnlocks(int stage, int before, int after)
+        {
+            var list = new List<string>();
+            foreach (var d in Research.Defs) if (d.reqRegion == stage) list.Add(d.name);
+            if (stage == BaseRules.CrystalMineRegion) list.Add(BaseRules.MineNames[Content.Crystal]);
+            foreach (var rf in BaseRules.Refineries) if (rf.reqRegion == stage) list.Add(rf.name);
+            for (int lv = 1; lv < BaseRules.MaxMineLevel; lv++)
+            {
+                int need = BaseRules.UpgradeRegion(lv);
+                if (need > before && need <= after) list.Add($"기지 강화 Lv {lv + 1}");
+            }
+            if (stage > Content.RegionCount && RegionRules.IsKey(stage)) list.Add("연구 상한 +1 (포탑 화력·강화 장갑·핵 보호막·기체 강화)");
+            int ab = Content.StageAbyss(stage);
+            if (Content.StageRegion(stage) == Content.RegionCount && ab + 1 < Content.Abysses.Length) list.Add(Content.Abysses[ab + 1].name);
+            return list;
+        }
+
         void Finish()
         {
             ResultShown = true;
@@ -568,19 +648,14 @@ namespace AbyssDefense
                     returned[i] = sim.Core.items[i];
                     save.stock[i] += returned[i];
                 }
-                var a = save.abysses[AbyssId];
-                if (Region > a.cleared)
+                if (!IsDone(AbyssId, Region))
                 {
-                    // 처음 점령: 기지 생산량이 늘고, 조건이 맞으면 새 연구가 열린다
-                    int bestBefore = BestCleared;
-                    a.cleared = Region;
-                    BaseRules.RegionBonus(Region, out int item, out float perMin);
+                    // 처음 점령: 기지 생산량이 늘고, 이 지역에 묶인 기술이 열린다
+                    int stage = Content.Stage(AbyssId, Region), bestBefore = BestStage;
+                    save.abysses[AbyssId].done[Region] = true;
+                    BaseRules.RegionBonus(AbyssId, Region, out int item, out float perMin);
                     bonus = $"{Content.Items[item].name} +{perMin:0.##}/분";
-                    foreach (var d in Research.Defs)
-                        if (d.reqRegion > bestBefore && d.reqRegion <= BestCleared) unlocked.Add(d.name);
-                    if (bestBefore < BaseRules.CrystalMineRegion && BestCleared >= BaseRules.CrystalMineRegion) unlocked.Add(BaseRules.MineNames[Content.Crystal]);
-                    foreach (var rf in BaseRules.Refineries)
-                        if (rf.reqRegion > bestBefore && rf.reqRegion <= BestCleared) unlocked.Add(rf.name);
+                    unlocked.AddRange(StageUnlocks(stage, bestBefore, BestStage));
                 }
             }
             save.run.active = false;

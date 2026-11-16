@@ -662,11 +662,22 @@ namespace AbyssDefense
             rw.lineSpacing = 1.25f;
             rw.rectTransform.TopBar(700, 190, 30, 30);
 
-            bool hasNext = won && Region < Content.RegionCount;
-            int a = AbyssId, r = Region;
-            var main = Ui.Btn(card.transform, hasNext ? $"다음 지역 {r + 1}" : won ? "심연 점령 완료" : "다시 도전", 44,
+            // 다음 지역: 방금 점령한 지역과 이어진 곳 중 아직 점령하지 않은, 더 깊은 쪽의 가장 앞 번호 (없으면 이어진 아무 곳)
+            int a = AbyssId, r = Region, next = 0;
+            if (won)
+            {
+                foreach (int n in RegionGraph.Neighbors(r)) if (!IsDone(a, n) && n > r && (next == 0 || n < next)) next = n;
+                if (next == 0) foreach (int n in RegionGraph.Neighbors(r)) if (!IsDone(a, n) && (next == 0 || n < next)) next = n;
+            }
+            bool nextAbyss = won && r == Content.RegionCount && a + 1 < Content.Abysses.Length;
+            var main = Ui.Btn(card.transform, nextAbyss ? $"다음 심연: {Content.Abysses[a + 1].name}" : next > 0 ? $"다음 지역 {next}" : won ? "지역 지도" : "다시 도전", 44,
                 won ? Primary : new Color(0.55f, 0.22f, 0.25f),
-                () => { EndRegion(); ShowRegionMap(a); ShowRegionSheet(a, hasNext ? r + 1 : r); });
+                () =>
+                {
+                    EndRegion();
+                    if (nextAbyss) { ShowRegionMap(a + 1); ShowRegionSheet(a + 1, 1); }
+                    else { ShowRegionMap(a); if (next > 0 || !won) ShowRegionSheet(a, next > 0 ? next : r); }
+                });
             main.Rt().At(new Vector2(0.5f, 0), new Vector2(0.5f, 0), 0, 150, 780, 110);
             float half = (780 - 20) / 2f;
             var back = Ui.Btn(card.transform, "기지", 38, Violet, ShowBase);

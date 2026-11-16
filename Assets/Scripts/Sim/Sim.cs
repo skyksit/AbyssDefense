@@ -103,9 +103,9 @@ namespace AbyssDefense.Sim
         int serial;
 
         /// loadout = 기지에서 가져온 자원 [철광, 황석, 심연 결정]
-        public Sim(int abyssId, int region, int[] loadout = null, SimMods mods = null, int difficulty = 1)
+        public Sim(int abyssId, int region, int[] loadout = null, SimMods mods = null)
         {
-            rules = RegionRules.For(abyssId, region, difficulty);
+            rules = RegionRules.For(abyssId, region);
             abyss = Content.Abysses[abyssId];
             world = MapGen.Generate(rules, abyss);
             MakeLakes();
@@ -447,7 +447,7 @@ namespace AbyssDefense.Sim
             e.vx = e.vy = 0;
             var core = Core;
             if (core == null) return;
-            float speed = e.def.speed * abyss.enemySpeedMul * (e.elite ? EliteSpeed : 1f);
+            float speed = e.def.speed * rules.enemySpeedMul * (e.elite ? EliteSpeed : 1f);
             if (e.def.flying && Blizzard) speed *= BlizzardFly;
             if (e.slowTicks > 0) { e.slowTicks--; speed *= e.slowMul; }
 
@@ -661,7 +661,7 @@ namespace AbyssDefense.Sim
             if (b.def.enemy)
             {
                 // 적 건물: 전리품이 들어오고, 적 핵이었다면 그 출현 지점이 사라진다
-                float bm = abyss.bountyMul * world.mods.bountyMul * rules.bountyMul;
+                float bm = rules.bountyMul * world.mods.bountyMul;
                 foreach (var s in b.def.bounty)
                 {
                     int n = Math.Max(1, (int)Math.Round(s.amount * bm));
@@ -1035,7 +1035,7 @@ namespace AbyssDefense.Sim
             kills++;
             if (e.def.splitInto != null) SpawnNear(e.def.splitInto, e.x, e.y, e.def.splitCount);
             // 전리품은 핵으로 바로 들어온다
-            float bm = abyss.bountyMul * world.mods.bountyMul * rules.bountyMul * (e.elite ? EliteBounty : 1f);
+            float bm = rules.bountyMul * world.mods.bountyMul * (e.elite ? EliteBounty : 1f);
             foreach (var s in e.def.bounty)
             {
                 int n = Math.Max(1, (int)Math.Round(s.amount * bm));
