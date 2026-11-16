@@ -13,13 +13,13 @@ namespace AbyssDefense
         readonly List<int> tris = new List<int>();
         public readonly GameObject go;
 
-        public QuadBatch(Transform parent, string name, int order)
+        public QuadBatch(Transform parent, string name, int order, Material material = null)
         {
             go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var mr = go.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = Art.Mat;
+            mr.sharedMaterial = material != null ? material : Art.Mat;
             mr.sortingOrder = order;
             mesh.MarkDynamic();
         }
@@ -61,9 +61,16 @@ namespace AbyssDefense
     /// 지역 한 판의 그림. Sim 을 읽기만 한다.
     public sealed class GameView : MonoBehaviour
     {
-        const int OrderFloor = -10, OrderBlock = 0, OrderBlockTop = 2, OrderItems = 4, OrderEnemy = 10, OrderBullet = 14, OrderFx = 16, OrderBars = 20;
+        // 아래에서 위로: 바닥 → 액체 → 그을음 → 바닥 위의 것(건물 그림자·폐허·지뢰) → 건물 → 포신
+        //   → 지상 그림자 → 지상의 적·유닛 → 비행 그림자 → 비행하는 적·유닛 → 탄 → 이펙트 → 막대
+        const int OrderFloor = -20, OrderScorch = -18, OrderGround = -15, OrderBlock = -10, OrderBlockTop = -8,
+            OrderGroundShadow = 0, OrderEnemy = 2, OrderAirShadow = 8, OrderAir = 10, OrderBullet = 14, OrderFx = 16, OrderBars = 20;
 
-        sealed class BView { public GameObject go; public SpriteRenderer sr, top, aura; }
+        // 빛은 왼쪽 위에서 온다: 그림자는 오른쪽 아래로 떨어지고, 높이 뜬 것일수록 멀리 떨어진다
+        static readonly Vector3 ShadowDir = new Vector3(0.7f, -0.7f);
+        const float GroundShadowDist = 0.09f, AirShadowDist = 0.5f, BlockShadowDist = 0.13f;
+
+        sealed class BView { public GameObject go; public SpriteRenderer sr, top, topShadow, aura; }
         struct FxItem { public SpriteRenderer sr; public float t, life, r0, r1; public Color col; }
         struct Scorch { public SpriteRenderer sr; public float t; }
         const float ScorchLife = 25f;
@@ -89,7 +96,7 @@ namespace AbyssDefense
         {
             Scorch s;
             if (scorches.Count >= MaxScorch) { s = scorches[0]; scorches.RemoveAt(0); }
-            else s = new Scorch { sr = NewSprite("Scorch", Art.Get("fx_circle"), OrderFloor + 1) };
+            else s = new Scorch { sr = NewSprite("Scorch", Art.Get("fx_circle"), OrderScorch) };
             s.t = 0;
             s.sr.enabled = true;
             s.sr.transform.position = new Vector3(x, y);
@@ -101,15 +108,19 @@ namespace AbyssDefense
         readonly Dictionary<Building, BView> views = new Dictionary<Building, BView>();
         readonly List<SpriteRenderer> enemyPool = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> unitPool = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> enemyShadows = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> unitShadows = new List<SpriteRenderer>();
         readonly List<FxItem> fxLive = new List<FxItem>();
         readonly Stack<SpriteRenderer> fxFree = new Stack<SpriteRenderer>();
         readonly List<Transform> spawnMarks = new List<Transform>();
-        QuadBatch bars;
+        QuadBatch bars, ground, shots;
 
         public void Init(Sim.Sim s)
         {
             sim = s;
             BuildTerrain();
+            ground = new QuadBatch(transform, "Ground", OrderGround);
+            shots = new QuadBatch(transform, "Bullets", OrderBullet);
             bars = new QuadBatch(transform, "Bars", OrderBars);
             foreach (var b in sim.world.buildings) Add(b);
             sim.BuildingAdded += Add;
@@ -132,6 +143,18 @@ namespace AbyssDefense
             sr.sprite = sprite;
             sr.sortingOrder = order;
             return sr;
+        }
+
+        /// 그림자: 본체와 같은 그림을 검게 칠해 비켜 놓는다. 비행체는 멀리 떨어뜨려 떠 있는 높이를 보인다
+        void SyncShadow(SpriteRenderer sh, SpriteRenderer body, bool flying)
+        {
+            if (!sh.enabled) sh.enabled = true;
+            sh.sprite = body.sprite;
+            sh.sortingOrder = flying ? OrderAirShadow : OrderGroundShadow;
+            sh.color = new Color(0, 0, 0, flying ? 0.24f : 0.32f);
+            var tr = body.transform;
+            sh.transform.SetPositionAndRotation(tr.position + ShadowDir * (flying ? AirShadowDist : GroundShadowDist), tr.rotation);
+            sh.transform.localScale = tr.localScale * (flying ? 0.92f : 1f);
         }
 
         // ───────── 지형: 바닥·벽을 색 사각형 메시 하나로 ─────────
@@ -206,7 +229,12 @@ namespace AbyssDefense
             v.go = v.sr.gameObject;
             v.go.transform.position = new Vector3(b.Cx, b.Cy);
             var top = Art.BlockTop(b.def);
-            if (top != null) v.top = NewSprite("top", top, OrderBlockTop, v.go.transform);
+            if (top != null)
+            {
+                v.topShadow = NewSprite("topShadow", top, OrderBlockTop - 1, v.go.transform);
+                v.topShadow.transform.localPosition = ShadowDir * GroundShadowDist;
+                v.top = NewSprite("top", top, OrderBlockTop, v.go.transform);
+            }
             if (b.def.kind == BlockKind.Support)
             {
                 // 지원 건물의 범위 고리
@@ -229,12 +257,16 @@ namespace AbyssDefense
         {
             if (sim == null) return;
             float time = Time.unscaledTime;
-            bars.Begin();
+            bars.Begin(); ground.Begin(); shots.Begin();
 
             foreach (var kv in views)
             {
                 var b = kv.Key; var v = kv.Value;
                 var tint = b.hitFlash > 0 ? new Color(1f, 0.55f, 0.55f) : Color.white;
+                // 건물 그림자 (짓는 중에는 지어진 만큼만 짙다)
+                float bs = b.def.size;
+                ground.Quad(b.Cx + ShadowDir.x * BlockShadowDist, b.Cy + ShadowDir.y * BlockShadowDist, bs - 0.04f, bs - 0.04f,
+                    new Color(0, 0, 0, b.Built ? 0.38f : 0.38f * (0.3f + 0.5f * b.progress)));
                 if (!b.Built)
                 {
                     // 건설 터: 진행될수록 또렷해지고, 순서를 기다리거나 자원이 없어 멈춘 곳은 막대가 회색
@@ -244,7 +276,7 @@ namespace AbyssDefense
                     bars.Quad(b.Cx - w * 0.5f * (1 - b.progress), y0, w * b.progress, 0.1f, b.constructing ? new Color(1f, 0.82f, 0.3f) : new Color(0.6f, 0.6f, 0.65f));
                 }
                 v.sr.color = tint;
-                if (v.top != null) v.top.color = tint;
+                if (v.top != null) { v.top.color = tint; v.topShadow.color = new Color(0, 0, 0, 0.32f * tint.a); }
                 if (b is TurretBuilding t && b.Built)
                 {
                     v.top.transform.rotation = Quaternion.Euler(0, 0, t.aim * Mathf.Rad2Deg);
@@ -265,6 +297,7 @@ namespace AbyssDefense
                     v.aura.color = ac;
                 }
                 if (b is EnemyTurretBuilding et) v.top.transform.rotation = Quaternion.Euler(0, 0, et.aim * Mathf.Rad2Deg);
+                if (v.top != null) v.topShadow.transform.rotation = v.top.transform.rotation;
                 if (b is FactoryBuilding fb && b.Built && fb.making != null)
                 {
                     // 유닛 생산 진행 막대
@@ -280,22 +313,22 @@ namespace AbyssDefense
             {
                 float rs = r.def.size, rx = r.x + rs * 0.5f, ry = r.y + rs * 0.5f;
                 var rc = Art.C(r.def.color, 0.28f);
-                bars.Quad(rx, ry, rs - 0.12f, rs - 0.12f, new Color(rc.r, rc.g, rc.b, 0.12f));
-                bars.Quad(rx, ry + rs * 0.5f - 0.08f, rs - 0.12f, 0.06f, rc); bars.Quad(rx, ry - rs * 0.5f + 0.08f, rs - 0.12f, 0.06f, rc);
-                bars.Quad(rx + rs * 0.5f - 0.08f, ry, 0.06f, rs - 0.12f, rc); bars.Quad(rx - rs * 0.5f + 0.08f, ry, 0.06f, rs - 0.12f, rc);
+                ground.Quad(rx, ry, rs - 0.12f, rs - 0.12f, new Color(rc.r, rc.g, rc.b, 0.12f));
+                ground.Quad(rx, ry + rs * 0.5f - 0.08f, rs - 0.12f, 0.06f, rc); ground.Quad(rx, ry - rs * 0.5f + 0.08f, rs - 0.12f, 0.06f, rc);
+                ground.Quad(rx + rs * 0.5f - 0.08f, ry, 0.06f, rs - 0.12f, rc); ground.Quad(rx - rs * 0.5f + 0.08f, ry, 0.06f, rs - 0.12f, rc);
             }
 
             // 적
             var es = sim.enemies;
-            while (enemyPool.Count < es.Count) enemyPool.Add(NewSprite("Enemy", null, OrderEnemy));
+            while (enemyPool.Count < es.Count) { enemyPool.Add(NewSprite("Enemy", null, OrderEnemy)); enemyShadows.Add(NewSprite("EnemyShadow", null, OrderGroundShadow)); }
             for (int i = 0; i < enemyPool.Count; i++)
             {
                 var sr = enemyPool[i];
-                if (i >= es.Count) { if (sr.enabled) sr.enabled = false; continue; }
+                if (i >= es.Count) { if (sr.enabled) { sr.enabled = false; enemyShadows[i].enabled = false; } continue; }
                 var e = es[i];
                 sr.enabled = true;
                 sr.sprite = Art.Get("enemy_" + e.def.key);
-                sr.sortingOrder = e.def.flying ? OrderEnemy + 2 : OrderEnemy;
+                sr.sortingOrder = e.def.flying ? OrderAir : OrderEnemy;
                 // 불타면 주황, 산성이면 보라, 젖으면 파랑, 둔화 중이면 연두
                 sr.color = e.hitFlash > 0 ? new Color(1f, 1f, 1f, 0.6f) : e.burnTicks > 0 ? new Color(1f, 0.62f, 0.3f) : e.acidTicks > 0 ? new Color(0.85f, 0.6f, 1f)
                     : e.wetTicks > 0 ? new Color(0.55f, 0.8f, 1f) : e.slowTicks > 0 ? new Color(0.72f, 1f, 0.55f) : Color.white;
@@ -317,6 +350,7 @@ namespace AbyssDefense
                 if (e.cargo > 0) for (int k = 0; k < e.cargo; k++) bars.Quad(e.x - 0.3f + k * 0.2f, e.y - er - 0.1f, 0.14f, 0.14f, Art.C(e.def.carries.color), 45);
                 if (e.vx != 0 || e.vy != 0)
                     sr.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(e.vy, e.vx) * Mathf.Rad2Deg);
+                SyncShadow(enemyShadows[i], sr, e.def.flying);
                 if (e.health < e.maxHealth) HealthBar(e.x, e.y + er + 0.14f, Mathf.Max(0.6f, e.def.radius * 2), e.health / e.maxHealth);
             }
 
@@ -324,19 +358,20 @@ namespace AbyssDefense
             var us = sim.units;
             var cmd = sim.commander != null && !sim.commander.dead ? sim.commander : null;
             int unitCount = us.Count + (cmd != null ? 1 : 0);
-            while (unitPool.Count < unitCount) unitPool.Add(NewSprite("Unit", null, OrderEnemy + 1));
+            while (unitPool.Count < unitCount) { unitPool.Add(NewSprite("Unit", null, OrderEnemy + 1)); unitShadows.Add(NewSprite("UnitShadow", null, OrderGroundShadow)); }
             for (int i = 0; i < unitPool.Count; i++)
             {
                 var sr = unitPool[i];
-                if (i >= unitCount) { if (sr.enabled) sr.enabled = false; continue; }
+                if (i >= unitCount) { if (sr.enabled) { sr.enabled = false; unitShadows[i].enabled = false; } continue; }
                 var u = i < us.Count ? us[i] : cmd;
-                if (u.carrier != null) { if (sr.enabled) sr.enabled = false; continue; }   // 수송기에 실려 있다
+                if (u.carrier != null) { if (sr.enabled) { sr.enabled = false; unitShadows[i].enabled = false; } continue; }   // 수송기에 실려 있다
                 sr.enabled = true;
                 sr.sprite = Art.Get("unit_" + u.def.key);
-                sr.sortingOrder = u.def.flying ? OrderEnemy + 3 : OrderEnemy + 1;
+                sr.sortingOrder = u.def.flying ? OrderAir + 1 : OrderEnemy + 1;
                 sr.color = u.hitFlash > 0 ? new Color(1f, 0.6f, 0.6f) : u.barrier > 0 ? new Color(0.75f, 0.93f, 1f) : Color.white;   // 보호막이 남아 있으면 하늘색
                 sr.transform.position = new Vector3(u.x, u.y);
                 sr.transform.rotation = Quaternion.Euler(0, 0, u.aim * Mathf.Rad2Deg);
+                SyncShadow(unitShadows[i], sr, u.def.flying);
                 if (u.health < u.maxHealth) HealthBar(u.x, u.y + u.def.radius + 0.14f, Mathf.Max(0.6f, u.def.radius * 2), u.health / u.maxHealth);
                 if (u.cargo != null) for (int k = 0; k < u.cargo.Count; k++) bars.Quad(u.x - 0.3f + k * 0.2f, u.y - u.def.radius - 0.1f, 0.14f, 0.14f, Art.C(u.cargo[k].def.color), 45);
             }
@@ -346,8 +381,8 @@ namespace AbyssDefense
             {
                 var mc = Art.C(mn.def.color);
                 if (mn.arm > 0) mc.a = 0.45f;
-                bars.Quad(mn.x, mn.y, 0.34f, 0.34f, new Color(0.08f, 0.08f, 0.1f, mc.a), 45);
-                bars.Quad(mn.x, mn.y, 0.16f, 0.16f, mc, 45);
+                ground.Quad(mn.x, mn.y, 0.34f, 0.34f, new Color(0.08f, 0.08f, 0.1f, mc.a), 45);
+                ground.Quad(mn.x, mn.y, 0.16f, 0.16f, mc, 45);
             }
 
             // 탄
@@ -355,11 +390,11 @@ namespace AbyssDefense
             {
                 var col = Art.C(bl.def.color);
                 float ang = Mathf.Atan2(bl.vy, bl.vx) * Mathf.Rad2Deg;
-                if (bl.def.artillery) bars.Quad(bl.x, bl.y, bl.def.size, bl.def.size, col, 45);
-                else bars.Quad(bl.x, bl.y, bl.def.size * 2.2f, bl.def.size * 0.6f, col, ang);
+                if (bl.def.artillery) shots.Quad(bl.x, bl.y, bl.def.size, bl.def.size, col, 45);
+                else shots.Quad(bl.x, bl.y, bl.def.size * 2.2f, bl.def.size * 0.6f, col, ang);
             }
 
-            bars.End();
+            bars.End(); ground.End(); shots.End();
 
             // 이펙트
             foreach (var f in sim.fx) SpawnFx(f);

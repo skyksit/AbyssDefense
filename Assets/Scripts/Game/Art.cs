@@ -60,6 +60,40 @@ namespace AbyssDefense
                     }
             }
 
+            /// 그려진 모양 둘레에 어두운 테두리를 깐다 (바닥·건물 위에서 유닛과 포신이 또렷하게 떠 보이게)
+            public void Outline(Color c, float th)
+            {
+                int k = Mathf.CeilToInt(th + 0.5f);
+                var grow = new float[w * h];
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < w; x++)
+                    {
+                        float best = 0;
+                        for (int oy = -k; oy <= k; oy++)
+                            for (int ox = -k; ox <= k; ox++)
+                            {
+                                int nx = x + ox, ny = y + oy;
+                                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                                float a = px[ny * w + nx].a;
+                                if (a <= 0) continue;
+                                float f = a * Mathf.Clamp01(th + 0.5f - Mathf.Sqrt(ox * ox + oy * oy));
+                                if (f > best) best = f;
+                            }
+                        grow[y * w + x] = best;
+                    }
+                for (int i = 0; i < px.Length; i++)
+                {
+                    float ua = grow[i] * c.a;
+                    if (ua <= 0) continue;
+                    var o = px[i];
+                    float oa = o.a + ua * (1 - o.a);
+                    px[i] = new Color(
+                        (o.r * o.a + c.r * ua * (1 - o.a)) / oa,
+                        (o.g * o.a + c.g * ua * (1 - o.a)) / oa,
+                        (o.b * o.a + c.b * ua * (1 - o.a)) / oa, oa);
+                }
+            }
+
             public Sprite ToSprite()
             {
                 var t = new Texture2D(w, h, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
@@ -91,6 +125,8 @@ namespace AbyssDefense
             }
             return d;
         };
+
+        static readonly Color Edge = new Color(0.05f, 0.06f, 0.08f, 0.9f);
 
         static Color Shade(Color c, float m) => new Color(c.r * m, c.g * m, c.b * m, c.a);
         static Color Lite(Color c, float t) => Color.Lerp(c, Color.white, t);
@@ -376,6 +412,7 @@ namespace AbyssDefense
                     c.Fill(Circle(m, m, 7), Lite(col, 0.6f));
                 }
             }
+            if (topLayer && !baseLayer) c.Outline(Edge, 1.5f);   // 포신만 따로 그릴 때 (건설 버튼 그림에는 넣지 않는다)
             return c.ToSprite();
         }
 
@@ -555,6 +592,7 @@ namespace AbyssDefense
                 if (shape == "support" && u.boostRange > 0) { c.Fill(Poly(m + r * 0.3f, m, m - r * 0.35f, m + r * 0.3f, m - r * 0.35f, m - r * 0.3f), Color.white); }   // 증폭 로봇: 앞을 가리키는 세모
                 else if (shape == "support") { c.Fill(Box(m - r * 0.1f, m, r * 0.34f, r * 0.1f, 1), Color.white); c.Fill(Box(m - r * 0.1f, m, r * 0.1f, r * 0.34f, 1), Color.white); }
             }
+            c.Outline(Edge, 1.5f);
             return c.ToSprite();
         }
 
@@ -669,6 +707,7 @@ namespace AbyssDefense
                 c.Fill(Circle(m + r * 0.45f, m + r * 0.3f, 2.2f), Color.white);
                 c.Fill(Circle(m + r * 0.45f, m - r * 0.3f, 2.2f), Color.white);
             }
+            c.Outline(Edge, 1.5f);
             return c.ToSprite();
         }
     }
