@@ -117,9 +117,19 @@ namespace AbyssDefense
         static readonly Vector3 ShadowDir = new Vector3(0.7f, -0.7f);
         const float GroundShadowDist = 0.09f, AirShadowDist = 0.5f, BlockShadowDist = 0.13f;
 
-        sealed class BView { public GameObject go; public SpriteRenderer sr, top, topShadow, aura; }
+        sealed class BView { public GameObject go; public SpriteRenderer sr, top, topShadow, aura; public bool wasBuilt, building; }
+        // 철거되거나 부서진 건물: 잠깐 오그라들며 사라진다
+        struct Dying { public GameObject go; public SpriteRenderer sr, top; public float t; }
+        const float DyingLife = 0.22f;
+        readonly List<Dying> dying = new List<Dying>();
+        // 부서진 건물이 남기는 잔해. 그을음처럼 천천히 옅어진다
+        struct Rubble { public float x, y, r, t; public int seed; public Color col; }
+        const float RubbleLife = 30f;
+        const int MaxRubble = 40;
+        readonly List<Rubble> rubble = new List<Rubble>();
+        static MaterialPropertyBlock mpb;
         // 이펙트는 그림 없이 도형(선·원판·고리)으로 매 프레임 그린다. 모양은 종류와 씨앗값에서 나오므로 상태는 흐른 시간뿐이다
-        enum Vk : byte { Explode, Hit, Shoot, Death, Wreck, Slash, Spawn, Bolt, Smoke, Ember, Drip }
+        enum Vk : byte { Explode, Hit, Shoot, Death, Wreck, Slash, Spawn, Bolt, Smoke, Ember, Drip, Flash }
         struct VFx { public Vk kind; public float x, y, r, x2, y2, t, life; public Color col; public int seed; }
         const int MaxFx = 260;
         readonly List<VFx> vfx = new List<VFx>();
@@ -440,14 +450,42 @@ namespace AbyssDefense
                 v.aura = NewSprite("aura", Art.Get("fx_ring"), OrderBlock - 1, v.go.transform);
                 v.aura.transform.localScale = Vector3.one * (b.def.supportRange * 2 / v.aura.sprite.bounds.size.x);
             }
+            v.wasBuilt = b.Built;
             views[b] = v;
         }
 
         void Remove(Building b)
         {
             if (!views.TryGetValue(b, out var v)) return;
-            Destroy(v.go);
             views.Remove(b);
+            // 바로 지우지 않고 잠깐 오그라들며 사라지게 한다 (같은 자리에 새로 놓인 건물보다 아래에 그린다)
+            if (v.aura != null) v.aura.enabled = false;
+            if (v.topShadow != null) v.topShadow.enabled = false;
+            v.sr.sortingOrder = OrderBlock - 1;
+            if (v.top != null) v.top.sortingOrder = OrderBlock - 1;
+            dying.Add(new Dying { go = v.go, sr = v.sr, top = v.top });
+        }
+
+        /// 짓는 중인 건물: 아래에서부터 지어진 만큼만 제 색으로 보이고, 그 위는 흐린 설계도로 보인다
+        void SetBuild(BView v, float progress)
+        {
+            if (mpb == null) mpb = new MaterialPropertyBlock();
+            if (!v.building)
+            {
+                v.building = true;
+                v.sr.sharedMaterial = Art.BuildMat;
+                if (v.top != null) v.top.sharedMaterial = Art.BuildMat;
+            }
+            v.sr.GetPropertyBlock(mpb); mpb.SetFloat("_Progress", progress); v.sr.SetPropertyBlock(mpb);
+            if (v.top != null) { v.top.GetPropertyBlock(mpb); mpb.SetFloat("_Progress", progress); v.top.SetPropertyBlock(mpb); }
+        }
+
+        void EndBuild(BView v)
+        {
+            if (!v.building) return;
+            v.building = false;
+            v.sr.sharedMaterial = Art.SpriteMat;
+            if (v.top != null) v.top.sharedMaterial = Art.SpriteMat;
         }
 
         // ───────── 매 프레임 ─────────
@@ -469,14 +507,34 @@ namespace AbyssDefense
                     new Color(0, 0, 0, b.Built ? 0.38f : 0.38f * (0.3f + 0.5f * b.progress)));
                 if (!b.Built)
                 {
-                    // 건설 터: 진행될수록 또렷해지고, 순서를 기다리거나 자원이 없어 멈춘 곳은 막대가 회색
-                    tint.a = 0.3f + 0.5f * b.progress;
+                    // 건설 터: 아래에서 위로 지어지고, 순서를 기다리거나 자원이 없어 멈춘 곳은 막대가 회색
+                    if (Art.BuildMat != null)
+                    {
+                        SetBuild(v, b.progress);
+                        if (b.constructing)
+                        {
+                            // 지어지는 높이의 빛나는 줄과 거기서 튀는 불티
+                            float ly = b.Cy - bs * 0.5f + bs * b.progress;
+                            var lc = Art.C(b.def.color);
+                            fxAdd.Quad(b.Cx, ly, bs * 0.92f, 0.05f, A(Color.Lerp(lc, Color.white, 0.5f), 0.75f));
+                            fxAdd.Quad(b.Cx, ly - 0.06f, bs * 0.92f, 0.12f, A(lc, 0.18f));
+                            if (Random.value < dt * 10 * bs) AddFx(Vk.Ember, b.Cx + Random.Range(-0.45f, 0.45f) * bs, ly, 1, new Color(1f, 0.85f, 0.45f), 0.3f);
+                        }
+                    }
+                    else tint.a = 0.3f + 0.5f * b.progress;
                     float w = b.def.size * 0.8f, y0 = b.Cy - b.def.size * 0.5f + 0.12f;
                     bars.Quad(b.Cx, y0, w + 0.06f, 0.16f, new Color(0, 0, 0, 0.75f));
                     bars.Quad(b.Cx - w * 0.5f * (1 - b.progress), y0, w * b.progress, 0.1f, b.constructing ? new Color(1f, 0.82f, 0.3f) : new Color(0.6f, 0.6f, 0.65f));
                 }
+                else EndBuild(v);
+                if (b.Built != v.wasBuilt)
+                {
+                    // 다 지어진 순간: 건물 크기의 짧은 섬광
+                    v.wasBuilt = b.Built;
+                    if (b.Built) AddFx(Vk.Flash, b.Cx, b.Cy, bs, Color.Lerp(Art.C(b.def.color), Color.white, 0.6f), 0.28f);
+                }
                 v.sr.color = tint;
-                if (v.top != null) { v.top.color = tint; v.topShadow.color = new Color(0, 0, 0, 0.32f * tint.a); }
+                if (v.top != null) { v.top.color = tint; v.topShadow.color = new Color(0, 0, 0, 0.32f * tint.a * (b.Built ? 1f : b.progress)); }
                 if (b is TurretBuilding t && b.Built)
                 {
                     v.top.transform.rotation = Quaternion.Euler(0, 0, t.aim * Mathf.Rad2Deg);
@@ -511,6 +569,35 @@ namespace AbyssDefense
                     bars.Quad(b.Cx - w * 0.5f * (1 - fb.work), y0, w * fb.work, 0.1f, Art.C(fb.making.color));
                 }
                 if (b.Built && b.health < b.maxHealth) HealthBar(b.Cx, b.Cy + b.def.size * 0.5f - 0.1f, b.def.size * 0.8f, b.health / b.maxHealth);
+            }
+
+            // 잔해: 부서진 건물의 조각이 바닥에 남아 천천히 옅어진다
+            for (int i = rubble.Count - 1; i >= 0; i--)
+            {
+                var rb = rubble[i];
+                rb.t += dt;
+                if (rb.t >= RubbleLife) { rubble.RemoveAt(i); continue; }
+                rubble[i] = rb;
+                float ra = Mathf.Min(1f, (RubbleLife - rb.t) / 8f);
+                for (int k = 0; k < 7; k++)
+                {
+                    float ang = Rnd(rb.seed, k) * Mathf.PI * 2, rd = rb.r * (0.15f + 0.75f * Rnd(rb.seed, k + 20));
+                    float sz = 0.1f + 0.14f * Rnd(rb.seed, k + 40);
+                    ground.Quad(rb.x + Mathf.Cos(ang) * rd, rb.y + Mathf.Sin(ang) * rd, sz * 1.3f, sz, A((k & 1) == 0 ? Mul(rb.col, 0.4f) : new Color(0.13f, 0.14f, 0.16f), 0.85f * ra), Rnd(rb.seed, k + 60) * 180);
+                }
+            }
+
+            // 철거되거나 부서진 건물: 오그라들며 사라진다 (멈춰 둔 동안 철거해도 사라지도록 실제 시간으로)
+            for (int i = dying.Count - 1; i >= 0; i--)
+            {
+                var dg = dying[i];
+                dg.t += Time.unscaledDeltaTime;
+                float dk = dg.t / DyingLife;
+                if (dk >= 1 || dg.go == null) { if (dg.go != null) Destroy(dg.go); dying.RemoveAt(i); continue; }
+                dying[i] = dg;
+                dg.go.transform.localScale = Vector3.one * (1 - 0.4f * dk * dk);
+                var dc = dg.sr.color; dc.a = 1 - dk; dg.sr.color = dc;
+                if (dg.top != null) dg.top.color = dc;
             }
 
             // 부서진 자리: 다시 지어질 건물의 흐린 윤곽
@@ -729,6 +816,8 @@ namespace AbyssDefense
                     break;
                 case FxKind.BuildDestroyed:
                     AddFx(Vk.Wreck, f.x, f.y, f.r, col, 0.6f);
+                    if (rubble.Count >= MaxRubble) rubble.RemoveAt(0);
+                    rubble.Add(new Rubble { x = f.x, y = f.y, r = f.r, seed = ++fxSeed, col = col });
                     AddFx(Vk.Smoke, f.x, f.y, f.r * 1.2f, smoke, 1.1f);
                     break;
                 case FxKind.EnemyAttack: AddFx(Vk.Slash, f.x, f.y, f.r, hot, 0.18f); break;
@@ -853,6 +942,16 @@ namespace AbyssDefense
                 }
                 case Vk.Ember:
                     fxAdd.Disc(f.x, f.y + 0.5f * k, 0.03f + 0.07f * fade, A(Color.Lerp(col, Color.white, 0.4f), fade), A(col, 0), 6);
+                    break;
+                case Vk.Flash:
+                    // 건물 크기의 네모난 섬광과 밖으로 번지는 테두리
+                    fxAdd.Quad(f.x, f.y, r * 0.96f, r * 0.96f, A(col, 0.55f * fade * fade));
+                    for (int i = 0; i < 4; i++)
+                    {
+                        float half = r * (0.5f + 0.25f * e), th = 0.07f * fade + 0.01f;
+                        bool horiz = i < 2; float sgn = (i & 1) == 0 ? 1 : -1;
+                        fxAdd.Quad(f.x + (horiz ? 0 : sgn * half), f.y + (horiz ? sgn * half : 0), horiz ? half * 2 : th, horiz ? th : half * 2, A(col, fade));
+                    }
                     break;
                 case Vk.Drip:
                     fxSoft.Disc(f.x, f.y - 0.3f * k * k, 0.05f * (0.5f + 0.5f * fade), A(col, 0.9f * fade), A(col, 0.5f * fade), 6);

@@ -21,6 +21,23 @@ namespace AbyssDefense
         /// 스프라이트·색 메시가 함께 쓰는 재질
         public static Material Mat => mat != null ? mat : mat = new Material(Shader.Find("Sprites/Default"));
 
+        static Material buildMat, spriteMat;
+        static bool buildTried;
+        /// 짓는 중인 건물의 재질: 아래에서부터 지어진 만큼만 제 색으로 그린다 (셰이더를 못 쓰면 null)
+        public static Material BuildMat
+        {
+            get
+            {
+                if (buildTried) return buildMat;
+                buildTried = true;
+                var sh = Resources.Load<Shader>("Shaders/Build");
+                if (sh != null && sh.isSupported) buildMat = new Material(sh);
+                return buildMat;
+            }
+        }
+        /// 스프라이트의 보통 재질 (건설이 끝난 건물을 되돌릴 때)
+        public static Material SpriteMat => spriteMat != null ? spriteMat : spriteMat = new Material(Shader.Find("Sprites/Default"));
+
         static Material addMat;
         /// 빛처럼 더해지는 재질 (불꽃·섬광·번개). 셰이더를 못 찾으면 보통 재질로 그린다
         public static Material AddMat
