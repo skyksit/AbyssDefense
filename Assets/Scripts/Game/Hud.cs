@@ -81,7 +81,7 @@ namespace AbyssDefense
             slots.Clear();
 
             // 눈보라가 부는 동안 화면 전체에 엷게 깔리는 흰 막
-            blizzardTint = Ui.Panel(root, new Color(0.82f, 0.92f, 1f, 0.16f), false, "Blizzard");
+            blizzardTint = Ui.Panel(root, new Color(0.82f, 0.92f, 1f, 0.09f), false, "Blizzard");
             blizzardTint.raycastTarget = false;
             blizzardTint.Rt().Fill();
             blizzardTint.gameObject.SetActive(false);

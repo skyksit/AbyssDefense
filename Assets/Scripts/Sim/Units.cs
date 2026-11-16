@@ -560,6 +560,7 @@ namespace AbyssDefense.Sim
             int left = d.fieldTargets - pulseHit.Count;
             foreach (var e in pulseHit)
             {
+                fx.Add(new Fx { kind = FxKind.Chain, x = u.x, y = u.y, x2 = e.x, y2 = e.y, r = 0.3f, color = col });
                 fx.Add(new Fx { kind = FxKind.Hit, x = e.x, y = e.y, r = 0.3f, color = col });
                 Damage(e, dmg * Shock(e));
             }
@@ -571,6 +572,7 @@ namespace AbyssDefense.Sim
                     var b = bs[i];
                     if (!b.def.enemy || b.dead || b.DistTo(u.x, u.y) > d.range) continue;
                     HurtBuilding(b, dmg * d.buildingMul);
+                    fx.Add(new Fx { kind = FxKind.Chain, x = u.x, y = u.y, x2 = b.Cx, y2 = b.Cy, r = 0.3f, color = col });
                     fx.Add(new Fx { kind = FxKind.Hit, x = b.Cx, y = b.Cy, r = 0.3f, color = col });
                     left--;
                 }

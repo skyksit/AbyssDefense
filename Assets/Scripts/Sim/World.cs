@@ -172,7 +172,7 @@ namespace AbyssDefense.Sim
             if (u == null) return;
             reload = def.reloadTicks;
             aim = (float)Math.Atan2(u.y - Cy, u.x - Cx);
-            sim.fx.Add(new Fx { kind = FxKind.Shoot, x = Cx + (float)Math.Cos(aim) * 0.5f, y = Cy + (float)Math.Sin(aim) * 0.5f, r = 0.25f, color = def.bullet.color });
+            sim.fx.Add(new Fx { kind = FxKind.Shoot, x = Cx + (float)Math.Cos(aim) * 0.5f, y = Cy + (float)Math.Sin(aim) * 0.5f, x2 = Cx + (float)Math.Cos(aim) * 1.5f, y2 = Cy + (float)Math.Sin(aim) * 1.5f, r = 0.25f, color = def.bullet.color });
             sim.HurtUnit(u, damage, def.bullet.color);
         }
     }

@@ -58,12 +58,13 @@ namespace AbyssDefense.Sim
         public bool dead;
     }
 
-    public enum FxKind { Hit, Explode, EnemyDeath, Spawn, BuildDestroyed, EnemyAttack, Shoot }
+    public enum FxKind { Hit, Explode, EnemyDeath, Spawn, BuildDestroyed, EnemyAttack, Shoot, Chain }
 
     public struct Fx
     {
         public FxKind kind;
         public float x, y, r;
+        public float x2, y2;        // Chain: 번개가 닿는 곳. Shoot: 쏜 쪽으로 조금 더 나간 점 (방향만 쓴다)
         public uint color;
     }
 
@@ -747,7 +748,7 @@ namespace AbyssDefense.Sim
             b.life = d.artillery ? Math.Max(1, (int)(len / d.speed)) : d.lifeTicks;
             if (d.pierce > 0) b.hit = new List<Enemy>();
             bullets.Add(b);
-            fx.Add(new Fx { kind = FxKind.Shoot, x = sx + dx / len * muzzle, y = sy + dy / len * muzzle, r = 0.2f, color = d.color });
+            fx.Add(new Fx { kind = FxKind.Shoot, x = sx + dx / len * muzzle, y = sy + dy / len * muzzle, x2 = sx + dx / len * (muzzle + 1), y2 = sy + dy / len * (muzzle + 1), r = 0.2f, color = d.color });
             return b;
         }
 
@@ -884,6 +885,7 @@ namespace AbyssDefense.Sim
                 dmg *= 0.7f;
                 chainHit.Add(next);
                 Damage(next, dmg * Shock(next));
+                fx.Add(new Fx { kind = FxKind.Chain, x = cur.x, y = cur.y, x2 = next.x, y2 = next.y, r = 0.3f, color = d.color });
                 fx.Add(new Fx { kind = FxKind.Hit, x = next.x, y = next.y, r = 0.3f, color = d.color });
                 cur = next;
             }

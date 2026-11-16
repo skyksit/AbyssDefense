@@ -48,6 +48,53 @@ namespace AbyssDefense
             tris.Add(n); tris.Add(n + 1); tris.Add(n + 2); tris.Add(n); tris.Add(n + 2); tris.Add(n + 3);
         }
 
+        public void Tri(float x1, float y1, float x2, float y2, float x3, float y3, Color c1, Color c2, Color c3)
+        {
+            int n = verts.Count;
+            verts.Add(new Vector3(x1, y1)); verts.Add(new Vector3(x2, y2)); verts.Add(new Vector3(x3, y3));
+            cols.Add(c1); cols.Add(c2); cols.Add(c3);
+            tris.Add(n); tris.Add(n + 1); tris.Add(n + 2);
+        }
+
+        public void Line(float x1, float y1, float x2, float y2, float w, Color col)
+        {
+            float dx = x2 - x1, dy = y2 - y1, len = Mathf.Sqrt(dx * dx + dy * dy);
+            if (len < 0.0001f) return;
+            Quad((x1 + x2) * 0.5f, (y1 + y2) * 0.5f, len, w, col, Mathf.Atan2(dy, dx) * Mathf.Rad2Deg);
+        }
+
+        /// 원판. 가운데와 가장자리의 색을 달리하면 부드럽게 번지는 빛이 된다
+        public void Disc(float cx, float cy, float r, Color center, Color edge, int segs = 12)
+        {
+            int n = verts.Count;
+            Color32 ce = edge;
+            verts.Add(new Vector3(cx, cy)); cols.Add(center);
+            for (int i = 0; i < segs; i++)
+            {
+                float a = i * Mathf.PI * 2 / segs;
+                verts.Add(new Vector3(cx + Mathf.Cos(a) * r, cy + Mathf.Sin(a) * r)); cols.Add(ce);
+            }
+            for (int i = 0; i < segs; i++) { tris.Add(n); tris.Add(n + 1 + i); tris.Add(n + 1 + (i + 1) % segs); }
+        }
+
+        public void Ring(float cx, float cy, float r, float th, Color col, int segs = 20)
+        {
+            int n = verts.Count;
+            Color32 c32 = col;
+            float r0 = Mathf.Max(0, r - th * 0.5f), r1 = r + th * 0.5f;
+            for (int i = 0; i < segs; i++)
+            {
+                float a = i * Mathf.PI * 2 / segs, c = Mathf.Cos(a), sn = Mathf.Sin(a);
+                verts.Add(new Vector3(cx + c * r0, cy + sn * r0)); verts.Add(new Vector3(cx + c * r1, cy + sn * r1));
+                cols.Add(c32); cols.Add(c32);
+            }
+            for (int i = 0; i < segs; i++)
+            {
+                int a0 = n + i * 2, a1 = n + (i + 1) % segs * 2;
+                tris.Add(a0); tris.Add(a0 + 1); tris.Add(a1 + 1); tris.Add(a0); tris.Add(a1 + 1); tris.Add(a1);
+            }
+        }
+
         public void End()
         {
             mesh.Clear();
@@ -71,7 +118,12 @@ namespace AbyssDefense
         const float GroundShadowDist = 0.09f, AirShadowDist = 0.5f, BlockShadowDist = 0.13f;
 
         sealed class BView { public GameObject go; public SpriteRenderer sr, top, topShadow, aura; }
-        struct FxItem { public SpriteRenderer sr; public float t, life, r0, r1; public Color col; }
+        // 이펙트는 그림 없이 도형(선·원판·고리)으로 매 프레임 그린다. 모양은 종류와 씨앗값에서 나오므로 상태는 흐른 시간뿐이다
+        enum Vk : byte { Explode, Hit, Shoot, Death, Wreck, Slash, Spawn, Bolt, Smoke, Ember, Drip }
+        struct VFx { public Vk kind; public float x, y, r, x2, y2, t, life; public Color col; public int seed; }
+        const int MaxFx = 260;
+        readonly List<VFx> vfx = new List<VFx>();
+        int fxSeed;
         struct Scorch { public SpriteRenderer sr; public float t; }
         const float ScorchLife = 25f;
         const int MaxScorch = 50;
@@ -110,10 +162,8 @@ namespace AbyssDefense
         readonly List<SpriteRenderer> unitPool = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> enemyShadows = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> unitShadows = new List<SpriteRenderer>();
-        readonly List<FxItem> fxLive = new List<FxItem>();
-        readonly Stack<SpriteRenderer> fxFree = new Stack<SpriteRenderer>();
         readonly List<Transform> spawnMarks = new List<Transform>();
-        QuadBatch bars, ground, shots;
+        QuadBatch bars, ground, shots, fxSoft, fxAdd;
 
         public void Init(Sim.Sim s)
         {
@@ -121,6 +171,8 @@ namespace AbyssDefense
             BuildTerrain();
             ground = new QuadBatch(transform, "Ground", OrderGround);
             shots = new QuadBatch(transform, "Bullets", OrderBullet);
+            fxSoft = new QuadBatch(transform, "FxSoft", OrderFx - 1);
+            fxAdd = new QuadBatch(transform, "FxGlow", OrderFx, Art.AddMat);
             bars = new QuadBatch(transform, "Bars", OrderBars);
             foreach (var b in sim.world.buildings) Add(b);
             sim.BuildingAdded += Add;
@@ -342,7 +394,8 @@ namespace AbyssDefense
         {
             if (sim == null) return;
             float time = Time.unscaledTime;
-            bars.Begin(); ground.Begin(); shots.Begin();
+            float dt = Time.deltaTime;
+            bars.Begin(); ground.Begin(); shots.Begin(); fxSoft.Begin(); fxAdd.Begin();
 
             foreach (var kv in views)
             {
@@ -436,6 +489,10 @@ namespace AbyssDefense
                 if (e.vx != 0 || e.vy != 0)
                     sr.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(e.vy, e.vx) * Mathf.Rad2Deg);
                 SyncShadow(enemyShadows[i], sr, e.def.flying);
+                // 상태 이상: 불타면 불티가 오르고, 산성·젖음은 방울이 떨어진다
+                if (e.burnTicks > 0) { if (Random.value < dt * 9) AddFx(Vk.Ember, e.x + Random.Range(-er, er), e.y + Random.Range(-er, er), 1, new Color(1f, 0.6f, 0.2f), 0.45f); }
+                else if (e.acidTicks > 0) { if (Random.value < dt * 5) AddFx(Vk.Drip, e.x + Random.Range(-er, er), e.y + Random.Range(-er, er), 1, new Color(0.75f, 0.45f, 1f), 0.4f); }
+                else if (e.wetTicks > 0) { if (Random.value < dt * 5) AddFx(Vk.Drip, e.x + Random.Range(-er, er), e.y + Random.Range(-er, er), 1, new Color(0.5f, 0.8f, 1f), 0.4f); }
                 if (e.health < e.maxHealth) HealthBar(e.x, e.y + er + 0.14f, Mathf.Max(0.6f, e.def.radius * 2), e.health / e.maxHealth);
             }
 
@@ -471,30 +528,77 @@ namespace AbyssDefense
             }
 
             // 탄
-            foreach (var bl in sim.bullets)
+            int flick = (int)(time * 30);
+            for (int i = 0; i < sim.bullets.Count; i++)
             {
-                var col = Art.C(bl.def.color);
+                var bl = sim.bullets[i];
+                var d = bl.def;
+                var col = Art.C(d.color);
+                float sp = Mathf.Sqrt(bl.vx * bl.vx + bl.vy * bl.vy);
+                float ux = sp > 0 ? bl.vx / sp : 1, uy = sp > 0 ? bl.vy / sp : 0;
+                if (d.burn > 0 && !d.artillery)
+                {
+                    // 화염: 일렁이는 불덩이
+                    float fl = 0.8f + 0.45f * Rnd(i, flick);
+                    fxAdd.Disc(bl.x, bl.y, d.size * 2.4f * fl, A(col, 0.7f), A(col, 0), 10);
+                    fxAdd.Disc(bl.x, bl.y, d.size * 1.1f, new Color(1f, 0.95f, 0.7f, 0.8f), A(col, 0), 8);
+                    continue;
+                }
+                if (d.artillery)
+                {
+                    // 곡사탄: 둥근 탄
+                    shots.Disc(bl.x, bl.y, d.size * 0.62f, Color.Lerp(col, Color.white, 0.55f), col, 10);
+                    fxAdd.Disc(bl.x, bl.y, d.size * 1.5f, A(col, 0.35f), A(col, 0), 10);
+                    continue;
+                }
+                // 잔상: 날아온 쪽으로 가늘어지며 사라지는 꼬리
+                float tail = Mathf.Min(1.5f, sp * (d.homing > 0 ? 7f : 4f)), hw = d.size * 0.3f;
+                fxAdd.Tri(bl.x - uy * hw, bl.y + ux * hw, bl.x + uy * hw, bl.y - ux * hw, bl.x - ux * tail, bl.y - uy * tail, A(col, 0.6f), A(col, 0.6f), A(col, 0));
                 float ang = Mathf.Atan2(bl.vy, bl.vx) * Mathf.Rad2Deg;
-                if (bl.def.artillery) shots.Quad(bl.x, bl.y, bl.def.size, bl.def.size, col, 45);
-                else shots.Quad(bl.x, bl.y, bl.def.size * 2.2f, bl.def.size * 0.6f, col, ang);
+                if (d.wetTicks > 0 || d.slow > 0 || d.acid > 0)
+                {
+                    // 점액·산성: 둥근 방울
+                    shots.Disc(bl.x, bl.y, d.size * 0.85f, col, Mul(col, 0.7f), 10);
+                    shots.Disc(bl.x - d.size * 0.2f, bl.y + d.size * 0.25f, d.size * 0.28f, Color.Lerp(col, Color.white, 0.6f), col, 6);
+                }
+                else
+                {
+                    shots.Quad(bl.x, bl.y, d.size * 2.2f, d.size * 0.6f, col, ang);
+                    shots.Quad(bl.x + ux * d.size * 0.3f, bl.y + uy * d.size * 0.3f, d.size * 1.2f, d.size * 0.28f, Color.Lerp(col, Color.white, d.chain > 0 ? 0.95f : 0.6f), ang);
+                }
             }
-
-            bars.End(); ground.End(); shots.End();
 
             // 이펙트
             foreach (var f in sim.fx) SpawnFx(f);
             sim.fx.Clear();
-            for (int i = fxLive.Count - 1; i >= 0; i--)
+            for (int i = vfx.Count - 1; i >= 0; i--)
             {
-                var f = fxLive[i];
-                f.t += Time.deltaTime;
-                float k = f.t / f.life;
-                if (k >= 1) { f.sr.enabled = false; fxFree.Push(f.sr); fxLive.RemoveAt(i); continue; }
-                float r = Mathf.Lerp(f.r0, f.r1, 1 - (1 - k) * (1 - k));
-                f.sr.transform.localScale = Vector3.one * (r * 2 / f.sr.sprite.bounds.size.x);
-                f.sr.color = new Color(f.col.r, f.col.g, f.col.b, f.col.a * (1 - k));
-                fxLive[i] = f;
+                var f = vfx[i];
+                f.t += dt;
+                if (f.t >= f.life) { vfx[i] = vfx[vfx.Count - 1]; vfx.RemoveAt(vfx.Count - 1); continue; }
+                vfx[i] = f;
+                DrawFx(in f, f.t / f.life);
             }
+
+            // 눈보라: 바람에 비껴 흐르는 눈 줄기 (화면에 보이는 범위에만)
+            if (sim.Blizzard)
+            {
+                var cam = Camera.main;
+                if (cam != null)
+                {
+                    float hh = cam.orthographicSize + 1, hwd = hh * cam.aspect + 1;
+                    Vector2 cp = cam.transform.position;
+                    for (int i = 0; i < 90; i++)
+                    {
+                        float spd = 0.5f + Rnd(7, i);
+                        float sx = cp.x - hwd + Mathf.Repeat(Rnd(11, i) + time * 0.4f * spd, 1f) * hwd * 2;
+                        float sy = cp.y - hh + Mathf.Repeat(Rnd(13, i) - time * 0.14f * spd, 1f) * hh * 2;
+                        fxAdd.Line(sx, sy, sx + 0.55f * spd, sy - 0.19f * spd, 0.035f, new Color(1, 1, 1, 0.16f + 0.2f * Rnd(17, i)));
+                    }
+                }
+            }
+
+            bars.End(); ground.End(); shots.End(); fxSoft.End(); fxAdd.End();
 
             shake *= Mathf.Exp(-Time.unscaledDeltaTime * 9f);
             if (shake < 0.004f) shake = 0;
@@ -518,35 +622,171 @@ namespace AbyssDefense
             bars.Quad(x - w * 0.5f * (1 - f), y, w * f, 0.08f, Color.Lerp(new Color(0.95f, 0.25f, 0.25f), new Color(0.35f, 0.9f, 0.45f), f));
         }
 
+        static Color A(Color c, float a) => new Color(c.r, c.g, c.b, a);
+
+        /// 씨앗값과 번호에서 나오는 0~1 의 값. 같은 이펙트는 프레임이 바뀌어도 같은 모양을 유지한다
+        static float Rnd(int seed, int i)
+        {
+            uint h = unchecked((uint)(seed * 374761393 + i * 668265263));
+            h = (h ^ (h >> 13)) * 1274126177u;
+            h ^= h >> 16;
+            return (h & 0xFFFFFF) / 16777216f;
+        }
+
+        void AddFx(Vk kind, float x, float y, float r, Color col, float life, float x2 = 0, float y2 = 0)
+        {
+            if (vfx.Count >= MaxFx) return;
+            vfx.Add(new VFx { kind = kind, x = x, y = y, r = r, x2 = x2, y2 = y2, col = col, life = life, seed = ++fxSeed });
+        }
+
         void SpawnFx(Fx f)
         {
-            if (fxLive.Count > 200) return;
-            bool ring = f.kind == FxKind.Explode || f.kind == FxKind.Spawn || f.kind == FxKind.BuildDestroyed;
-            var sr = fxFree.Count > 0 ? fxFree.Pop() : NewSprite("Fx", null, OrderFx);
-            sr.enabled = true;
-            sr.sprite = Art.Get(ring ? "fx_ring" : "fx_circle");
-            sr.transform.position = new Vector3(f.x, f.y);
-            var col = Color.Lerp(Art.C(f.color), Color.white, f.kind == FxKind.EnemyDeath ? 0.1f : 0.5f);
-            var it = new FxItem { sr = sr, col = col, life = 0.25f, r0 = f.r * 0.4f, r1 = f.r };
+            var col = Art.C(f.color);
+            var hot = Color.Lerp(col, Color.white, 0.5f);
+            var smoke = new Color(0.16f, 0.16f, 0.18f);
+            bool crowded = vfx.Count > MaxFx * 0.6f;   // 너무 많으면 자잘한 것부터 뺀다
             switch (f.kind)
             {
-                case FxKind.Explode: it.life = 0.4f; it.r0 = f.r * 0.2f; break;
-                case FxKind.EnemyDeath: it.life = 0.35f; break;
-                case FxKind.BuildDestroyed: it.life = 0.5f; it.r1 = f.r * 1.5f; break;
-                case FxKind.Shoot: it.life = 0.08f; break;
-                case FxKind.Hit: it.life = 0.12f; break;
-                case FxKind.Spawn: it.life = 0.4f; it.r0 = f.r * 1.5f; it.r1 = f.r * 0.3f; break;
+                case FxKind.Hit: if (!crowded) AddFx(Vk.Hit, f.x, f.y, f.r, hot, 0.16f); break;
+                case FxKind.Shoot: if (!crowded) AddFx(Vk.Shoot, f.x, f.y, f.r, hot, 0.09f, f.x2, f.y2); break;
+                case FxKind.Explode:
+                    AddFx(Vk.Explode, f.x, f.y, f.r, hot, 0.42f);
+                    if (!crowded) AddFx(Vk.Smoke, f.x, f.y, f.r, smoke, 0.9f);
+                    break;
+                case FxKind.EnemyDeath:
+                    AddFx(Vk.Death, f.x, f.y, f.r, col, 0.4f);
+                    if (f.r >= 1.2f) { AddFx(Vk.Explode, f.x, f.y, f.r * 1.3f, hot, 0.6f); AddFx(Vk.Smoke, f.x, f.y, f.r * 1.2f, smoke, 1.3f); }
+                    break;
+                case FxKind.BuildDestroyed:
+                    AddFx(Vk.Wreck, f.x, f.y, f.r, col, 0.6f);
+                    AddFx(Vk.Smoke, f.x, f.y, f.r * 1.2f, smoke, 1.1f);
+                    break;
+                case FxKind.EnemyAttack: AddFx(Vk.Slash, f.x, f.y, f.r, hot, 0.18f); break;
+                case FxKind.Spawn: AddFx(Vk.Spawn, f.x, f.y, f.r, hot, 0.4f); break;
+                case FxKind.Chain: AddFx(Vk.Bolt, f.x, f.y, f.r, hot, 0.14f, f.x2, f.y2); break;
             }
-            fxLive.Add(it);
             if (f.kind == FxKind.Explode && f.r >= 0.9f) { AddShake(Mathf.Min(0.2f, 0.04f + f.r * 0.05f), f.x, f.y); AddScorch(f.x, f.y, f.r * 0.8f); }
             else if (f.kind == FxKind.BuildDestroyed) { AddShake(0.12f + f.r * 0.06f, f.x, f.y); AddScorch(f.x, f.y, f.r); }
             else if (f.kind == FxKind.EnemyDeath && f.r >= 1.2f) { AddShake(0.3f, f.x, f.y); AddScorch(f.x, f.y, f.r * 0.7f); }   // 보스
-            if (f.kind == FxKind.Explode && fxLive.Count < 200)
+        }
+
+        /// 가운데에서 ang 쪽으로 d 만큼 나간 곳에 머리를 둔, 길이 len 의 불꽃 선
+        void Spark(float x, float y, float ang, float d, float len, float w, Color col)
+        {
+            float c = Mathf.Cos(ang), sn = Mathf.Sin(ang), d0 = Mathf.Max(0, d - len);
+            fxAdd.Line(x + c * d0, y + sn * d0, x + c * d, y + sn * d, w, col);
+        }
+
+        /// 파편: 사방으로 튀며 도는 작은 조각
+        void Chunks(in VFx f, int n, float reach, float size, float e, float fade, Color a, Color b)
+        {
+            for (int i = 0; i < n; i++)
             {
-                var sr2 = fxFree.Count > 0 ? fxFree.Pop() : NewSprite("Fx", null, OrderFx);
-                sr2.enabled = true; sr2.sprite = Art.Get("fx_circle");
-                sr2.transform.position = sr.transform.position;
-                fxLive.Add(new FxItem { sr = sr2, col = col, life = 0.3f, r0 = f.r * 0.3f, r1 = f.r * 0.9f });
+                float ang = Rnd(f.seed, i) * Mathf.PI * 2, d = reach * (0.25f + 0.9f * Rnd(f.seed, i + 40)) * e;
+                float sz = size * (0.6f + 0.8f * Rnd(f.seed, i + 80)) * (0.4f + 0.6f * fade);
+                fxSoft.Quad(f.x + Mathf.Cos(ang) * d, f.y + Mathf.Sin(ang) * d, sz, sz, A((i & 1) == 0 ? a : b, Mathf.Min(1, fade * 1.6f)), Rnd(f.seed, i + 120) * 360 + f.t * 420);
+            }
+        }
+
+        void DrawFx(in VFx f, float k)
+        {
+            float e = 1 - (1 - k) * (1 - k), fade = 1 - k, r = f.r;
+            var col = f.col;
+            switch (f.kind)
+            {
+                case Vk.Explode:
+                {
+                    fxAdd.Disc(f.x, f.y, r * (0.35f + 0.75f * e), A(Color.Lerp(col, Color.white, 0.5f), 0.85f * fade * fade), A(col, 0), 14);
+                    fxAdd.Ring(f.x, f.y, r * (0.25f + 0.85f * e), (0.03f + 0.1f * fade) * Mathf.Min(1.5f, r + 0.3f), A(col, fade), 22);
+                    int n = Mathf.Clamp((int)(5 + r * 6), 6, 16);
+                    for (int i = 0; i < n; i++)
+                        Spark(f.x, f.y, Rnd(f.seed, i) * Mathf.PI * 2, r * (0.35f + 0.95f * Rnd(f.seed, i + 40)) * e, r * 0.4f * fade + 0.05f, 0.05f,
+                            A(Color.Lerp(col, Color.white, Rnd(f.seed, i + 80)), fade));
+                    break;
+                }
+                case Vk.Hit:
+                {
+                    fxAdd.Disc(f.x, f.y, r * (0.5f + 0.6f * e), A(Color.white, 0.7f * fade), A(col, 0), 8);
+                    for (int i = 0; i < 4; i++)
+                        Spark(f.x, f.y, Rnd(f.seed, i) * Mathf.PI * 2, r * (0.5f + 1.6f * Rnd(f.seed, i + 40)) * e, r * 0.7f * fade + 0.03f, 0.04f, A(col, fade));
+                    break;
+                }
+                case Vk.Shoot:
+                {
+                    fxAdd.Disc(f.x, f.y, r * (0.8f + 0.5f * k), A(Color.white, 0.8f * fade), A(col, 0), 8);
+                    float dx = f.x2 - f.x, dy = f.y2 - f.y, len = Mathf.Sqrt(dx * dx + dy * dy);
+                    if (len > 0.001f)
+                    {
+                        // 쏜 쪽으로 뻗는 불꽃
+                        dx /= len; dy /= len;
+                        float w = r * 0.55f, reach = r * (2.2f + 1.5f * k);
+                        fxAdd.Tri(f.x - dy * w, f.y + dx * w, f.x + dy * w, f.y - dx * w, f.x + dx * reach, f.y + dy * reach, A(col, fade), A(col, fade), A(col, 0));
+                    }
+                    break;
+                }
+                case Vk.Death:
+                {
+                    fxAdd.Disc(f.x, f.y, r * (0.4f + 0.5f * e), A(Color.Lerp(col, Color.white, 0.3f), 0.6f * fade), A(col, 0), 10);
+                    Chunks(in f, Mathf.Clamp((int)(4 + r * 5), 5, 12), r, 0.13f * Mathf.Max(0.7f, r), e, fade, col, Mul(col, 0.5f));
+                    break;
+                }
+                case Vk.Wreck:
+                {
+                    fxAdd.Disc(f.x, f.y, r * (0.5f + 0.9f * e), A(Color.white, 0.7f * fade * fade), A(col, 0), 14);
+                    fxAdd.Ring(f.x, f.y, r * (0.4f + 1.1f * e), 0.14f * fade, A(Color.Lerp(col, Color.white, 0.5f), fade), 24);
+                    Chunks(in f, 12, r * 1.5f, 0.2f, e, fade, col, new Color(0.2f, 0.21f, 0.24f));
+                    for (int i = 0; i < 8; i++)
+                        Spark(f.x, f.y, Rnd(f.seed, i + 200) * Mathf.PI * 2, r * (0.6f + 1.2f * Rnd(f.seed, i + 240)) * e, 0.35f * fade + 0.05f, 0.05f, A(new Color(1f, 0.8f, 0.45f), fade));
+                    break;
+                }
+                case Vk.Slash:
+                {
+                    // 적의 근접 공격: 엇갈린 두 줄의 베기
+                    float a0 = Rnd(f.seed, 0) * 180, len = r * (2.4f + 2.4f * e);
+                    fxAdd.Quad(f.x, f.y, len, 0.02f + 0.07f * fade, A(col, fade), a0);
+                    fxAdd.Quad(f.x, f.y, len * 0.8f, 0.02f + 0.05f * fade, A(Color.white, fade), a0 + 65);
+                    break;
+                }
+                case Vk.Spawn:
+                    fxAdd.Ring(f.x, f.y, r * Mathf.Lerp(1.5f, 0.3f, e), 0.05f, A(col, 0.8f * fade), r > 3 ? 44 : 22);
+                    break;
+                case Vk.Bolt:
+                {
+                    // 번개: 프레임마다 다시 꺾이는 선
+                    float dx = f.x2 - f.x, dy = f.y2 - f.y, dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    if (dist < 0.01f) break;
+                    float px = -dy / dist, py = dx / dist;
+                    int n = Mathf.Clamp((int)(dist / 0.3f) + 2, 3, 14), frame = (int)(f.t * 45);
+                    float lx = f.x, ly = f.y;
+                    for (int i = 1; i <= n; i++)
+                    {
+                        float tt = i / (float)n, off = i == n ? 0 : (Rnd(f.seed + frame * 31, i) - 0.5f) * 0.4f;
+                        float cx = f.x + dx * tt + px * off, cy = f.y + dy * tt + py * off;
+                        fxAdd.Line(lx, ly, cx, cy, 0.16f, A(col, 0.35f * fade));
+                        fxAdd.Line(lx, ly, cx, cy, 0.05f, A(Color.white, fade));
+                        lx = cx; ly = cy;
+                    }
+                    fxAdd.Disc(f.x2, f.y2, 0.28f, A(Color.white, 0.6f * fade), A(col, 0), 8);
+                    break;
+                }
+                case Vk.Smoke:
+                {
+                    int n = Mathf.Clamp((int)(3 + r * 3), 3, 7);
+                    float a = 0.36f * fade * Mathf.Min(1, k / 0.12f);
+                    for (int i = 0; i < n; i++)
+                    {
+                        float ang = Rnd(f.seed, i) * Mathf.PI * 2, d = r * 0.6f * Rnd(f.seed, i + 40) * (0.4f + 0.6f * e);
+                        float rad = r * (0.18f + 0.2f * Rnd(f.seed, i + 80)) * (0.6f + 0.8f * k);
+                        fxSoft.Disc(f.x + Mathf.Cos(ang) * d, f.y + Mathf.Sin(ang) * d + 0.3f * k, rad, A(col, a), A(col, a * 0.15f), 10);
+                    }
+                    break;
+                }
+                case Vk.Ember:
+                    fxAdd.Disc(f.x, f.y + 0.5f * k, 0.03f + 0.07f * fade, A(Color.Lerp(col, Color.white, 0.4f), fade), A(col, 0), 6);
+                    break;
+                case Vk.Drip:
+                    fxSoft.Disc(f.x, f.y - 0.3f * k * k, 0.05f * (0.5f + 0.5f * fade), A(col, 0.9f * fade), A(col, 0.5f * fade), 6);
+                    break;
             }
         }
     }
