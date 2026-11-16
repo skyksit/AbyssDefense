@@ -66,7 +66,7 @@ namespace AbyssDefense
             Add("facstance", "공장 창 가운데의 '태세' 단추로 그 공장의 유닛만 늘 지키거나 늘 공격하게 할 수 있습니다. 수리 유닛은 남기고 공격 유닛만 보낼 때 씁니다.",
                 () => Count(b => b is FactoryBuilding && b.Built) >= 2 && sim.units.Count >= 2, () => Count(b => b is FactoryBuilding f && f.stance != FactoryStance.Follow) > 0);
             Add("replace", "방벽 위에 강철 방벽을 놓으면 철거하지 않고 바뀝니다. 포탑도 같은 크기끼리 덮어 지을 수 있습니다.",
-                () => sim.IsUnlocked(Content.SteelWall) && sim.Core.items[Content.Steel] >= 10 && Count(b => b.def == Content.Wall && b.Built) > 0, () => Count(b => b.def == Content.SteelWall) > 0);
+                () => sim.IsUnlocked(Content.SteelWall) && sim.Core.Has(Content.SteelWall.cost) && Count(b => b.def == Content.Wall && b.Built) > 0, () => Count(b => b.def == Content.SteelWall) > 0);
             Add("overcharge", "회로가 남으면 포탑 창의 '과부하'를 켜 보세요. 쏠 적이 있는 동안 회로 하나로 10초씩 1.5배 빨리 쏩니다.",
                 () => sim.Core.items[Content.Circuit] >= 40 && Count(b => b is TurretBuilding && b.Built) >= 3, () => Count(b => b is TurretBuilding t && t.overcharge) > 0);
             Add("rebuild", "부서진 건물은 10초 뒤 같은 자리에 다시 지어집니다. 포탑의 탄약 몫은 남겨 두고 짓습니다. 원치 않으면 오른쪽 아래의 '자동 재건'을 끄세요.",

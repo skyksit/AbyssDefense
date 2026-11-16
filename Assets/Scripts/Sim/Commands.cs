@@ -148,7 +148,7 @@ namespace AbyssDefense.Sim
                 long h = 1469598103934665603L;
                 void Mix(float v) { h = (h ^ BitConverter.SingleToInt32Bits(v)) * 1099511628211L; }
                 Mix(tick); Mix(wave); Mix(kills); Mix(waveCountdown); Mix((int)state); Mix((int)stance); Mix(autoRebuild ? 1 : 0);
-                foreach (int it in Core.items) Mix(it);
+                foreach (long it in Core.items) h = (h ^ it) * 1099511628211L;   // 자원은 수십억이 넘을 수 있어 그대로 섞는다
                 foreach (var b in world.buildings) { Mix(b.def.id); Mix(b.x); Mix(b.y); Mix(b.health); Mix(b.progress); if (b is FactoryBuilding fb) Mix((int)fb.stance); if (b is TurretBuilding tb) { Mix(tb.overchargeLeft); Mix(tb.overcharge ? 1 : 0); } }
                 foreach (var e in enemies) { Mix(e.def.id); Mix(e.x); Mix(e.y); Mix(e.health); Mix(e.barrier); }
                 foreach (var u in units) { Mix(u.def.id); Mix(u.x); Mix(u.y); Mix(u.health); }
@@ -161,7 +161,7 @@ namespace AbyssDefense.Sim
         public const int OverchargeItem = Content.Circuit, OverchargeTicks = 10 * 60;
 
         /// 규칙이 바뀌면(코드의 동작이 달라지면) 올린다. 진행 중 저장은 이 값과 수치 지문이 같을 때만 이어진다
-        public const int RulesVersion = 7;   // 2: 덮어 짓기, 3: 적이 길 둘레의 유닛·건물을 먼저 친다, 4: 공장별 태세, 적이 유닛을 쫓는 한도, 5: 포탑 과부하, 자동 재건의 탄약 몫, 6: 난이도를 심연이 정한다, 7: 난이도가 전체 단계로 이어진다
+        public const int RulesVersion = 10;   // 2: 덮어 짓기, 3: 적이 길 둘레의 유닛·건물을 먼저 친다, 4: 공장별 태세, 적이 유닛을 쫓는 한도, 5: 포탑 과부하, 자동 재건의 탄약 몫, 6: 난이도를 심연이 정한다, 7: 난이도가 전체 단계로 이어진다, 8: 보스와 함께 나오는 호위, 포탑 먼저 치기, 속사포 연사 낮춤, 9: 보행병·질주병 체력, 10: 1K~10T 경제와 등급
 
         /// 수치 지문: 유닛·적·건물·지역 규칙·웨이브의 숫자를 한 값으로 줄인다. 밸런스를 고치면 값이 달라져, 예전 판의 명령 기록을 잘못 되돌리지 않는다
         public static int RulesFingerprint()
@@ -170,6 +170,7 @@ namespace AbyssDefense.Sim
             {
                 int h = RulesVersion * 16777619;
                 void Mix(float v) { h = (h ^ BitConverter.SingleToInt32Bits(v)) * 16777619; }
+                void MixL(long v) { h = (h ^ (int)v ^ (int)(v >> 32)) * 16777619; }
                 void Bullet(BulletDef b)
                 {
                     if (b == null) { Mix(-1); return; }
@@ -178,7 +179,7 @@ namespace AbyssDefense.Sim
                 foreach (var u in Content.Units)
                 {
                     Mix(u.health); Mix(u.armor); Mix(u.speed); Mix(u.range); Mix(u.reloadTicks); Mix(u.buildTicks); Mix(u.supply); Mix(u.heal); Mix(u.barrier); Mix(u.fieldDamage); Mix(u.crush);
-                    foreach (var c in u.cost) { Mix(c.item); Mix(c.amount); }
+                    foreach (var c in u.cost) { Mix(c.item); MixL(c.amount); }
                     Bullet(u.bullet); Bullet(u.minelay);
                 }
                 foreach (var e in Content.Enemies)
@@ -188,7 +189,7 @@ namespace AbyssDefense.Sim
                 foreach (var b in Content.Blocks)
                 {
                     Mix(b.health); Mix(b.armor); Mix(b.range); Mix(b.reloadTicks); Mix(b.buildTicks); Mix(b.supportRange); Mix(b.mendPct); Mix(b.shield); Mix(b.shieldRegen);
-                    foreach (var c in b.cost) { Mix(c.item); Mix(c.amount); }
+                    foreach (var c in b.cost) { Mix(c.item); MixL(c.amount); }
                     if (b.ammos != null) foreach (var a in b.ammos) { Mix(a.item); Mix(a.perItem); Bullet(a.bullet); }
                 }
                 for (int a = 0; a < Content.Abysses.Length; a++)

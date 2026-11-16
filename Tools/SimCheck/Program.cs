@@ -23,8 +23,8 @@ static class Program
         {
             int ab = int.Parse(args[1]), rg = int.Parse(args[2]), stg = Content.Stage(ab, rg);
             var research = ExpectedResearch(stg);
-            int cap = BaseRules.LoadoutCap(research);
-            var take = new int[Content.Items.Length];
+            long cap = BaseRules.LoadoutCap(research);
+            var take = new long[Content.Items.Length];
             take[0] = cap; take[1] = cap;
             if (stg > BaseRules.CrystalMineRegion) take[2] = cap / 2;
             foreach (var rf in BaseRules.Refineries) if (stg > rf.reqRegion) take[rf.output] = rf.output == Content.Alloy ? cap / 4 : cap / 2;
@@ -69,6 +69,7 @@ static class Program
         }
         if (args.Length >= 3 && args[0] == "map") { PrintMap(int.Parse(args[1]), int.Parse(args[2])); return 0; }
 
+        Sim.GradesDefault = false;   // 아래 검사들은 등급 차를 빼고 각 규칙만 잰다 (등급은 Grades 에서 따로)
         Construction();
         BuildTime();
         Combat();
@@ -84,6 +85,9 @@ static class Program
         BaseEconomy();
         MapChecks();
         Determinism();
+        Sim.GradesDefault = true;
+        Grades();
+        Economy();
         Console.WriteLine($"검사 {checks}개 중 실패 {fails}개");
 
         Console.WriteLine("\n자동 플레이 (봇, 그 깊이에 맞는 연구와 출격 물자 한도만큼 가져감):  결과, 웨이브, 처치, 핵 체력, 걸린 시간");
@@ -112,14 +116,15 @@ static class Program
     /// 서리 심연부터는 지나온 군주·거점 지역(5지역마다 하나)만큼 늘어난 상한까지 올렸다고 본다
     static int[] ExpectedResearch(int stage)
     {
+        // 단계형 연구는 경제 속도 목표(L7 은 잿불 100, L9 는 서리 100, L11 은 독늪 100 무렵)를 따른다
         var lv = new int[Research.Defs.Length];
-        float f = Math.Min(1f, (stage - 1) / 59f);
+        int target = stage <= Content.RegionCount ? (int)Math.Round(1 + 6.0 * (stage - 1) / (Content.RegionCount - 1)) : (int)(7 + 2.0 * (stage - Content.RegionCount) / Content.RegionCount);
         int expansions = stage > Content.RegionCount ? (stage - Content.RegionCount - 1) / 5 : 0;
         for (int i = 0; i < lv.Length; i++)
         {
             var d = Research.Defs[i];
             if (stage <= d.reqRegion) continue;
-            lv[i] = d.maxLevel == 1 ? 1 : (int)Math.Round(Research.MaxLevel(d, expansions) * f);
+            lv[i] = d.maxLevel == 1 ? 1 : Math.Min(target, Research.MaxLevel(d, expansions));
         }
         return lv;
     }
@@ -130,12 +135,12 @@ static class Program
     {
         int stage = Content.Stage(abyss, region);
         var research = ExpectedResearch(stage);
-        int cap = BaseRules.LoadoutCap(research);
-        int[] take = null;
+        long cap = BaseRules.LoadoutCap(research);
+        long[] take = null;
         if (loadout)
         {
             // 가공 자원은 그 가공 건물이 열린 뒤부터 한도의 절반씩 가져간다
-            take = new int[Content.Items.Length];
+            take = new long[Content.Items.Length];
             take[Content.Iron] = cap; take[Content.Sulfur] = cap;
             if (stage > BaseRules.CrystalMineRegion) take[Content.Crystal] = cap / 2;
             foreach (var rf in BaseRules.Refineries)
@@ -157,9 +162,9 @@ static class Program
     }
 
     /// 벽 없는 빈 맵
-    static Sim EmptySim(int[] loadout = null, SimMods mods = null)
+    static Sim EmptySim(long[] loadout = null, SimMods mods = null)
     {
-        var sim = new Sim(0, 1, loadout ?? new[] { 1000, 1000, 1000 }, mods);
+        var sim = new Sim(0, 1, loadout ?? new long[] { 1000, 1000, 1000 }, mods);
         var w = sim.world;
         for (int y = 1; y < w.H - 1; y++)
             for (int x = 1; x < w.W - 1; x++) { w.tiles[w.Idx(x, y)].wall = false; w.tiles[w.Idx(x, y)].water = false; }
@@ -174,7 +179,7 @@ static class Program
         Console.WriteLine("건설");
         var sim = EmptySim();
         var core = sim.Core;
-        int iron = core.items[Content.Iron];
+        long iron = core.items[Content.Iron];
         bool placed = sim.Place(Content.RapidTurret, 3, 20) == PlaceResult.Ok;
         Finish(sim);
         Check(placed && core.items[Content.Iron] == iron - 35, "포탑을 지으면 핵 재고에서 비용이 빠진다");
@@ -191,7 +196,7 @@ static class Program
         up.Place(Content.Wall, 3, 20); up.Place(Content.RapidTurret, 5, 20); up.Place(Content.MendTower, 7, 20); up.Place(Content.Wall, 9, 20);
         Finish(up);
         up.world.BuildAt(3, 20).health = 210;   // 절반 남은 방벽
-        int steel0 = up.Core.items[Content.Steel], iron0 = up.Core.items[Content.Iron];
+        long steel0 = up.Core.items[Content.Steel], iron0 = up.Core.items[Content.Iron];
         bool sameDef = up.Place(Content.Wall, 3, 20) == PlaceResult.Blocked;
         bool crossKind = up.Place(Content.Wall, 5, 20) == PlaceResult.Blocked && up.Place(Content.RapidTurret, 3, 20) == PlaceResult.Blocked;
         bool crossSize = up.Place(Content.MortarTurret, 5, 20) == PlaceResult.Blocked;
@@ -207,7 +212,7 @@ static class Program
         bool supportSwap = up.Place(Content.Amplifier, 7, 20) == PlaceResult.Ok;
         bool siteBusy = up.Place(Content.SlimeTurret, 5, 20) == PlaceResult.Blocked;   // 짓고 있는 건물은 덮어 지을 수 없다
         Check(turretSwap && supportSwap && siteBusy, "포탑과 지원 건물도 같은 크기끼리 덮어 짓는다 (짓고 있는 건물은 안 된다)");
-        var poorUp = EmptySim(new[] { 0, 0, 0, 10, 0, 0, 0 });
+        var poorUp = EmptySim(new long[] { 0, 0, 0, 10, 0, 0, 0 });
         poorUp.Place(Content.Wall, 3, 20); Finish(poorUp);
         poorUp.Core.items[Content.Steel] = 9;
         Check(poorUp.Place(Content.SteelWall, 3, 20) == PlaceResult.NoResources && poorUp.world.BuildAt(3, 20).def == Content.Wall, "자원이 모자라면 덮어 짓지 않고 원래 건물이 남는다");
@@ -223,7 +228,7 @@ static class Program
         Check(s2.Place(Content.MortarTurret, 6, 20) == PlaceResult.Ok, "박격포 기술을 연구하면 지을 수 있다");
         Check(Math.Abs(s2.world.BuildAt(6, 20).maxHealth - Content.MortarTurret.health * 1.4f) < 0.01f, "강화 장갑 2단계 = 체력 +40%");
 
-        var poor = EmptySim(new[] { 0, 0, 0 });
+        var poor = EmptySim(new long[] { 0, 0, 0 });
         Check(poor.Core.items[Content.Iron] == 150, "빈손으로 출격해도 기본 보급 철광 150");
         for (int i = 0; i < 4; i++) poor.Place(Content.RapidTurret, 3 + i, 20);
         Check(poor.Place(Content.RapidTurret, 8, 20) == PlaceResult.NoResources, "자원이 모자라면 못 짓는다");
@@ -244,7 +249,7 @@ static class Program
     static void BuildTime()
     {
         Console.WriteLine("건설 시간");
-        var sim = EmptySim(new[] { 850, 0, 0 });   // 기본 보급 150 을 더해 철광 1000
+        var sim = EmptySim(new long[] { 850, 0, 0 });   // 기본 보급 150 을 더해 철광 1000
         var core = sim.Core;
         int ticks = Content.RapidTurret.buildTicks;
         Check(ticks == (20 + 35) * 5 && Content.Wall.buildTicks == (20 + 8) * 5, $"건설 시간 = (20 + 비용) × 5 틱 (속사포 {ticks / 60f:0.0}초, 방벽 {Content.Wall.buildTicks / 60f:0.0}초)");
@@ -260,7 +265,7 @@ static class Program
         Check(t.Built && core.items[Content.Iron] == 965 && t.health == t.maxHealth, "다 지어지면 비용 35 를 모두 내고 체력이 가득 찬다");
 
         // 다 지어지기 전에는 쏘지 않는다
-        var s2 = EmptySim(new[] { 850, 0, 0 });
+        var s2 = EmptySim(new long[] { 850, 0, 0 });
         s2.Place(Content.RapidTurret, (int)s2.Core.Cx, s2.Core.y + 6);
         var e = new Enemy { def = Content.Walker, x = s2.Core.Cx + 3, y = s2.Core.y + 6.5f, health = 9999, maxHealth = 9999 };
         s2.enemies.Add(e);
@@ -270,7 +275,7 @@ static class Program
         Check(e.health < 9999, "다 지어지면 쏘기 시작한다");
 
         // 한 번에 두 곳까지만 짓는다
-        var s3 = EmptySim(new[] { 850, 0, 0 });
+        var s3 = EmptySim(new long[] { 850, 0, 0 });
         for (int i = 0; i < 3; i++) s3.Place(Content.RapidTurret, 3 + i, 20);
         for (int i = 0; i < 30; i++) s3.Tick();
         Check(s3.world.BuildAt(3, 20).constructing && s3.world.BuildAt(4, 20).constructing && !s3.world.BuildAt(5, 20).constructing && s3.world.BuildAt(5, 20).progress == 0, "세 번째 건물은 순서를 기다린다");
@@ -278,7 +283,7 @@ static class Program
         Check(s3.tick >= ticks * 2 && s3.tick <= ticks * 2 + 5, $"세 곳을 짓는 데 두 배 시간 ({s3.tick} 틱)");
 
         // 예약된 비용만큼은 다른 건물에 쓸 수 없다, 자원이 떨어지면 멈춘다
-        var s4 = EmptySim(new[] { 0, 0, 0 });   // 철광 150
+        var s4 = EmptySim(new long[] { 0, 0, 0 });   // 철광 150
         for (int i = 0; i < 4; i++) s4.Place(Content.RapidTurret, 3 + i, 20);
         Check(s4.Place(Content.RapidTurret, 8, 20) == PlaceResult.NoResources, "짓고 있는 건물 몫을 빼고 남은 자원으로만 놓을 수 있다 (150 = 35 × 4 + 10)");
         Check(s4.Place(Content.Wall, 8, 20) == PlaceResult.Ok, "남은 10 으로 방벽(8)은 놓을 수 있다");
@@ -288,29 +293,29 @@ static class Program
         Check(!stalled.Built && !stalled.constructing && s4.Core.items[Content.Iron] >= 0, "핵에 자원이 없으면 건설이 멈춘다");
 
         // 짓던 건물을 취소하면 낸 만큼 돌려받는다
-        var s5 = EmptySim(new[] { 850, 0, 0 });
+        var s5 = EmptySim(new long[] { 850, 0, 0 });
         s5.Place(Content.RapidTurret, 3, 20);
         for (int i = 0; i < ticks / 2; i++) s5.Tick();
         s5.Remove(3, 20);
         Check(s5.Core.items[Content.Iron] == 1000, "건설 취소는 전액 환불");
 
         // 건설 드론 연구
-        var lv = new int[Research.Defs.Length]; lv[Research.Build] = 4;
-        var s6 = EmptySim(new[] { 850, 0, 0 }, Research.Mods(lv));
+        var lv = new int[Research.Defs.Length]; lv[Research.Build] = 10;
+        var s6 = EmptySim(new long[] { 850, 0, 0 }, Research.Mods(lv));
         s6.Place(Content.RapidTurret, 3, 20);
         Finish(s6);
-        Check(Math.Abs(s6.tick - ticks / 2) <= 2, $"건설 드론 4단계 = 2배 빠르다 ({s6.tick} 틱)");
+        Check(Math.Abs(s6.tick - ticks / 2) <= 2, $"건설 드론 10단계 = 2배 빠르다 ({s6.tick} 틱)");
     }
 
     /// 포탑 하나와 적 하나를 직접 놓고 탄약·전리품 규칙을 본다
     static void Combat()
     {
         Console.WriteLine("전투");
-        var sim = EmptySim(new[] { 100, 0, 0 });
+        var sim = EmptySim(new long[] { 100, 0, 0 });
         var core = sim.Core;
         sim.Place(Content.RapidTurret, (int)core.Cx, core.y + 6);
         Finish(sim);
-        int iron = core.items[Content.Iron];
+        long iron = core.items[Content.Iron];
         var e = new Enemy { def = Content.Walker, x = core.Cx, y = core.y + 10, health = 42, maxHealth = 42 };
         sim.enemies.Add(e);
         for (int i = 0; i < 600 && !e.dead; i++) sim.Tick();
@@ -321,7 +326,7 @@ static class Program
         Check(sim.looted[Content.Iron] == 4, "전리품 집계");
 
         // 핵에 탄약 자원이 없으면 쏘지 못한다
-        var dry = EmptySim(new[] { 0, 0, 0 });
+        var dry = EmptySim(new long[] { 0, 0, 0 });
         dry.Place(Content.RapidTurret, (int)dry.Core.Cx, dry.Core.y + 6);
         Finish(dry);
         dry.Core.items[Content.Iron] = 0;
@@ -332,7 +337,7 @@ static class Program
 
         // 전리품 회수 연구
         var lv = new int[Research.Defs.Length]; lv[Research.Bounty] = 5;
-        var rich = EmptySim(new[] { 100, 0, 0 }, Research.Mods(lv));
+        var rich = EmptySim(new long[] { 100, 0, 0 }, Research.Mods(lv));
         rich.Place(Content.RapidTurret, (int)rich.Core.Cx, rich.Core.y + 6);
         Finish(rich);
         var e3 = new Enemy { def = Content.Walker, x = rich.Core.Cx, y = rich.Core.y + 10, health = 42, maxHealth = 42 };
@@ -341,7 +346,7 @@ static class Program
         Check(rich.looted[Content.Iron] == 8, "전리품 회수 5단계 = 2배 (" + rich.looted[Content.Iron] + ")");
     }
 
-    static readonly int[] Full = { 1000, 1000, 1000, 1000, 1000, 1000, 1000 };
+    static readonly long[] Full = { 1000, 1000, 1000, 1000, 1000, 1000, 1000 };
 
     static SimMods Mods(params int[] idLevel)
     {
@@ -353,16 +358,16 @@ static class Program
     static void Armor()
     {
         Console.WriteLine("방어력");
-        Check(Sim.Armored(11, 6) == 5 && Math.Abs(Sim.Armored(11, 20) - 2.2f) < 0.001f, "피해 − 방어력, 최소 20%");
+        Check(Sim.Armored(13, 6) == 7 && Sim.Armored(11, 6) == 5 && Math.Abs(Sim.Armored(11, 20) - 2.2f) < 0.001f, "피해 − 방어력, 최소 20%");
 
-        // 장갑 6 인 철갑병은 속사포(11)에 5 씩만 맞는다
-        var sim = EmptySim(new[] { 100, 0, 0 });
+        // 장갑 6 인 철갑병은 속사포(13)에 7 씩만 맞는다
+        var sim = EmptySim(new long[] { 100, 0, 0 });
         sim.Place(Content.RapidTurret, (int)sim.Core.Cx, sim.Core.y + 6);
         Finish(sim);
         var e = new Enemy { def = Content.Shell, x = sim.Core.Cx + 3, y = sim.Core.y + 6.5f, health = 110, maxHealth = 110, armor = 6 };
         sim.enemies.Add(e);
         for (int i = 0; i < 300 && e.health == 110; i++) sim.Tick();
-        Check(e.health == 105, $"철갑병(방어력 6)은 속사포에 5 씩 맞는다 ({110 - e.health})");
+        Check(e.health == 103, $"철갑병(방어력 6)은 속사포에 7 씩 맞는다 ({110 - e.health})");
 
         // 강철 방벽(방어력 5)은 보행병(9)에게 4 씩 맞는다
         var s2 = EmptySim(Full);
@@ -402,10 +407,10 @@ static class Program
         int loaded = t.ammo;
         bool swapped = t.SetAmmo(1);
         Check(swapped && loaded > 0 && t.ammo == 0 && !t.SetAmmo(1) && !t.SetAmmo(9), "탄종을 바꾸면 장전해 둔 탄을 버린다 (같은 탄·없는 탄은 무시)");
-        float before = shell.health; int steel = sim.Core.items[Content.Steel], iron = sim.Core.items[Content.Iron];
+        float before = shell.health; long steel = sim.Core.items[Content.Steel], iron = sim.Core.items[Content.Iron];
         for (int i = 0; i < 300 && shell.health == before; i++) sim.Tick();
-        Check(before - shell.health == 13 && sim.Core.items[Content.Steel] == steel - 1 && sim.Core.items[Content.Iron] == iron,
-            $"철갑탄은 철갑병(방어력 6)에게 13 그대로 들어가고 강철을 쓴다 ({before - shell.health})");
+        Check(before - shell.health == 15 && sim.Core.items[Content.Steel] == steel - 1 && sim.Core.items[Content.Iron] == iron,
+            $"철갑탄은 철갑병(방어력 6)에게 15 그대로 들어가고 강철을 쓴다 ({before - shell.health})");
 
         // 소이탄: 불이 붙는다
         t.SetAmmo(2);
@@ -468,7 +473,7 @@ static class Program
                 tb.SetAmmo(k);
                 float reach = Math.Min(def.range - 0.5f, 3f) + def.size * 0.5f;
                 var foe = Dummy(s, def.targetGround ? Content.Walker : Content.Flyer, tb.Cx + reach, tb.Cy);
-                int had = s.Core.items[am.item];
+                long had = s.Core.items[am.item];
                 for (int i = 0; i < 600; i++) s.Tick();
                 if (foe.health >= 90000 || s.Core.items[am.item] >= had) bad += $" 못때림:{def.key}:{k}";
             }
@@ -482,19 +487,19 @@ static class Program
         Finish(so);
         var ot = (TurretBuilding)so.world.BuildAt(tx, ty);
         int CountShots(int ticks) { int n = 0, last = ot.reload; for (int i = 0; i < ticks; i++) { so.Tick(); if (ot.reload > last) n++; last = ot.reload; } return n; }
-        int circ0 = so.Core.items[Content.Circuit];
+        long circ0 = so.Core.items[Content.Circuit];
         so.CmdOvercharge(ot, true);
         for (int i = 0; i < 300; i++) so.Tick();
         bool idleFree = so.Core.items[Content.Circuit] == circ0 && ot.overchargeLeft == 0;
         var od = Dummy(so, Content.Walker, tx + 3.5f, ty + 0.5f);
         int fast = CountShots(600);
-        int used = circ0 - so.Core.items[Content.Circuit];
+        long used = circ0 - so.Core.items[Content.Circuit];
         so.CmdOvercharge(ot, false);
         for (int i = 0; i < 600; i++) so.Tick();   // 남은 과부하가 다 타게 둔다
         int slow = CountShots(600);
         so.Core.items[Content.Circuit] = 0; so.CmdOvercharge(ot, true);
         int dry2 = CountShots(600);
-        Check(idleFree && fast >= 42 && fast <= 45 && used == 1 && slow == 30 && dry2 == 30 && so.log.Count == 3,
+        Check(idleFree && fast >= 28 && fast <= 31 && used == 1 && slow == 20 && dry2 == 20 && so.log.Count == 3,
             $"과부하: 쏠 적이 없으면 회로를 쓰지 않고, 있으면 회로 1개로 10초 동안 약 1.5배 (10초에 {slow} → {fast}발. 재장전이 짧은 포탑은 틱 반올림만큼 덜 빨라진다), 회로가 없으면 평소대로");
 
         // 전격탑: 번개가 곁의 적으로 건너뛴다
@@ -551,7 +556,7 @@ static class Program
             return shots;
         }
         int plain = Shots(0), one = Shots(1), two = Shots(2);
-        Check(plain == 30 && one == 40 && two == one, $"증폭탑 곁의 포탑은 1.33배 빨리 쏘고, 겹쳐도 한 번만 듣는다 (10초에 {plain} → {one} → {two}발)");
+        Check(plain == 20 && one >= 26 && one <= 27 && two == one, $"증폭탑 곁의 포탑은 1.33배 빨리 쏘고, 겹쳐도 한 번만 듣는다 (10초에 {plain} → {one} → {two}발)");
 
         // 역장 발생기: 범위 안 건물이 받는 피해를 먼저 받고, 맞지 않으면 다시 차오른다
         var s2 = EmptySim(Full, all);
@@ -578,7 +583,7 @@ static class Program
         Check(waiting && gen.shieldHp > 30 && gen.shieldHp < 45, $"역장은 5초 동안 맞지 않아야 다시 차오른다 (1초 뒤 {gen.shieldHp:0.0})");
 
         // 자동 재건: 적에게 부서진 건물을 잠시 뒤 같은 자리에 다시 놓는다
-        var s3 = EmptySim(new[] { 100, 0, 0 });
+        var s3 = EmptySim(new long[] { 100, 0, 0 });
         s3.autoRebuild = true;
         s3.Place(Content.RapidTurret, 5, 20); s3.Place(Content.Wall, 8, 20);
         Finish(s3);
@@ -586,7 +591,7 @@ static class Program
         s3.world.BuildAt(5, 20).health = 0;
         s3.Tick();
         s3.Remove(8, 20);
-        int ironNow = s3.Core.items[Content.Iron];
+        long ironNow = s3.Core.items[Content.Iron];
         bool noted = s3.ruins.Count == 1 && s3.world.BuildAt(5, 20) == null;
         for (int i = 0; i < Sim.AutoRebuildDelay - 40; i++) s3.Tick();
         bool waits = s3.world.BuildAt(5, 20) == null;
@@ -662,7 +667,7 @@ static class Program
         var guard = Dummy(s3, Content.Guard, tx + 3.5f, ty + 0.5f, 500, 2);
         guard.barrier = guard.barrierMax = 80;
         for (int i = 0; i < 300 && guard.barrier == 80; i++) s3.Tick();
-        Check(guard.barrier == 71 && guard.health == 500, $"방패병의 보호막이 체력보다 먼저 닳는다 (보호막 {guard.barrier}, 방어력 2 를 뺀 9 씩)");
+        Check(guard.barrier == 69 && guard.health == 500, $"방패병의 보호막이 체력보다 먼저 닳는다 (보호막 {guard.barrier}, 방어력 2 를 뺀 11 씩)");
         s3.Remove(tx, ty);
         s3.bullets.Clear();
         guard.barrier = 10;
@@ -743,8 +748,8 @@ static class Program
         float acidArmor = shell.Armor;
         float h0 = shell.health;
         for (int i = 0; i < 100 && shell.health == h0; i++) s8.Tick();
-        Check(shell.acidTicks > 0 && Math.Abs(acidArmor - 4f) < 0.001f && Math.Abs(h0 - shell.health - 7f) < 0.01f,
-            $"산성 지뢰를 밟은 적은 방어력이 60% 깎인다 (10 → {acidArmor}, 속사포 11 이 {h0 - shell.health} 들어간다)");
+        Check(shell.acidTicks > 0 && Math.Abs(acidArmor - 4f) < 0.001f && Math.Abs(h0 - shell.health - 9f) < 0.01f,
+            $"산성 지뢰를 밟은 적은 방어력이 60% 깎인다 (10 → {acidArmor}, 속사포 13 이 {h0 - shell.health} 들어간다)");
         var tb = (TurretBuilding)s8.world.BuildAt(tx, ty);
         tb.SetAmmo(2);
         for (int i = 0; i < 200 && shell.burnTicks == 0; i++) s8.Tick();
@@ -782,7 +787,7 @@ static class Program
         Check(noFire && burning && foe.wetTicks > 0 && foe.burnTicks == 0 && slime.ammo > 0, "젖은 적은 불이 붙는 대신 젖음이 사라지고, 불타던 적이 젖으면 불이 꺼진다");
 
         // 적은 가는 길 둘레의 유닛과 건물을 핵보다 먼저 친다 (방벽은 길을 막을 때만)
-        var sa = EmptySim(new[] { 200, 0, 0 }, all);
+        var sa = EmptySim(new long[] { 200, 0, 0 }, all);
         int ax = (int)sa.Core.Cx, ay = sa.Core.y;
         sa.Place(Content.RapidTurret, ax + 2, ay + 10); sa.Place(Content.Wall, ax - 2, ay + 13);
         Finish(sa);
@@ -796,7 +801,7 @@ static class Program
         for (int i = 0; i < 60 * 40 && sa.Core.health == sa.Core.maxHealth; i++) sa.Tick();
         Check(sa.Core.health < sa.Core.maxHealth, "둘레에 칠 것이 없으면 핵을 친다");
 
-        var sb2 = EmptySim(new[] { 200, 0, 0 }, all);
+        var sb2 = EmptySim(new long[] { 200, 0, 0 }, all);
         sb2.Place(Content.RapidTurret, ax + 2, ay + 10);
         Finish(sb2);
         sb2.Core.items[Content.Iron] = 0;
@@ -968,10 +973,45 @@ static class Program
         int storm = Shots(600);
         int left = snow.blizzardLeft;
         for (int i = 0; i < left; i++) snow.Tick();
-        Check(before && calm == 30 && (storm == 22 || storm == 23) && Math.Abs(step - Content.Flyer.speed * snow.rules.enemySpeedMul * Sim.BlizzardFly) < 0.0001f && !snow.Blizzard && snow.blizzardIn == Sim.BlizzardEvery,
+        Check(before && calm == 20 && (storm == 15 || storm == 16) && Math.Abs(step - Content.Flyer.speed * snow.rules.enemySpeedMul * Sim.BlizzardFly) < 0.0001f && !snow.Blizzard && snow.blizzardIn == Sim.BlizzardEvery,
             $"눈보라: 75초마다 20초, 포탑이 25% 느리게 쏘고 (10초에 {calm} → {storm}발) 비행체가 40% 느려진다");
 
         Progression();
+        BossEscort();
+    }
+
+    /// 마지막 웨이브: 심연 대장과 그 웨이브의 지상 적이 함께 나와 대장의 걸음으로 같이 간다. 대장은 방벽보다 포탑부터 친다
+    static void BossEscort()
+    {
+        Console.WriteLine("보스 호위와 포탑 먼저 치기");
+        var sim = new Sim(0, 1, new long[] { 400, 100, 0 });
+        sim.waveCountdown = int.MaxValue;
+        while (sim.wave < sim.rules.winWave - 1) { sim.CallNextWave(); sim.Tick(); sim.enemies.Clear(); while (sim.PendingSpawns > 0) { sim.Tick(); sim.enemies.Clear(); } sim.waveCountdown = int.MaxValue; }
+        sim.CallNextWave(); sim.Tick(); sim.Tick();
+        Enemy chief = null; int escorts = 0, others = 0;
+        foreach (var e in sim.enemies) { if (e.def.boss) chief = e; else if (e.leader != null) escorts++; else others++; }
+        bool together = chief != null && escorts > 0 && others == 0 && sim.PendingSpawns == 0;
+        foreach (var e in sim.enemies) if (e != chief && Math.Sqrt((e.x - chief.x) * (e.x - chief.x) + (e.y - chief.y) * (e.y - chief.y)) > 3) together = false;
+        Check(together, $"지역 1 의 마지막 웨이브: 심연 대장과 지상 적 {escorts}마리가 한꺼번에 대장 둘레에 나온다");
+        float maxGap = 0;
+        for (int i = 0; i < 60 * 20; i++)
+        {
+            sim.Tick();
+            if (chief.dead) break;
+            foreach (var e in sim.enemies) if (e != chief && !e.dead) maxGap = Math.Max(maxGap, (float)Math.Sqrt((e.x - chief.x) * (e.x - chief.x) + (e.y - chief.y) * (e.y - chief.y)));
+        }
+        Check(!chief.dead && maxGap < 4.5f, $"호위는 대장의 걸음에 맞춰 같이 간다 (20초 동안 대장에게서 가장 멀어진 거리 {maxGap:0.0}칸)");
+
+        // 대장 앞에 방벽, 그 뒤에 포탑: 둘 다 사거리 안이면 포탑부터 친다
+        var s = EmptySim(new long[] { 1000, 1000, 1000 });
+        int tx = (int)s.Core.Cx, ty = s.Core.y + 8;
+        s.Place(Content.Wall, tx, ty); s.Place(Content.RapidTurret, tx, ty - 1);
+        Finish(s);
+        var turret = s.world.BuildAt(tx, ty - 1); var wall = s.world.BuildAt(tx, ty);
+        var boss = new Enemy { def = Content.Chief, x = tx + 0.5f, y = ty + 1.6f, health = 1e6f, maxHealth = 1e6f, armor = 0 };
+        s.enemies.Add(boss);
+        for (int i = 0; i < 1200 && turret.health > 0; i++) s.Tick();
+        Check(turret.health <= 0 && wall.health == wall.maxHealth, $"심연 대장은 방벽 너머의 포탑부터 친다 (포탑이 부서질 때까지 방벽은 그대로) (포탑 {turret.health:0}/{turret.maxHealth:0}, 방벽 {wall.health:0}/{wall.maxHealth:0})");
     }
 
     /// 전체 진행: 난이도가 심연을 넘어 이어지고, 지역은 거미줄로 이어지고, 기술은 군주·거점 지역에 묶인다
@@ -1042,17 +1082,19 @@ static class Program
         foreach (var rf in BaseRules.Refineries) Gate(rf.reqRegion);
         Gate(BaseRules.CrystalMineRegion);
         for (int lv = 2; lv < BaseRules.MaxMineLevel; lv++) Gate(BaseRules.UpgradeRegion(lv));
-        Check(keyed && BaseRules.UpgradeRegion(1) == 6 && BaseRules.UpgradeRegion(2) == 10 && BaseRules.UpgradeRegion(9) == 45,
+        Check(keyed && BaseRules.UpgradeRegion(1) == 6 && BaseRules.UpgradeRegion(2) == 20 && BaseRules.UpgradeRegion(9) == 90 && BaseRules.UpgradeRegion(29) == 290,
             "해금은 지역 2·4·6·8·10 과, 그 뒤로는 군주·거점 지역에만 묶여 있다");
         int keys = 0; for (int r = 1; r <= Content.RegionCount; r++) if (RegionRules.IsKey(Content.Stage(1, r))) keys++;
         var deep = new int[Research.Defs.Length]; deep[Research.Damage] = 99; deep[Research.Range] = 99;
         Check(keys == Research.ExpansionsPerAbyss && Research.MaxExpansions == 40
-            && Research.MaxLevel(Research.Defs[Research.Damage], 0) == 8 && Research.MaxLevel(Research.Defs[Research.Damage], 3) == 11 && Research.MaxLevel(Research.Defs[Research.Damage], 999) == 48
-            && Research.MaxLevel(Research.Defs[Research.Range], 3) == 4 && Research.Level(deep, Research.Damage) == 48 && Research.Level(deep, Research.Range) == 4,
+            && Research.MaxLevel(Research.Defs[Research.Damage], 0) == 11 && Research.MaxLevel(Research.Defs[Research.Damage], 3) == 14 && Research.MaxLevel(Research.Defs[Research.Damage], 999) == 51
+            && Research.MaxLevel(Research.Defs[Research.Range], 3) == 11 && Research.Level(deep, Research.Damage) == 51 && Research.Level(deep, Research.Range) == 11,
             "서리 심연부터 군주·거점 지역(심연마다 20곳)을 점령할 때마다 포탑 화력 등의 연구 상한이 하나씩 늘어난다");
         var path = BaseRules.DoneUpTo(0, 0, 0);
         foreach (int r in new[] { 1, 4, 7, 10 }) path[0][r] = true;
-        Check(BaseRules.ConquestRate(Content.Iron, path) == 12 && BaseRules.ConquestRate(Content.Sulfur, path) == 0 && BaseRules.ConquestRate(Content.Sulfur, BaseRules.DoneUpTo(10, 0, 0)) == 4.5f,
+        double E(int s) => Content.EconomyMul(s);
+        Check(Math.Abs(BaseRules.ConquestRate(Content.Iron, path) - 3 * (E(1) + E(4) + E(7) + E(10))) < 1e-6 && BaseRules.ConquestRate(Content.Sulfur, path) == 0
+            && Math.Abs(BaseRules.ConquestRate(Content.Sulfur, BaseRules.DoneUpTo(10, 0, 0)) - 1.5 * (E(2) + E(5) + E(8))) < 1e-6,
             "점령 보너스는 실제로 점령한 지역만 센다 (건너뛴 지역은 없다)");
     }
 
@@ -1082,7 +1124,7 @@ static class Program
         Check(gathered, "유닛은 집결 지점에 모인다");
 
         // 전투: 탄약 없이 싸우고 전리품은 핵으로
-        int iron = core.items[Content.Iron];
+        long iron = core.items[Content.Iron];
         var e = new Enemy { def = Content.Walker, x = f.rallyX + 2, y = f.rallyY, health = 42, maxHealth = 42 };
         sim.enemies.Add(e);
         for (int i = 0; i < 300 && !e.dead; i++) sim.Tick();
@@ -1159,7 +1201,7 @@ static class Program
         var s4 = EmptySim(Full, Mods(Research.RobotFactory, 1, Research.UnitPower, 5, Research.Command, 3));
         s4.Place(Content.RobotFactory, 3, 20);
         s4.SpawnUnit(Content.Scout, (FactoryBuilding)s4.world.BuildAt(3, 20));
-        Check(Math.Abs(s4.units[0].maxHealth - 130 * 1.6f) < 0.01f && s4.UnitCap == 10, "기체 강화 5단계 = 체력 +60%, 지휘 체계 3단계 = 한도 10");
+        Check(Math.Abs(s4.units[0].maxHealth - 130 * 1.6f) < 0.01f && s4.UnitCap == 7, "기체 강화 5단계 = 체력 +60%, 지휘 체계 3단계 = 한도 7");
 
         // 실제 맵: 지상 유닛은 벽을 돌아서 가고, 비행 유닛은 넘어간다
         var real = new Sim(0, 30, Full, Mods(Research.RobotFactory, 1, Research.Airfield, 1));
@@ -1245,7 +1287,7 @@ static class Program
         for (int i = 0; i < 60 * 30; i++) sim.Tick();
         Check(sim.structuresDestroyed == 0 && sim.EnemyCores == cores, "방어 태세의 유닛은 적 거점으로 가지 않는다");
         sim.stance = UnitStance.Attack;
-        int coresBefore = sim.EnemyCores, spawnsBefore = w.spawns.Count, crystal = sim.Core.items[Content.Crystal];
+        int coresBefore = sim.EnemyCores, spawnsBefore = w.spawns.Count; long crystal = sim.Core.items[Content.Crystal];
         for (int i = 0; i < 60 * 60 * 20 && sim.EnemyCores == coresBefore; i++) sim.Tick();
         Check(sim.EnemyCores == coresBefore - 1 && w.spawns.Count == spawnsBefore - 1, $"공격 태세의 유닛이 적 핵 하나를 부수면 그 출현 지점이 사라진다 ({sim.tick / 60}초, 부순 건물 {sim.structuresDestroyed})");
         Check(sim.Core.items[Content.Crystal] >= crystal + 30, "적 핵을 부수면 전리품이 들어온다");
@@ -1254,9 +1296,9 @@ static class Program
         for (int i = 0; i < 60 * 60 * 30 && sim.state == SimState.Playing; i++) sim.Tick();
         Check(sim.state == SimState.Won && sim.EnemyCores == 0, $"적 핵을 모두 부수면 점령 ({sim.tick / 60}초, 잃은 유닛 {sim.unitsLost})");
 
-        BaseRules.RegionBonus(0, 25, out int item, out float perMin);
-        BaseRules.RegionBonus(0, 22, out int item2, out float perMin2);
-        Check(item == Content.Iron && perMin == 6 && perMin2 == 3, "적 거점 지역의 점령 보상은 두 배");
+        BaseRules.RegionBonus(0, 25, out int item, out double perMin);
+        BaseRules.RegionBonus(0, 22, out int item2, out double perMin2);
+        Check(item == Content.Iron && Math.Abs(perMin / Content.EconomyMul(25) - 6) < 1e-9 && Math.Abs(perMin2 / Content.EconomyMul(22) - 3) < 1e-9, "적 거점 지역의 점령 보상은 두 배 (경제 배수를 뺀 값)");
     }
 
     static float Dist(Unit u, float x, float y) => (float)Math.Sqrt((u.x - x) * (u.x - x) + (u.y - y) * (u.y - y));
@@ -1460,7 +1502,7 @@ static class Program
         s2d.SetRally(shop4, s2d.Core.Cx + 3.5f, s2d.Core.y + 1.5f);
         s2d.SpawnUnit(Content.Miner, shop4);
         var miner = s2d.units[0];
-        int iron0 = s2d.Core.items[Content.Iron], sulfur0 = s2d.Core.items[Content.Sulfur];
+        long iron0 = s2d.Core.items[Content.Iron], sulfur0 = s2d.Core.items[Content.Sulfur];
         for (int i = 0; i < 60 * 60 && miner.mineTrips < 3; i++) s2d.Tick();
         Check(miner.mineTile < 0 && s2d.Core.items[Content.Iron] - iron0 == 16 && s2d.Core.items[Content.Sulfur] - sulfur0 == 4 && s2d.mined[Content.Iron] == 16,
             $"채굴 드론은 벽을 캐서 핵으로 나른다 (세 번에 철광 {s2d.Core.items[Content.Iron] - iron0}, 황석 {s2d.Core.items[Content.Sulfur] - sulfur0}, {s2d.tick / 60}초)");
@@ -1540,11 +1582,11 @@ static class Program
         for (int i = 0; i < 60 * 10; i++) s2f.Tick();
         Check(Dist(s2f.units[1], flag.x, flag.y) < 2.5f && Dist(s2f.units[2], flag.x, flag.y) < 2.5f, "함재기는 공격 태세에서도 기함 곁을 지킨다");
         s2f.stance = UnitStance.Defend;
-        s2f.HurtUnit(s2f.units[1], 99999, 0);
+        s2f.HurtUnit(s2f.units[1], 99999, 0, s2f.UnitGrade(s2f.units[1]));
         int lostBefore = s2f.unitsLost;
         for (int i = 0; i < Content.Flagship.spawnTicks + 5; i++) s2f.Tick();
         Check(s2f.units.Count == 3 && lostBefore == 0, "잃은 함재기는 다시 띄우고, 잃은 유닛으로 세지 않는다");
-        s2f.HurtUnit(flag, 999999, 0);
+        s2f.HurtUnit(flag, 999999, 0, s2f.UnitGrade(flag));
         s2f.Tick(); s2f.Tick();
         Check(s2f.units.Count == 0 && s2f.unitsLost == 1, "기함을 잃으면 함재기도 함께 떨어진다");
 
@@ -1603,7 +1645,7 @@ static class Program
         s2g.Remove(rwx, rwy);
         s2g.world.BuildAt(rwx + 1, rwy).health = 0;
         s2g.Tick();
-        int ruinCount = s2g.ruins.Count, ironBefore = s2g.Core.items[Content.Iron];
+        int ruinCount = s2g.ruins.Count; long ironBefore = s2g.Core.items[Content.Iron];
         for (int i = 0; i < 60 * 40; i++) s2g.Tick();
         var again = s2g.world.BuildAt(rwx + 1, rwy);
         Check(ruinCount == 1 && s2g.ruins.Count == 0 && again != null && again.def == Content.RapidTurret && again.Built && s2g.Core.items[Content.Iron] <= ironBefore - 35,
@@ -1659,9 +1701,9 @@ static class Program
         var bul = tk.units[0];
         float fullHp = bul.health;
         float bar = Content.Bulwark.barrier;
-        tk.HurtUnit(bul, 200 + Content.Bulwark.armor, 0);
+        tk.HurtUnit(bul, 200 + Content.Bulwark.armor, 0, tk.UnitGrade(bul));
         bool soaked = bul.barrier == bar - 200 && bul.health == fullHp;
-        tk.HurtUnit(bul, bar + 100 + Content.Bulwark.armor, 0);
+        tk.HurtUnit(bul, bar + 100 + Content.Bulwark.armor, 0, tk.UnitGrade(bul));
         bool broke = bul.barrier == 0 && bul.health == fullHp - 300;
         for (int i = 0; i < Content.Bulwark.barrierDelay - 5; i++) tk.Tick();
         bool waits = bul.barrier == 0;
@@ -1765,7 +1807,7 @@ static class Program
         hv.Tick();
         Check(flyerSafe && !hv.mines.Contains(firstMine) && stepper.health < 5000 - 50 && overhead.health == 5000,
             $"지뢰는 지상의 적이 밟으면 터지고 비행체는 밟지 않는다 (피해 {5000 - stepper.health:0})");
-        hv.HurtUnit(layer, 99999, 0);
+        hv.HurtUnit(layer, 99999, 0, hv.UnitGrade(layer));
         int leftMines = hv.mines.Count;
         hv.Tick();
         Check(hv.mines.Count == leftMines && leftMines > 0, "부설기를 잃어도 깔아 둔 지뢰는 남는다");
@@ -1773,7 +1815,7 @@ static class Program
         // 심연 조립소: 연구 두 단계로 열리고, 유닛은 다른 공장의 5단계보다 훨씬 강하고 비싸며 스스로 체력을 되찾는다
         var noTech = EmptySim(Full, Mods(Research.RobotFactory, 1, Research.Tier2, 1, Research.Tier3, 1, Research.Tier4, 1, Research.Tier5, 1));
         var asmMods = Mods(Research.Assembler, 1);
-        var richLoad = new[] { 5000, 5000, 5000, 5000, 5000, 5000, 5000 };
+        var richLoad = new long[] { 10_000_000_000, 10_000_000_000, 10_000_000_000, 10_000_000_000, 10_000_000_000, 10_000_000_000, 10_000_000_000 };
         var asm = EmptySim(richLoad, asmMods);
         Check(noTech.Place(Content.Assembler, 3, 20) == PlaceResult.Locked && asm.Place(Content.Assembler, 3, 20) == PlaceResult.Ok
             && asm.IsUnlocked(Content.Colossus) && !asm.IsUnlocked(Content.Doomtank) && EmptySim(Full, Mods(Research.Assembler, 1, Research.Transcend, 1)).IsUnlocked(Content.Doomtank),
@@ -1794,7 +1836,7 @@ static class Program
         asm.units.Clear();
         asm.SpawnUnit(Content.Colossus, ab);
         var giant = asm.units[0];
-        asm.HurtUnit(giant, Content.Colossus.barrier + 5000 + Content.Colossus.armor, 0);
+        asm.HurtUnit(giant, Content.Colossus.barrier + 5000 + Content.Colossus.armor, 0, asm.UnitGrade(giant));
         float hurtTo = giant.health;
         for (int i = 0; i < 600; i++) asm.Tick();
         Check(hurtTo == giant.maxHealth - 5000 && Math.Abs(giant.health - hurtTo - Content.Colossus.regen * 10) < 1f && giant.barrier > 0,
@@ -1867,7 +1909,7 @@ static class Program
         Check(heavy.carrier == null, "방어 태세에서는 싣지 않는다");
 
         // 지휘기
-        var s5 = new Sim(0, 1, new[] { 850, 0, 0 });
+        var s5 = new Sim(0, 1, new long[] { 850, 0, 0 });
         s5.waveCountdown = int.MaxValue;
         s5.Tick();
         var cmd = s5.commander;
@@ -1886,7 +1928,7 @@ static class Program
         Finish(s5);
         int nearTicks = s5.tick - t0;
         Check(placedNear && Math.Abs(nearTicks - Content.RapidTurret.buildTicks / 1.5f) <= 3, $"지휘기 곁의 건설은 1.5배 빠르다 ({nearTicks} 틱, 보통 {Content.RapidTurret.buildTicks})");
-        s5.HurtUnit(cmd, 99999, 0);
+        s5.HurtUnit(cmd, 99999, 0, s5.UnitGrade(cmd));
         s5.Tick();
         Check(cmd.dead && s5.unitsLost == 0, "지휘기를 잃어도 유닛 손실로 세지 않는다");
         for (int i = 0; i < Sim.CommanderRespawnTicks + 2; i++) s5.Tick();
@@ -1943,19 +1985,19 @@ static class Program
             if (BaseRules.MineRate(Content.Iron, lv + 1) <= BaseRules.MineRate(Content.Iron, lv)) grows = false;
         Check(grows, "채굴장 단계가 오르면 생산량이 늘어난다");
         Check(BaseRules.ConquestRate(Content.Iron, none) == 0 && BaseRules.ConquestRate(Content.Iron, BaseRules.DoneUpTo(1, 0, 0)) == 3, "지역 1 점령 = 철광 분당 +3");
-        Check(BaseRules.ConquestRate(Content.Sulfur, BaseRules.DoneUpTo(2, 2, 0)) == 3, "지역 2 를 두 심연에서 점령 = 황석 분당 +3");
-        Check(BaseRules.ConquestRate(Content.Crystal, BaseRules.DoneUpTo(9, 0, 0)) == 0 && BaseRules.ConquestRate(Content.Crystal, BaseRules.DoneUpTo(12, 0, 0)) == 0.75f, "결정 보너스는 지역 12 부터");
+        Check(Math.Abs(BaseRules.ConquestRate(Content.Sulfur, BaseRules.DoneUpTo(2, 2, 0)) - 1.5 * (Content.EconomyMul(2) + Content.EconomyMul(102))) < 1e-6, "지역 2 를 두 심연에서 점령 = 황석 분당 1.5 × 각 지역의 경제 배수");
+        Check(BaseRules.ConquestRate(Content.Crystal, BaseRules.DoneUpTo(9, 0, 0)) == 0 && Math.Abs(BaseRules.ConquestRate(Content.Crystal, BaseRules.DoneUpTo(12, 0, 0)) - 0.75 * Content.EconomyMul(12)) < 1e-9, "결정 보너스는 지역 12 부터");
         var lv5 = new int[Research.Defs.Length]; lv5[Research.Mining] = 5; lv5[Research.Loadout] = 2;
         Check(Math.Abs(BaseRules.Rate(Content.Iron, 1, lv5, BaseRules.DoneUpTo(1, 0, 0)) - (30 * 1.5f + 3)) < 0.01f, "총생산량 = 채굴장 × 채굴 기술 + 점령 보너스");
         var lv10 = new int[Research.Defs.Length]; lv10[Research.Loadout] = 10;
         var lv1 = new int[Research.Defs.Length]; lv1[Research.Loadout] = 1;
-        Check(BaseRules.LoadoutCap(null) == 400 && BaseRules.LoadoutCap(lv1) == 550 && BaseRules.LoadoutCap(lv5) == 800 && BaseRules.LoadoutCap(lv10) == 6400 && Research.Defs[Research.Loadout].maxLevel == 10,
-            "출격 한도 400, 연구 단계가 오를수록 더 크게 늘어 10단계에 6400");
-        int capMax = BaseRules.LoadoutCap(lv10); bool fits = true;
+        Check(BaseRules.LoadoutCap(null) == 400 && BaseRules.LoadoutCap(lv1) == 1600 && BaseRules.LoadoutCap(lv5) == 6400 && BaseRules.LoadoutCap(lv10) == 419_430_400 && Research.Defs[Research.Loadout].maxLevel == 11,
+            "출격 한도 400 × 4^단계 (10단계 4억 1,943만)");
+        long capMax = BaseRules.LoadoutCap(lv10); bool fits = true;
         foreach (var hu in Content.Assembler.units)
             foreach (var hc in hu.cost)
             {
-                int need = hc.amount;
+                long need = hc.amount;
                 foreach (var bc in Content.Assembler.cost) if (bc.item == hc.item) need += bc.amount;
                 if (need > capMax * 0.6f) fits = false;
             }
@@ -1963,8 +2005,8 @@ static class Program
         bool affordable = true;
         for (int lv = 1; lv < BaseRules.MaxStorageLevel; lv++)
         {
-            int cap = BaseRules.StorageCap(lv);
-            foreach (int c in BaseRules.StorageCost(lv)) if (c > cap) affordable = false;
+            double cap = BaseRules.StorageCap(lv);
+            foreach (double c in BaseRules.StorageCost(lv)) if (c > cap) affordable = false;
         }
         Check(affordable, "창고 업그레이드 비용은 지금 창고 한도 안이다");
         // 가공 건물
@@ -1979,17 +2021,18 @@ static class Program
         st[Content.Iron] = 300;
         BaseRules.Advance(st, noMine, refLv, new[] { false, true, true, true }, noRes, none, 1, 600);
         Check(st[Content.Iron] == 300, "꺼 둔 가공 건물은 원료를 쓰지 않는다");
-        st = new double[] { 99999, 0, 0, 1495, 0, 0, 0 };
+        double cap1 = BaseRules.StorageCap(1);
+        st = new double[] { 99999, 0, 0, cap1 - 5, 0, 0, 0 };
         BaseRules.Advance(st, noMine, refLv, on, noRes, none, 1, 6000);
-        Check(Math.Abs(st[Content.Steel] - 1500) < 0.01 && Math.Abs(st[Content.Iron] - (99999 - 15)) < 0.01, "가공 자원도 창고 한도까지만 쌓인다");
+        Check(Math.Abs(st[Content.Steel] - cap1) < 0.01 && Math.Abs(st[Content.Iron] - (99999 - 15)) < 0.01, "가공 자원도 창고 한도까지만 쌓인다");
         var net = BaseRules.NetRates(new[] { 1, 1, 0 }, refLv, on, noRes, none);
         Check(net[Content.Iron] == 12 && net[Content.Steel] == 6 && net[Content.Sulfur] == 12, "순생산량: 철광 30 − 18, 강철 +6");
         st = new double[] { 0, 0, 0, 0, 0, 0, 0 };
         BaseRules.Advance(st, new[] { 1, 1, 0 }, new[] { 1, 1, 0, 0 }, on, noRes, none, 1, 8 * 3600);
-        Check(Math.Abs(st[Content.Steel] - 1500) < 1 && Math.Abs(st[Content.Circuit] - 1500) < 1 && st[Content.Iron] > 0, $"8시간 비우면 가공 자원이 한도까지 차고 남는 철광이 쌓인다 (철광 {st[Content.Iron]:0})");
-        Check(BaseRules.RefineryCost(smelter, 0)[Content.Iron] == 200 && BaseRules.RefineryRate(smelter, 2) > 12, "제련소 건설 비용·단계별 산출량");
+        Check(Math.Abs(st[Content.Steel] - cap1) < 1 && st[Content.Circuit] > cap1 * 0.9 && st[Content.Iron] > 0, $"8시간 비우면 가공 자원이 한도 가까이 차고 남는 철광이 쌓인다 (철광 {st[Content.Iron]:0}, 회로 {st[Content.Circuit]:0})");
+        Check(BaseRules.RefineryCost(smelter, 0)[Content.Iron] == 200 && BaseRules.RefineryRate(smelter, 2) > 10, "제련소 건설 비용·단계별 산출량");
         var rc = Research.Cost(Research.Defs[Research.RobotFactory], 0);
-        Check(rc[Content.Steel] == 40 && rc[Content.Iron] == 200 && rc.Length == Content.Items.Length, "로봇 공장 기술은 강철이 든다");
+        Check(rc[Content.Steel] > 0 && rc[Content.Iron] > 200 && rc.Length == Content.Items.Length, $"로봇 공장 기술은 강철이 든다 (철광 {rc[Content.Iron]:0}, 강철 {rc[Content.Steel]:0})");
         // 연구 트리: 앞 연구는 자기보다 늦게 열리지 않고, 거슬러 올라가면 반드시 뿌리에 닿는다
         bool treeOk = true; int treeRoots = 0;
         foreach (var d in Research.Defs)
@@ -2024,6 +2067,98 @@ static class Program
         Check(bad == 0, "모든 출현 지점이 핵과 이어진다 (실패 " + bad + ")");
     }
 
+    /// 등급: 등급 차가 피해에 곱해지고, 싼 건물을 도배해도 2등급 높은 적은 막지 못한다
+    static void Grades()
+    {
+        Console.WriteLine("등급");
+        Check(Content.GradeMul(-3) == 1f / 64 && Content.GradeMul(-2) == 1f / 16 && Content.GradeMul(-1) == 0.5f && Content.GradeMul(0) == 1
+            && Content.GradeMul(1) == 2 && Content.GradeMul(2) == 8 && Content.GradeMul(3) == 32 && Content.GradeMul(-5) == 1f / 64, "등급 차 배수 1/64 · 1/16 · 1/2 · 1 · 2 · 8 · 32");
+        var r1 = new Sim(0, 1); var r10 = new Sim(0, 10); var f1 = new Sim(1, 1); var m51 = new Sim(2, 51);
+        Enemy Make(Sim s, EnemyDef d) { s.waveCountdown = int.MaxValue; var e = new Enemy(); e.grade = Math.Max(1, s.rules.grade + d.gradeOffset); return e; }
+        Check(r1.rules.grade == 1 && Make(r1, Content.Chief).grade == 1 && Make(r1, Content.Walker).grade == 1 && r10.rules.grade == 2 && Make(r10, Content.Boss).grade == 3
+            && f1.rules.grade == 7 && m51.rules.grade == 10 && Make(m51, Content.Boss).grade == 11,
+            $"지역 1 대장 G1, 잿불 10 군주 G3, 서리 1 기준 G7, 독늪 51 기준 G10 ({r1.rules.grade}, {r10.rules.grade}, {f1.rules.grade}, {m51.rules.grade})");
+        var mods5 = Mods(Research.Damage, 5, Research.Health, 3, Research.UnitPower, 4);
+        Check(mods5.turretGrade == 5 && mods5.buildGrade == 3 && mods5.unitGrade == 4 && Research.Mods(new int[Research.Defs.Length]).turretGrade == 1,
+            "연구 단계가 곧 등급 (포탑 화력 → 포탑, 강화 장갑 → 그 밖의 건물, 기체 강화 → 유닛)");
+
+        // 10초 동안 주는 피해: G1 속사포 20개 대 G3 속사포 3개, 맞는 쪽은 G3 적
+        double Dealt(int turrets, int grade)
+        {
+            var s = EmptySim(new long[] { 100000, 0, 0 }, Mods(Research.Damage, grade));
+            int x0 = (int)s.Core.Cx - 5, y0 = s.Core.y + 6;
+            for (int i = 0; i < turrets; i++) s.Place(Content.RapidTurret, x0 + i % 10, y0 + i / 10);
+            Finish(s);
+            var e = Dummy(s, Content.Walker, x0 + 5, y0 + 4.5f, 1e6f);
+            e.grade = 3;
+            for (int i = 0; i < 600; i++) s.Tick();
+            return 1e6 - e.health;
+        }
+        double spam = Dealt(20, 1), few = Dealt(3, 3);
+        Check(few > spam * 2, $"G3 적에게 10초 동안: G1 속사포 20개 {spam:0} < G3 속사포 3개 {few:0}");
+        // G3 적은 G1 방벽을 8배로 부순다
+        var sw = EmptySim(new long[] { 1000, 0, 0 });
+        int wx = (int)sw.Core.Cx, wy = sw.Core.y + 6;
+        sw.Place(Content.Wall, wx, wy); Finish(sw);
+        var wall = sw.world.BuildAt(wx, wy);
+        var brk = new Enemy { def = Content.Breaker, x = wx + 0.5f, y = wy + 2f, health = 1e9f, maxHealth = 1e9f, grade = 3 };
+        sw.enemies.Add(brk);
+        float h0 = wall.health; for (int i = 0; i < 200 && wall.health == h0; i++) sw.Tick();
+        float hit = h0 - wall.health, plain = Sim.Armored(Content.Breaker.damage * sw.EnemyDamageMul, Content.Wall.armor);
+        Check(Math.Abs(hit - plain * 8) < 0.5f, $"G3 파쇄병은 G1 방벽을 8배로 친다 ({plain:0.#} → {hit:0.#})");
+    }
+
+    /// 경제: 연구비 1K → 10T, Mindustry 식 해금 연구비, 등급별 비용, 큰 수
+    static void Economy()
+    {
+        Console.WriteLine("경제");
+        bool ladder = true, beyond = true;
+        foreach (var d in Research.Defs)
+        {
+            if (d.maxLevel <= 1) continue;
+            if (d.maxLevel != Research.StandardLevels) ladder = false;
+            for (int l = 0; l < Research.StandardLevels; l++)
+                if (Math.Abs(Research.Cost(d, l)[Content.Iron] - 1000 * Math.Pow(10, l)) > 1e-6 * Math.Pow(10, l + 3)) ladder = false;
+            for (int l = Research.StandardLevels; l < Research.MaxLevel(d, Research.MaxExpansions); l++)
+                if (Research.Cost(d, l)[Content.Iron] < 1e13) beyond = false;
+        }
+        Check(ladder, "단계형 연구는 모두 11단계이고 철광 비용이 1K, 10K, … 1T, 10T");
+        Check(beyond, $"확장 단계의 비용은 모두 10T 이상 (포탑 화력 51단계 {Research.Cost(Research.Defs[Research.Damage], 50)[Content.Iron]:0.##E+0})");
+        double mortarIron = Math.Round((60 + Math.Pow(Content.MortarTurret.cost[0].amount, 1.11) * 20) / 10) * 10;
+        var tier2 = Research.Cost(Research.Defs[Research.Tier2], 0);
+        Check(Math.Abs(Research.Cost(Research.Defs[Research.Mortar], 0)[Content.Iron] - Research.Sig3(mortarIron)) < 1 && tier2[Content.Steel] > 0,
+            $"해금 연구는 Mindustry 식: 박격포 기술 철광 {Research.Cost(Research.Defs[Research.Mortar], 0)[Content.Iron]:0}, 기체 개량 I 강철 {tier2[Content.Steel]:0}");
+        Check(Content.RapidTurret.cost[0].amount == 35 && Content.Assembler.grade == 6 && Content.Assembler.cost[0].amount == 600 * 500
+            && Content.Doomtank.cost.Length > 0 && Content.Doomtank.tier == 7,
+            $"등급별 비용 배수: 속사포 그대로, 심연 조립소(G6) ×500, 7단계 유닛 ×2000 (종말 전차 {Content.Doomtank.cost[0].amount:N0})");
+        long sum = 0; foreach (var c in Content.Doomtank.cost) sum += c.amount * 100;
+        Check(sum > 0 && sum < long.MaxValue / 1000, "7단계 유닛 100기 비용도 long 범위 안");
+        var big = EmptySim(new long[] { 5_000_000_000, 0, 0 });
+        Check(big.Core.items[Content.Iron] == 5_000_000_150, $"핵 재고에 한도가 없다 ({big.Core.items[Content.Iron]:N0})");
+        Check(Content.Assembler.buildTicks < 60 * 60 * 10, $"건설 시간은 등급 배수와 상관없다 (심연 조립소 {Content.Assembler.buildTicks / 60}초)");
+        Check(BaseRules.LoadoutCapAt(0) == 400 && BaseRules.LoadoutCapAt(1) == 1600 && BaseRules.LoadoutCapAt(11) > 1_600_000_000, $"출격 물자 한도 400 × 4^L (11단계 {BaseRules.LoadoutCapAt(11):N0})");
+        Check(Math.Abs(Content.EconomyMul(1) - 1) < 1e-9 && Math.Abs(Content.EconomyMul(200) / Content.EconomyMul(100) - 100) < 1e-6 && Math.Abs(Content.EconomyMul(300) / Content.EconomyMul(200) - 100) < 1e-6,
+            $"경제 배수 E: 잿불 1 = 1, 잿불 100 = {Content.EconomyMul(100):N0}, 그 뒤 심연마다 100배");
+
+        // 경제 속도 보고: 그 단계까지 다 점령하고 채굴장을 열린 만큼 올렸을 때의 시간당 수입(철광)과, 그 무렵 살 것이 몇 시간치인가
+        Console.WriteLine("  경제 속도 (철광 기준, 채굴장 + 점령 보너스. 전리품·가공은 빼고):");
+        foreach (int s in new[] { 2, 10, 25, 50, 75, 100, 150, 200, 250, 300 })
+        {
+            int mineLv = 1; while (mineLv < BaseRules.MaxMineLevel && BaseRules.UpgradeRegion(mineLv) <= s) mineLv++;
+            var done = BaseRules.DoneUpTo(Math.Min(s, 100), Math.Max(0, Math.Min(s - 100, 100)), Math.Max(0, s - 200));
+            double perHour = (BaseRules.MineRate(Content.Iron, mineLv) + BaseRules.ConquestRate(Content.Iron, done)) * 60;
+            int L = s <= 100 ? (int)Math.Round(1 + 6.0 * (s - 1) / 99) : (int)(7 + 2.0 * (s - 100) / 100);
+            double cost = Research.Cost(Research.Defs[Research.Damage], Math.Min(L, 11) - 1)[Content.Iron];
+            Console.WriteLine($"    단계 {s,3}: 채굴장 Lv{mineLv,2}, 시간당 철광 {perHour,14:N0}  ·  포탑 화력 {L}단계 {cost:0.##E+0} = {cost / perHour,8:0.0}시간치");
+        }
+        foreach (var d in Research.Defs)
+        {
+            if (d.maxLevel > 1 || d.reqRegion <= 0) continue;
+            var c = Research.Cost(d, 0);
+            Console.WriteLine($"    해금 {d.name,-10} (지역 {d.reqRegion,2}): 철광 {c[0],12:N0} 황석 {c[1],12:N0} 결정 {c[2],10:N0} 강철 {c[3],10:N0} 회로 {c[4],10:N0} 화약 {c[5],8:N0} 합금 {c[6],10:N0}");
+        }
+    }
+
     static void Determinism()
     {
         Console.WriteLine("재현성");
@@ -2032,7 +2167,7 @@ static class Program
 
         // 진행 중 저장: 명령을 적어 두었다가 같은 틱에 다시 넣으면 같은 판이 된다
         var lv = ExpectedResearch(30);
-        int[] take = { 1500, 1500, 500, 500, 500, 500, 200 };
+        long[] take = { 1500, 1500, 500, 500, 500, 500, 200 };
         var live = new Sim(0, 30, take, Research.Mods(lv));
         int cxp = (int)live.Core.Cx, cyp = live.Core.y;
         FactoryBuilding fac = null; TurretBuilding tur = null;
@@ -2095,7 +2230,7 @@ static class Program
 
     static void PrintMap(int abyss, int region)
     {
-        var sim = new Sim(abyss, region, new[] { 400, 400, 0 });
+        var sim = new Sim(abyss, region, new long[] { 400, 400, 0 });
         var bot = new AutoBot(sim);
         for (int i = 0; i < 60 * 90; i++) { bot.Step(); sim.Tick(); }
         var w = sim.world;

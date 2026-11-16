@@ -1,10 +1,14 @@
+using System;
+
 namespace AbyssDefense.Sim
 {
     /// 길이 단위는 타일(1 = 한 칸), 시간 단위는 틱(60틱 = 1초).
+    /// 자원 묶음. 수량은 long: 높은 등급의 유닛·건물은 수십억을 쓴다
     public struct ItemStack
     {
-        public int item, amount;
-        public ItemStack(int item, int amount) { this.item = item; this.amount = amount; }
+        public int item;
+        public long amount;
+        public ItemStack(int item, long amount) { this.item = item; this.amount = amount; }
     }
 
     public sealed class ItemDef
@@ -63,8 +67,10 @@ namespace AbyssDefense.Sim
         public float health = 100;
         public float armor;              // 받는 피해에서 이만큼 뺀다 (최소 20% 는 들어온다)
         public ItemStack[] cost = new ItemStack[0];
-        public int buildTicks;           // 건설에 걸리는 틱 (비용에서 계산)
+        public ItemStack[] baseCost;     // 등급 배수를 곱하기 전의 비용 (건설 시간과 연구비 계산용, 등록할 때 채운다)
+        public int buildTicks;           // 건설에 걸리는 틱 (등급 배수를 곱하기 전의 비용에서 계산)
         public int tech = -1;            // 이 연구를 마쳐야 지을 수 있다 (Research 의 id, -1 = 처음부터)
+        public int grade = 1;            // 기본 등급: 해금되는 깊이에서 정해진다 (등록할 때 채운다). 비용 배수도 이것을 따른다
         public uint color;
 
         // 포탑
@@ -170,6 +176,7 @@ namespace AbyssDefense.Sim
         public EnemyDef carries;     // (수송체) 싣고 와서 아군 건물 곁에 내려놓는 적
         public int carryCount;
         public EnemyPrefer prefers;  // 비행체가 날아가 치는 건물, 공성 적이 사거리 안에서 먼저 치는 건물 (없으면 평소대로)
+        public int gradeOffset;      // 지역의 기준 등급에 더한다: 보통 적 −1, 능력 있는 적·대장 0, 군주 +1 (등록할 때 채운다)
         public ItemStack[] bounty = new ItemStack[0];   // 처치하면 핵으로 바로 들어오는 자원
         public uint color;
         /// 비행 유닛을 때릴 수 있는가
@@ -986,17 +993,17 @@ namespace AbyssDefense.Sim
             key = "rapid", name = "속사포", desc = "철광을 탄으로 쓴다. 지상과 공중 모두 쏜다.",
             kind = BlockKind.Turret, health = 160, color = 0xF4A261,
             cost = new[] { new ItemStack(Iron, 35) },
-            range = 5.5f, reloadTicks = 20, ammoItem = Iron, ammoPerItem = 6,
-            bullet = new BulletDef { speed = 0.22f, damage = 11, lifeTicks = 32, color = 0xFFD8A8 },
+            range = 5.5f, reloadTicks = 30, ammoItem = Iron, ammoPerItem = 6,
+            bullet = new BulletDef { speed = 0.22f, damage = 13, lifeTicks = 32, color = 0xFFD8A8 },
             ammoName = "철광탄",
             altAmmo = new[]
             {
                 new AmmoDef { item = Steel, perItem = 8, name = "철갑탄", desc = "적의 방어력을 무시한다",
-                    bullet = new BulletDef { speed = 0.24f, damage = 13, lifeTicks = 30, pierceArmor = true, color = 0xDEE2E6 } },
+                    bullet = new BulletDef { speed = 0.24f, damage = 15, lifeTicks = 30, pierceArmor = true, color = 0xDEE2E6 } },
                 new AmmoDef { item = Powder, perItem = 6, name = "소이탄", desc = "맞은 적을 불태운다",
-                    bullet = new BulletDef { speed = 0.22f, damage = 8, lifeTicks = 32, burn = 10, burnTicks = 180, color = 0xFF922B } },
+                    bullet = new BulletDef { speed = 0.22f, damage = 9, lifeTicks = 32, burn = 10, burnTicks = 180, color = 0xFF922B } },
                 new AmmoDef { item = Circuit, perItem = 8, name = "유도탄", desc = "겨눈 적을 쫓아간다",
-                    bullet = new BulletDef { speed = 0.20f, damage = 12, lifeTicks = 50, homing = 0.12f, color = 0x8CE99A } },
+                    bullet = new BulletDef { speed = 0.20f, damage = 14, lifeTicks = 50, homing = 0.12f, color = 0x8CE99A } },
             },
         };
 
@@ -1205,13 +1212,13 @@ namespace AbyssDefense.Sim
 
         public static readonly EnemyDef Walker = new EnemyDef
         {
-            key = "walker", name = "보행병", desc = "핵으로 걸어온다. 길이 막히면 약한 건물을 부순다.", health = 42, speed = 0.020f, radius = 0.30f,
+            key = "walker", name = "보행병", desc = "핵으로 걸어온다. 길이 막히면 약한 건물을 부순다.", health = 70, speed = 0.020f, radius = 0.30f,
             damage = 9, attackTicks = 50, range = 0.65f, color = 0xD64550,
             bounty = new[] { new ItemStack(Iron, 4) },
         };
         public static readonly EnemyDef Runner = new EnemyDef
         {
-            key = "runner", name = "질주병", desc = "빠르고 약하다. 떼로 온다.", health = 20, speed = 0.038f, radius = 0.22f,
+            key = "runner", name = "질주병", desc = "빠르고 약하다. 떼로 온다.", health = 32, speed = 0.038f, radius = 0.22f,
             damage = 5, attackTicks = 35, range = 0.6f, color = 0xFF8FA3,
             bounty = new[] { new ItemStack(Iron, 2), new ItemStack(Sulfur, 1) },
         };
@@ -1328,6 +1335,28 @@ namespace AbyssDefense.Sim
 
         /// 전체 단계: 심연을 차례로 이어 붙인 번호 (잿불 1~100, 서리 101~200, 독늪 201~300)
         public static int Stage(int abyss, int region) => abyss * RegionCount + region;
+
+        // ───────── 경제 규모와 등급 ─────────
+
+        /// 경제 배수: 전체 단계에 따른 자원 규모. 잿불 1 에서 1, 잿불 100 에서 약 32만, 그 뒤 심연마다 100배 (서리 100 약 3,200만, 독늪 100 약 32억)
+        public static double EconomyMul(int stage)
+        {
+            if (stage <= 1) return 1;
+            if (stage <= RegionCount) return Math.Pow(10, EconomyEmber * (stage - 1) / (RegionCount - 1.0));
+            return Math.Pow(10, EconomyEmber + EconomyPerAbyss * (stage - RegionCount) / (double)RegionCount);
+        }
+        public const double EconomyEmber = 5.5, EconomyPerAbyss = 2;
+
+        /// 그 깊이에서 열리는 것의 등급 (Mindustry 처럼 몇 구간에서 크게 뛴다): 지역 10 전 G1, 10~24 G2, 25~44 G3, 45~69 G4, 70~74 G5, 75~89 G6, 90 이상 G7
+        public static int GradeAt(int stage) => stage < 10 ? 1 : stage < 25 ? 2 : stage < 45 ? 3 : stage < 70 ? 4 : stage < 75 ? 5 : stage < 90 ? 6 : 7;
+
+        /// 등급별 비용 배수 (Mindustry 의 등급별 누적 재료 T1 20 → 100 → 350 → 2,600 → 5,050 처럼 4단계에서 크게 뛴다)
+        public static readonly long[] GradeCost = { 1, 3, 8, 50, 120, 500, 2000 };
+        public static long GradeCostMul(int grade) => GradeCost[Math.Max(0, Math.Min(GradeCost.Length - 1, grade - 1))];
+
+        /// 등급 차(공격하는 쪽 − 맞는 쪽)가 피해에 곱해진다. 2~3등급 차이는 수로 메울 수 없다
+        public static float GradeMul(int diff) =>
+            diff <= -3 ? 1f / 64 : diff == -2 ? 1f / 16 : diff == -1 ? 0.5f : diff == 0 ? 1f : diff == 1 ? 2f : diff == 2 ? 8f : 32f;
         public static int StageAbyss(int stage) => (stage - 1) / RegionCount;
         public static int StageRegion(int stage) => (stage - 1) % RegionCount + 1;
         /// "서리 심연 지역 15"
@@ -1335,7 +1364,8 @@ namespace AbyssDefense.Sim
 
         static Content()
         {
-            // 건설 시간은 비용에 비례한다: (20 + 자원별 가중 합) × 5 틱
+            // 건설 시간은 비용에 비례한다: (20 + 자원별 가중 합) × 5 틱. 등급 배수를 곱하기 전의 비용으로 잰다 (비용이 커져도 시간은 그대로)
+            // 그 뒤 비용에 등급 배수를 곱한다: 건물은 해금되는 깊이의 등급, 유닛은 단계
             float[] weight = { 1f, 1.5f, 3f, 2.5f, 3f, 2.5f, 6f };
             for (int i = 0; i < Blocks.Length; i++)
             {
@@ -1344,6 +1374,9 @@ namespace AbyssDefense.Sim
                 foreach (var s in Blocks[i].cost) sum += s.amount * weight[s.item];
                 Blocks[i].buildTicks = (int)(sum * 5);
                 var bd = Blocks[i];
+                bd.grade = bd.tech >= 0 ? GradeAt(Research.Defs[bd.tech].reqRegion) : 1;
+                bd.baseCost = bd.cost;
+                bd.cost = Scaled(bd.cost, GradeCostMul(bd.grade));
                 if (bd.kind == BlockKind.Turret)
                 {
                     bd.ammos = new AmmoDef[1 + bd.altAmmo.Length];
@@ -1351,9 +1384,19 @@ namespace AbyssDefense.Sim
                     System.Array.Copy(bd.altAmmo, 0, bd.ammos, 1, bd.altAmmo.Length);
                 }
             }
-            for (int i = 0; i < Units.Length; i++) Units[i].id = i;
+            for (int i = 0; i < Units.Length; i++) { Units[i].id = i; Units[i].cost = Scaled(Units[i].cost, GradeCostMul(Units[i].tier)); }
             for (int i = 0; i < Enemies.Length; i++) Enemies[i].id = i;
+            // 적의 등급: 보통 적은 지역 기준보다 하나 낮고, 능력 있는 적과 심연 대장은 기준, 심연 군주는 하나 높다
+            foreach (var e in new[] { Walker, Runner, Flyer, Mite, Splitter }) e.gradeOffset = -1;
+            Boss.gradeOffset = 1;
             for (int i = 0; i < Abysses.Length; i++) Abysses[i].id = i;
+        }
+
+        static ItemStack[] Scaled(ItemStack[] cost, long mul)
+        {
+            var r = new ItemStack[cost.Length];
+            for (int i = 0; i < cost.Length; i++) r[i] = new ItemStack(cost[i].item, cost[i].amount * mul);
+            return r;
         }
     }
 }

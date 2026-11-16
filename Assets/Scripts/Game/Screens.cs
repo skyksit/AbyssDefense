@@ -57,7 +57,7 @@ namespace AbyssDefense
         /// 보유 자원 두 줄: 자원마다 '보유량 / 분당 증감(채굴 + 가공)'
         void StockBar(Transform parent, float y)
         {
-            int cap = StorageCap;
+            double cap = StorageCap;
             var net = NetRates();
             for (int i = 0; i < Content.Items.Length; i++)
             {
@@ -65,24 +65,24 @@ namespace AbyssDefense
                 chip.Rt().At(new Vector2(0, 1), new Vector2(0, 1), 30 + (i % 4) * 257, y - (i / 4) * 104, 250, 96);
                 Ui.Icon(chip.transform, Art.Get("item_" + Content.Items[i].key)).Rt().At(new Vector2(0, 0.5f), new Vector2(0, 0.5f), 10, 0, 46, 46);
                 bool full = save.stock[i] >= cap;
-                var amount = Ui.Label(chip.transform, ((int)save.stock[i]).ToString("N0"), 34, full ? Ui.Gold : Ui.TextCol, TextAnchor.UpperLeft, true);
+                var amount = Ui.Label(chip.transform, Ui.Num(save.stock[i]), 34, full ? Ui.Gold : Ui.TextCol, TextAnchor.UpperLeft, true);
                 amount.rectTransform.Fill(64, 0, 4, 8);
-                float rate = net[i];
-                bool none = Mathf.Abs(rate) < 0.05f;
-                string sub = full && rate >= 0 ? "창고 가득" : none ? "생산 없음" : rate > 0 ? $"+{rate:0.#}/분" : $"−{-rate:0.#}/분";
+                double rate = net[i];
+                bool none = Math.Abs(rate) < 0.05;
+                string sub = full && rate >= 0 ? "창고 가득" : none ? "생산 없음" : rate > 0 ? $"+{Ui.Rate(rate)}/분" : $"−{Ui.Rate(-rate)}/분";
                 var r = Ui.Label(chip.transform, sub, 23, full && rate >= 0 ? Ui.Gold : none ? Ui.Dim : rate > 0 ? Ui.Good : Ui.Bad, TextAnchor.LowerLeft);
                 r.rectTransform.Fill(64, 9, 4, 0);
             }
         }
 
-        static string CostRich(int[] cost, double[] stock)
+        static string CostRich(double[] cost, double[] stock)
         {
             var sb = new System.Text.StringBuilder();
             for (int i = 0; i < cost.Length; i++)
             {
                 if (cost[i] <= 0) continue;
                 if (sb.Length > 0) sb.Append("  ");
-                sb.Append("<color=#").Append((stock[i] >= cost[i] ? Content.Items[i].color : 0xF05A5Au).ToString("X6")).Append('>').Append(cost[i].ToString("N0")).Append("</color>");
+                sb.Append("<color=#").Append((stock[i] >= cost[i] ? Content.Items[i].color : 0xF05A5Au).ToString("X6")).Append('>').Append(Ui.Num(cost[i])).Append("</color>");
             }
             return sb.ToString();
         }
@@ -95,7 +95,7 @@ namespace AbyssDefense
             {
                 if (i >= 2 && save.stock[i] < 1) continue;
                 if (sb.Length > 0) sb.Append("   ");
-                sb.Append("<color=#").Append(Content.Items[i].color.ToString("X6")).Append('>').Append(((int)save.stock[i]).ToString("N0")).Append("</color>");
+                sb.Append("<color=#").Append(Content.Items[i].color.ToString("X6")).Append('>').Append(Ui.Num(save.stock[i])).Append("</color>");
             }
             return sb.ToString();
         }
@@ -124,7 +124,7 @@ namespace AbyssDefense
 
         /// 이름·설명·단계 칸·버튼이 있는 한 줄 (기지 건물, 연구가 같이 쓴다). toggle 을 주면 가동/정지 버튼이 붙는다
         void UpgradeRow(Transform parent, float top, float h, string name, string desc, string effect, int level, int maxLevel,
-            Color accent, string locked, int[] cost, string verb, Action buy, string toggle = null, bool toggleOn = false, Action onToggle = null)
+            Color accent, string locked, double[] cost, string verb, Action buy, string toggle = null, bool toggleOn = false, Action onToggle = null)
         {
             bool max = level >= maxLevel, isLocked = locked != null;
             bool afford = !max && !isLocked && CanPay(cost);
@@ -152,7 +152,7 @@ namespace AbyssDefense
             }
 
             int kinds = 0;
-            if (cost != null) foreach (int c in cost) if (c > 0) kinds++;
+            if (cost != null) foreach (double c in cost) if (c > 0) kinds++;
             string label = isLocked ? locked : max ? "완료" : verb + "\n" + CostRich(cost, save.stock);
             var btn = Ui.Btn(row.transform, label, isLocked ? 26 : kinds >= 3 ? 27 : 32, afford ? Violet : Off, () => { if (buy != null) buy(); }, afford ? Ui.TextCol : Ui.Dim);
             btn.Rt().At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), -20, 0, 260, h - 28);
@@ -183,11 +183,11 @@ namespace AbyssDefense
             {
                 int item = i, lv = save.mineLv[i];
                 bool max = lv >= BaseRules.MaxMineLevel;
-                float mul = 1 + Research.Level(save.research, Research.Mining) * Research.Defs[Research.Mining].perLevel;
-                float now = BaseRules.MineRate(i, lv) * mul, next = BaseRules.MineRate(i, lv + 1) * mul;
-                float conquest = BaseRules.ConquestRate(i, cleared);
-                string desc = $"분당 {Content.Items[i].name} {now:0.#}" + (conquest > 0 ? $"  +  점령 지역 {conquest:0.##}" : "");
-                string effect = max ? "최대" : $"→ {next:0.#}/분";
+                double mul = 1 + Research.Level(save.research, Research.Mining) * Research.Defs[Research.Mining].perLevel;
+                double now = BaseRules.MineRate(i, lv) * mul, next = BaseRules.MineRate(i, lv + 1) * mul;
+                double conquest = BaseRules.ConquestRate(i, cleared);
+                string desc = $"분당 {Content.Items[i].name} {Ui.Rate(now)}" + (conquest > 0 ? $"  +  점령 지역 {Ui.Rate(conquest)}" : "");
+                string effect = max ? "최대" : $"→ {Ui.Rate(next)}/분";
                 string locked = !CanBuildMine(i) ? $"지역 {BaseRules.CrystalMineRegion}\n점령 시 해금" : !max && !CanUpgrade(lv) ? $"지역 {BaseRules.UpgradeRegion(lv)}\n점령 시 강화" : null;
                 UpgradeRow(list, y, rowH, $"{BaseRules.MineNames[i]}  Lv {lv}", desc, effect, lv, BaseRules.MaxMineLevel,
                     Art.C(Content.Items[i].color), locked, max ? null : BaseRules.MineCost(i, lv), lv == 0 ? "건설" : "강화", () => { if (UpgradeMine(item)) ShowBase(); });
@@ -196,7 +196,7 @@ namespace AbyssDefense
             {
                 int lv = save.storageLv;
                 bool max = lv >= BaseRules.MaxStorageLevel;
-                UpgradeRow(list, y, rowH, $"창고  Lv {lv}", $"자원마다 {StorageCap:N0} 까지 쌓인다", max ? "최대" : $"→ {BaseRules.StorageCap(lv + 1):N0}",
+                UpgradeRow(list, y, rowH, $"창고  Lv {lv}", $"자원마다 {Ui.Num(StorageCap)} 까지 쌓인다", max ? "최대" : $"→ {Ui.Num(BaseRules.StorageCap(lv + 1))}",
                     lv, BaseRules.MaxStorageLevel, accent, !max && !CanUpgrade(lv) ? $"지역 {BaseRules.UpgradeRegion(lv)}\n점령 시 강화" : null, max ? null : BaseRules.StorageCost(lv), "강화", () => { if (UpgradeStorage()) ShowBase(); });
                 y += rowH + gap;
             }
@@ -209,12 +209,13 @@ namespace AbyssDefense
                 int id = k, lv = save.refLv[k];
                 var d = BaseRules.Refineries[k];
                 bool max = lv >= BaseRules.MaxRefineryLevel, on = save.refOn[k];
-                float now = BaseRules.RefineryRate(d, Mathf.Max(1, lv)), next = BaseRules.RefineryRate(d, lv + 1);
+                double now = BaseRules.RefineryRate(d, Mathf.Max(1, lv)), next = BaseRules.RefineryRate(d, lv + 1);
                 var sb = new System.Text.StringBuilder(lv > 0 && !on ? "정지 중  ·  분당 " : "분당 ");
                 for (int j = 0; j < d.inputs.Length; j++)
-                    sb.Append(j > 0 ? " + " : "").Append(Content.Items[d.inputs[j].item].name).Append(' ').Append((now * d.inputs[j].amount).ToString("0.#"));
-                sb.Append(" → ").Append(Content.Items[d.output].name).Append(' ').Append(now.ToString("0.#"));
-                string effect = max ? "최대" : lv == 0 ? "" : $"→ {next:0.#}/분";
+                    sb.Append(j > 0 ? " + " : "").Append(Content.Items[d.inputs[j].item].name).Append(' ').Append(Ui.Rate(now * d.inputs[j].amount));
+                double yield = RefineryYield;
+                sb.Append(" → ").Append(Content.Items[d.output].name).Append(' ').Append(Ui.Rate(now * yield));
+                string effect = max ? "최대" : lv == 0 ? "" : $"→ {Ui.Rate(next * yield)}/분";
                 string locked = !CanBuildRefinery(k) ? $"지역 {d.reqRegion}\n점령 시 해금" : !max && !CanUpgrade(lv) ? $"지역 {BaseRules.UpgradeRegion(lv)}\n점령 시 강화" : null;
                 UpgradeRow(list, y, rowH, lv > 0 ? $"{d.name}  Lv {lv}" : d.name, sb.ToString(), effect, lv, BaseRules.MaxRefineryLevel,
                     Art.C(Content.Items[d.output].color), locked, max ? null : BaseRules.RefineryCost(d, lv), lv == 0 ? "건설" : "강화", () => { if (UpgradeRefinery(id)) ShowBase(); },
@@ -226,7 +227,7 @@ namespace AbyssDefense
             top.Rt().TopBar(0, TopH);
             var title = Ui.Label(top.transform, "기지", 64, null, TextAnchor.UpperLeft, true);
             title.rectTransform.Fill(34, 0, 20, 20);
-            var hint = Ui.Label(top.transform, $"창고 한도 {StorageCap:N0}  ·  게임을 꺼 두어도 8시간까지 생산합니다", 27, Ui.Dim, TextAnchor.UpperLeft);
+            var hint = Ui.Label(top.transform, $"창고 한도 {Ui.Num(StorageCap)}  ·  게임을 꺼 두어도 8시간까지 생산합니다", 27, Ui.Dim, TextAnchor.UpperLeft);
             hint.rectTransform.Fill(34, 0, 20, 104);
             StockBar(top.transform, -164);
 
@@ -465,7 +466,7 @@ namespace AbyssDefense
             string body =
                 (r.assault ? $"맵 {r.mapW}×{r.mapH}칸  ·  적 핵 {r.spawnCount}개를 유닛으로 모두 부수면 점령  ·  웨이브는 끝없이 옵니다\n"
                            : $"맵 {r.mapW}×{r.mapH}칸  ·  웨이브 {r.winWave}회  ·  출현 지점 {r.spawnCount}곳\n") +
-                $"적 체력 ×{r.enemyHealthMul:0.0}  ·  속도 ×{r.enemySpeedMul:0.00}  ·  수 ×{r.countMul:0.00}  ·  전리품 ×{r.bountyMul:0.0#}" +
+                $"적 G{r.grade}  ·  체력 ×{r.enemyHealthMul:0.0}  ·  속도 ×{r.enemySpeedMul:0.00}  ·  수 ×{r.countMul:0.00}  ·  전리품 ×{r.bountyMul:0.0#}" +
                 (r.hasBoss ? "  (군주 지역 가산)" : r.assault ? "  (거점 지역 가산)" : "") + "\n적";
             var info = Ui.Label(sheet, body, 29, Ui.Dim, TextAnchor.UpperLeft);
             info.lineSpacing = 1.3f;
@@ -492,8 +493,8 @@ namespace AbyssDefense
             string reward;
             if (first)
             {
-                BaseRules.RegionBonus(abyss, region, out int item, out float perMin);
-                reward = $"첫 점령 보상   기지 생산 {Content.Items[item].name} +{perMin:0.##}/분" + (r.assault ? "  (거점 보상 2배)" : "");
+                BaseRules.RegionBonus(abyss, region, out int item, out double perMin);
+                reward = $"첫 점령 보상   기지 생산 {Content.Items[item].name} +{Ui.Rate(perMin)}/분" + (r.assault ? "  (거점 보상 2배)" : "");
                 // 이 지역에 묶인 기술: 이 지역을 점령해야만 열린다
                 var opens = StageUnlocks(r.stage, BestStage, Mathf.Max(BestStage, r.stage));
                 if (opens.Count > 0) reward += "\n해금   " + string.Join(", ", opens);
@@ -504,28 +505,28 @@ namespace AbyssDefense
             rw.rectTransform.Fill(40, 0, 40, 216 + Shift);
 
             // 가져갈 자원
-            int cap = LoadoutCap;
-            var lt = Ui.Label(sheet, $"가져갈 자원  (종류마다 최대 {cap:N0}, 기본 보급 철광 {r.startItems[Content.Iron]} 은 따로 받습니다)", 27, Ui.TextCol, TextAnchor.UpperLeft);
+            long cap = LoadoutCap;
+            var lt = Ui.Label(sheet, $"가져갈 자원  (종류마다 최대 {Ui.Num(cap)}, 기본 보급 철광 {r.startItems[Content.Iron]} 은 따로 받습니다)", 27, Ui.TextCol, TextAnchor.UpperLeft);
             lt.rectTransform.Fill(40, 0, 40, 356 + Shift);
             for (int k = 0; k < shown.Count; k++)
             {
                 int item = shown[k];
-                int have = (int)save.stock[item], limit = Mathf.Min(cap, have);
+                long have = (long)Math.Floor(save.stock[item]), limit = Math.Min(cap, have);
                 var row = Ui.Panel(sheet, Ui.Card, true, "Loadout");
                 row.Rt().TopBar(404 + Shift + k * rowStep, rowStep - 10, 30, 30);
                 Ui.Icon(row.transform, Art.Get("item_" + Content.Items[item].key)).Rt().At(new Vector2(0, 0.5f), new Vector2(0, 0.5f), 18, 0, 52, 52);
                 var nm = Ui.Label(row.transform, Content.Items[item].name, 31, null, TextAnchor.UpperLeft, true);
                 nm.rectTransform.Fill(86, 0, 600, 12);
-                var hv = Ui.Label(row.transform, $"보유 {have:N0}", 24, Ui.Dim, TextAnchor.LowerLeft);
+                var hv = Ui.Label(row.transform, $"보유 {Ui.Num(have)}", 24, Ui.Dim, TextAnchor.LowerLeft);
                 hv.rectTransform.Fill(86, 11, 600, 0);
                 var val = Ui.Label(row.transform, "", 42, Ui.Gold, TextAnchor.MiddleCenter, true);
                 val.rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), -380, 0, 190, 76);
-                Action show = () => val.text = LoadoutAmount(item).ToString("N0");
-                Action<int> set = v => { save.loadout[item] = Mathf.Clamp(v, 0, limit); show(); };
-                int step = cap >= 2000 ? 250 : cap >= 1000 ? 100 : 50;   // 한도가 커지면 한 번에 더 많이 바꾼다
-                var minus = Ui.Btn(row.transform, "-" + step, 30, Off, () => set(LoadoutAmount(item) - step));
+                Action show = () => val.text = Ui.Num(LoadoutAmount(item));
+                Action<long> set = v => { save.loadout[item] = Math.Max(0, Math.Min(v, limit)); show(); };
+                long step = Math.Max(10, cap / 10);   // 한도의 10% 씩
+                var minus = Ui.Btn(row.transform, "-10%", 30, Off, () => set(LoadoutAmount(item) - step));
                 minus.Rt().At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), -580, 0, 120, 76);
-                var plus = Ui.Btn(row.transform, "+" + step, 30, Off, () => set(LoadoutAmount(item) + step));
+                var plus = Ui.Btn(row.transform, "+10%", 30, Off, () => set(LoadoutAmount(item) + step));
                 plus.Rt().At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), -250, 0, 120, 76);
                 var maxB = Ui.Btn(row.transform, "최대", 30, Off, () => set(limit));
                 maxB.Rt().At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), -20, 0, 110, 76);

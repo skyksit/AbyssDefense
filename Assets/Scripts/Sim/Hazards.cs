@@ -61,6 +61,7 @@ namespace AbyssDefense.Sim
             if (!OnHazard(e.x, e.y)) return;
             if (rules.hazard == Hazard.Lava)
             {
+                hitGrade = 0;   // 지형 피해는 등급 차를 따지지 않는다
                 Damage(e, e.maxHealth * LavaPct * 0.25f * (e.def.boss ? 0.5f : 1f), true);
                 fx.Add(new Fx { kind = FxKind.Hit, x = e.x, y = e.y, r = e.def.radius * 0.8f, color = 0xFF922B });
             }

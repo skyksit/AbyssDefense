@@ -68,7 +68,7 @@ namespace AbyssDefense.Sim
         public float health, maxHealth;
         public const float SiteHealth = 0.15f;   // 막 놓은 건설 터의 체력 비율
         public float progress = 1f;              // 건설 진행도 (1 = 완성)
-        public int[] paid;                       // 건설하며 지금까지 낸 비용 (def.cost 순서)
+        public long[] paid;                      // 건설하며 지금까지 낸 비용 (def.cost 순서)
         public bool constructing;                // 이번 틱에 실제로 지어지고 있다 (순서를 기다리거나 자원이 없으면 false)
         public bool Built => progress >= 1f;
         public bool dead;
@@ -173,17 +173,16 @@ namespace AbyssDefense.Sim
             reload = def.reloadTicks;
             aim = (float)Math.Atan2(u.y - Cy, u.x - Cx);
             sim.fx.Add(new Fx { kind = FxKind.Shoot, x = Cx + (float)Math.Cos(aim) * 0.5f, y = Cy + (float)Math.Sin(aim) * 0.5f, x2 = Cx + (float)Math.Cos(aim) * 1.5f, y2 = Cy + (float)Math.Sin(aim) * 1.5f, r = 0.25f, color = def.bullet.color });
-            sim.HurtUnit(u, damage, def.bullet.color);
+            sim.HurtUnit(u, damage, def.bullet.color, sim.rules.grade);
         }
     }
 
     /// 가져온 자원과 전리품이 쌓이는 곳. 건설 비용과 포탑 탄약이 모두 여기서 나간다.
     public sealed class CoreBuilding : Building
     {
-        public const int Capacity = 99999;
-        public readonly int[] items = new int[Content.Items.Length];
+        public readonly long[] items = new long[Content.Items.Length];   // 한도가 없다 (높은 등급의 유닛·건물은 수십억을 쓴다)
 
-        public void Add(int item, int amount) { items[item] = Math.Min(Capacity, items[item] + amount); }
+        public void Add(int item, long amount) { items[item] += amount; }
 
         public bool Has(ItemStack[] cost)
         {
@@ -193,7 +192,7 @@ namespace AbyssDefense.Sim
         public void Pay(ItemStack[] cost) { foreach (var c in cost) items[c.item] -= c.amount; }
         public void Refund(ItemStack[] cost, float ratio)
         {
-            foreach (var c in cost) Add(c.item, (int)(c.amount * ratio));
+            foreach (var c in cost) Add(c.item, (long)(c.amount * (double)ratio));
         }
     }
 

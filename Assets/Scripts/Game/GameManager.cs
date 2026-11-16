@@ -21,14 +21,14 @@ namespace AbyssDefense
         public int version = 4;
         public List<AbyssSave> abysses = new List<AbyssSave>();
         public int[] research = new int[0];             // 연구 단계 (모든 심연 공통)
-        public int[] researchPaid = new int[0];         // 다음 단계 비용 중 미리 넣어 둔 양 [연구 × 자원]
+        public double[] researchPaid = new double[0];   // 다음 단계 비용 중 미리 넣어 둔 양 [연구 × 자원]
         // 기지
         public double[] stock = { 500, 150, 0, 0, 0, 0, 0 };   // 보유 자원 (Content.Items 순서)
         public int[] mineLv = { 1, 1, 0 };              // 채굴장 단계 [철광, 황석, 심연 결정]
         public int[] refLv = new int[0];                // 가공 건물 단계 (0 = 아직 안 지음)
         public bool[] refOn = new bool[0];              // 가공 건물 가동 여부
         public int storageLv = 1;                       // 창고 단계
-        public int[] loadout = { 400, 100, 0, 0, 0, 0, 0 };   // 출격할 때 가져갈 양 (마지막 설정)
+        public long[] loadout = { 400, 100, 0, 0, 0, 0, 0 };   // 출격할 때 가져갈 양 (마지막 설정)
         public double lastTime;                         // 생산을 마지막으로 정산한 시각 (초)
         public List<string> hints = new List<string>(); // 이미 본 힌트의 key
         public RunSave run = new RunSave();             // 진행 중인 지역 (없으면 active = false)
@@ -41,7 +41,7 @@ namespace AbyssDefense
         public bool active;
         public int rules;                               // 그 판을 시작할 때의 규칙 지문. 달라졌으면 이어할 수 없다
         public int abyss, region;
-        public int[] taken = new int[0];                // 가져간 자원
+        public long[] taken = new long[0];              // 가져간 자원
         public int[] research = new int[0];             // 출격할 때의 연구 단계
         public int tick;                                // 마지막으로 저장한 틱
         public List<SimCommand> cmds = new List<SimCommand>();
@@ -85,7 +85,7 @@ namespace AbyssDefense
         public bool Paused { get; private set; }
         public int AbyssId { get; private set; }
         public int Region { get; private set; }
-        public int[] Taken { get; private set; }     // 이번 출격에 가져간 자원
+        public long[] Taken { get; private set; }    // 이번 출격에 가져간 자원
 
         Camera cam;
         RectTransform safe, screen;
@@ -163,8 +163,8 @@ namespace AbyssDefense
                 var sb = new System.Text.StringBuilder();
                 for (int i = 0; i < before.Length; i++)
                 {
-                    int g = (int)(save.stock[i] - before[i]);
-                    if (g > 0) sb.Append(sb.Length > 0 ? "   " : "").Append(Content.Items[i].name).Append(" +").Append(g);
+                    double g = save.stock[i] - before[i];
+                    if (g >= 1) sb.Append(sb.Length > 0 ? "   " : "").Append(Content.Items[i].name).Append(" +").Append(Ui.Num(g));
                 }
                 if (sb.Length > 0) offlineNote = "자리를 비운 동안  " + sb;
             }
@@ -187,13 +187,13 @@ namespace AbyssDefense
             if (save.researchPaid == null || save.researchPaid.Length != Research.Defs.Length * n)
             {
                 // 연구가 뒤에 늘어난 예전 세이브는 미리 넣어 둔 양을 그대로 옮긴다 (자원 종류가 달라졌으면 비운다)
-                var paid = new int[Research.Defs.Length * n];
+                var paid = new double[Research.Defs.Length * n];
                 if (save.researchPaid != null && save.researchPaid.Length % n == 0) Array.Copy(save.researchPaid, paid, Math.Min(paid.Length, save.researchPaid.Length));
                 save.researchPaid = paid;
             }
             // 자원 종류가 늘어난 예전 세이브는 있던 값을 그대로 옮긴다
             save.stock = Fit(save.stock, n, new double[] { 500, 150 });
-            save.loadout = Fit(save.loadout, n, new[] { 400, 100 });
+            save.loadout = Fit(save.loadout, n, new long[] { 400, 100 });
             if (save.mineLv == null || save.mineLv.Length != Content.RawCount) save.mineLv = new[] { 1, 1, 0 };
             int rn = BaseRules.Refineries.Length;
             save.refLv = Fit(save.refLv, rn, new int[0]);
@@ -325,11 +325,12 @@ namespace AbyssDefense
         }
 
         /// 채굴로 들어오는 분당 생산량 (가공 건물이 쓰는 양은 빼지 않은 값)
-        public float Rate(int item) => item < Content.RawCount ? BaseRules.Rate(item, save.mineLv[item], save.research, Done) : 0;
+        public double Rate(int item) => item < Content.RawCount ? BaseRules.Rate(item, save.mineLv[item], save.research, Done) : 0;
         /// 가공 건물까지 넣은 자원별 분당 증감
-        public float[] NetRates() => BaseRules.NetRates(save.mineLv, save.refLv, save.refOn, save.research, Done);
-        public int StorageCap => BaseRules.StorageCap(save.storageLv);
-        public int LoadoutCap => BaseRules.LoadoutCap(save.research);
+        public double[] NetRates() => BaseRules.NetRates(save.mineLv, save.refLv, save.refOn, save.research, Done);
+        public double StorageCap => BaseRules.StorageCap(save.storageLv);
+        public double RefineryYield => BaseRules.RefineryYield(Done);
+        public long LoadoutCap => BaseRules.LoadoutCap(save.research);
 
         /// 지난 시간만큼 기지를 돌린다 (채굴 + 가공). 창고 한도까지만 쌓이고, 오래 비워도 8시간치까지만
         public void Accrue()
@@ -341,13 +342,13 @@ namespace AbyssDefense
             BaseRules.Advance(save.stock, save.mineLv, save.refLv, save.refOn, save.research, Done, save.storageLv, dt);
         }
 
-        public bool CanPay(int[] cost)
+        public bool CanPay(double[] cost)
         {
             for (int i = 0; i < cost.Length; i++) if (save.stock[i] < cost[i]) return false;
             return true;
         }
 
-        bool Pay(int[] cost)
+        bool Pay(double[] cost)
         {
             Accrue();
             if (!CanPay(cost)) { Toast("자원이 부족합니다"); return false; }
@@ -412,7 +413,7 @@ namespace AbyssDefense
             for (int i = 0; i < cost.Length; i++)
             {
                 int k = d.id * Content.Items.Length + i;
-                int use = Mathf.Clamp(cost[i] - save.researchPaid[k], 0, (int)save.stock[i]);
+                double use = Math.Max(0, Math.Min(cost[i] - save.researchPaid[k], Math.Floor(save.stock[i])));
                 save.stock[i] -= use;
                 save.researchPaid[k] += use;
                 if (use > 0) any = true;
@@ -429,7 +430,7 @@ namespace AbyssDefense
         }
 
         /// 지금 설정대로 출격하면 실제로 가져가게 되는 양
-        public int LoadoutAmount(int item) => Mathf.Clamp(save.loadout[item], 0, Mathf.Min(LoadoutCap, (int)save.stock[item]));
+        public long LoadoutAmount(int item) => Math.Max(0, Math.Min(save.loadout[item], Math.Min(LoadoutCap, (long)Math.Floor(save.stock[item]))));
 
         // ───────── 화면 ─────────
 
@@ -485,14 +486,14 @@ namespace AbyssDefense
             Accrue();
             AbyssId = abyss; Region = region;
             ResultShown = false; Paused = false; Speed = 1; acc = 0;
-            Taken = new int[Content.Items.Length];
+            Taken = new long[Content.Items.Length];
             for (int i = 0; i < Taken.Length; i++)
             {
                 Taken[i] = LoadoutAmount(i);
                 save.stock[i] -= Taken[i];
             }
             sim = new Sim.Sim(abyss, region, Taken, Research.Mods(save.research));
-            save.run = new RunSave { active = true, rules = Sim.Sim.RulesFingerprint(), abyss = abyss, region = region, taken = (int[])Taken.Clone(), research = (int[])save.research.Clone() };
+            save.run = new RunSave { active = true, rules = Sim.Sim.RulesFingerprint(), abyss = abyss, region = region, taken = (long[])Taken.Clone(), research = (int[])save.research.Clone() };
             Save();
             EnterPlay();
             if (sim.rules.hazard != Hazard.None) Toast($"{sim.abyss.hazardName}: {sim.abyss.hazardDesc}", 6f);
@@ -527,7 +528,7 @@ namespace AbyssDefense
             EndRegion();
             AbyssId = run.abyss; Region = run.region;
             ResultShown = false; Paused = false; Speed = 1; acc = 0;
-            Taken = (int[])run.taken.Clone();
+            Taken = (long[])run.taken.Clone();
             var root = NewScreen("Resume");
             Ui.Panel(root, Ui.Bg).Rt().Fill();
             var label = Ui.Label(root, "", 44, null, TextAnchor.MiddleCenter, true);
@@ -570,7 +571,7 @@ namespace AbyssDefense
         {
             if (sim != null && sim.state == SimState.Playing)
             {
-                for (int i = 0; i < save.stock.Length; i++) save.stock[i] += (int)(sim.Core.items[i] * RetreatReturn);
+                for (int i = 0; i < save.stock.Length; i++) save.stock[i] += Math.Floor(sim.Core.items[i] * (double)RetreatReturn);
             }
             save.run.active = false;
             Save();
@@ -637,7 +638,7 @@ namespace AbyssDefense
         {
             ResultShown = true;
             bool won = sim.state == SimState.Won;
-            var returned = new int[Content.Items.Length];
+            var returned = new long[Content.Items.Length];
             string bonus = null;
             var unlocked = new List<string>();
             if (won)
@@ -653,8 +654,8 @@ namespace AbyssDefense
                     // 처음 점령: 기지 생산량이 늘고, 이 지역에 묶인 기술이 열린다
                     int stage = Content.Stage(AbyssId, Region), bestBefore = BestStage;
                     save.abysses[AbyssId].done[Region] = true;
-                    BaseRules.RegionBonus(AbyssId, Region, out int item, out float perMin);
-                    bonus = $"{Content.Items[item].name} +{perMin:0.##}/분";
+                    BaseRules.RegionBonus(AbyssId, Region, out int item, out double perMin);
+                    bonus = $"{Content.Items[item].name} +{Ui.Rate(perMin)}/분";
                     unlocked.AddRange(StageUnlocks(stage, bestBefore, BestStage));
                 }
             }

@@ -11,6 +11,8 @@ namespace AbyssDefense.Sim
         public float depth;              // 판의 규모: 0(잿불 1) ~ 1(잿불 100). 그 뒤의 심연은 줄곧 1 (가장 큰 맵, 가장 긴 웨이브)
         public float power;              // 적의 강도: 단계에 비례하고 군주·거점 가산이 붙는다 (잿불 1 = 0, 잿불 99 ≈ 1). 상한이 없어 심연을 넘어 계속 커진다
         public float enemySpeedMul, countMul, bountyMul;   // 강도에 비례하는 적 속도·적의 수·전리품 배수
+        public double lootMul;           // 전리품에 더 곱하는 경제 배수: E(단계)^LootExp (깊을수록 전리품이 지수로 커진다)
+        public int grade;                // 이 지역의 기준 등급 (적은 종류별로 여기에 더한다. 적 거점의 건물과 아군 핵도 이 등급)
         public long seed;
         public int mapW, mapH;
         public int winWave;
@@ -33,6 +35,10 @@ namespace AbyssDefense.Sim
 
         // 군주·거점 지역은 이만큼 더 깊은 단계의 강도로 나온다
         public const int BossBonusStages = 8, AssaultBonusStages = 5;
+        public const double LootExp = 0.8;
+
+        /// 그 단계의 기준 등급: 잿불에서는 그 깊이에서 열린 가장 높은 등급(G1 ~ G7), 그 뒤로는 50단계마다 하나씩 (서리 51 G8, 독늪 1 G9, 독늪 51 G10)
+        public static int GradeFor(int stage) => stage <= Content.RegionCount ? Content.GradeAt(stage) : 7 + (stage - Content.RegionCount - 1) / 50;
 
         // 후반 보정: 출격 물자 한도가 크게 늘었으므로(최대 6400) 깊은 지역의 적을 그만큼 더 강하게 한다.
         // 단계 10 까지는 그대로고, 단계 100 에서 체력 ×(1 + LateHealth), 공격력 ×(1 + LateDamage), 방어력 ×(1 + LateArmor),
@@ -75,6 +81,8 @@ namespace AbyssDefense.Sim
                 enemySpeedMul = 1 + 0.2f * p,
                 countMul = 1 + 0.5f * p,
                 bountyMul = (float)Math.Pow(2, p),
+                lootMul = Math.Pow(Content.EconomyMul(stage), LootExp),
+                grade = GradeFor(stage),
                 hasBoss = boss,
                 assault = assault,
                 startItems = new int[Content.Items.Length],

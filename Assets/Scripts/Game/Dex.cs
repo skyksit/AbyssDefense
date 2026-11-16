@@ -10,6 +10,18 @@ namespace AbyssDefense
     {
         static readonly string[] DexTabs = { "유닛", "적", "건물" };
         int dexTab;
+        readonly HashSet<string> dexFolded = new HashSet<string>();   // 접어 둔 묶음 ("탭:제목")
+
+        /// 도감의 한 묶음: 제목 줄 아래에 같은 종류의 줄이 모인다
+        sealed class DexGroup
+        {
+            public string title;
+            public Color col;
+            public int open;   // 알아본(열린) 줄의 수
+            public readonly List<System.Action<Transform, float>> rows = new List<System.Action<Transform, float>>();
+            public DexGroup(string title, Color col) { this.title = title; this.col = col; }
+            public void Add(bool isOpen, System.Action<Transform, float> row) { rows.Add(row); if (isOpen) open++; }
+        }
 
         public void ShowDex() { ShowDex(dexTab); }
 
@@ -20,13 +32,26 @@ namespace AbyssDefense
             var root = NewScreen("Dex");
             Ui.Panel(root, Ui.Bg).Rt().Fill();
 
-            const float topH = 236, rowH = 190, gap = 10;
-            var rows = new List<System.Action<Transform, float>>();
-            if (dexTab == 0) DexUnits(rows);
-            else if (dexTab == 1) DexEnemies(rows);
-            else DexBlocks(rows);
-            var list = ScrollList(root, "dex" + dexTab, topH, 0, 10 + rows.Count * (rowH + gap) + 30);
-            for (int i = 0; i < rows.Count; i++) rows[i](list, 10 + i * (rowH + gap));
+            const float topH = 236, rowH = 190, headH = 84, gap = 10;
+            var groups = new List<DexGroup>();
+            if (dexTab == 0) DexUnits(groups);
+            else if (dexTab == 1) DexEnemies(groups);
+            else DexBlocks(groups);
+            groups.RemoveAll(g => g.rows.Count == 0);
+
+            float height = 10;
+            foreach (var g in groups) height += headH + gap + (dexFolded.Contains(dexTab + ":" + g.title) ? 0 : g.rows.Count * (rowH + gap));
+            var list = ScrollList(root, "dex" + dexTab, topH, 0, height + 30);
+            float y = 10;
+            foreach (var g in groups)
+            {
+                string key = dexTab + ":" + g.title;
+                bool folded = dexFolded.Contains(key);
+                DexHeader(list, y, g, folded, () => { if (!dexFolded.Remove(key)) dexFolded.Add(key); ShowDex(dexTab); });
+                y += headH + gap;
+                if (folded) continue;
+                foreach (var row in g.rows) { row(list, y); y += rowH + gap; }
+            }
 
             var top = Ui.Panel(root, Ui.PanelCol);
             top.Rt().TopBar(0, topH);
@@ -42,6 +67,20 @@ namespace AbyssDefense
                 var tb = Ui.Btn(top.transform, DexTabs[i], 36, i == dexTab ? Primary : Ui.Card, () => ShowDex(k));
                 tb.Rt().At(new Vector2(0, 0), new Vector2(0, 0), 30 + i * 345, 16, 330, 88);
             }
+        }
+
+        /// 묶음의 제목 줄: 누르면 접고 편다
+        void DexHeader(Transform parent, float top, DexGroup g, bool folded, System.Action toggle)
+        {
+            var head = Ui.Btn(parent, null, 0, new Color(0.13f, 0.14f, 0.18f), toggle);
+            head.Rt().TopBar(top, 84, 30, 30);
+            var bar = Ui.Panel(head.transform, g.col, false, "Accent");
+            bar.raycastTarget = false;
+            bar.Rt().At(new Vector2(0, 0.5f), new Vector2(0, 0.5f), 0, 0, 10, 84);
+            var t = Ui.Label(head.transform, g.title, 36, g.col, TextAnchor.MiddleLeft, true);
+            t.rectTransform.Fill(34, 0, 300, 0);
+            var n = Ui.Label(head.transform, $"{g.open} / {g.rows.Count}    {(folded ? "펼치기" : "접기")}", 27, Ui.Dim, TextAnchor.MiddleRight);
+            n.rectTransform.Fill(300, 0, 30, 0);
         }
 
         /// 도감 한 줄: 그림, 이름, 수치 두 줄, 설명. locked 가 있으면 이름과 그 말만 보인다
@@ -69,7 +108,7 @@ namespace AbyssDefense
             foreach (var c in cost)
             {
                 if (sb.Length > 0) sb.Append(' ');
-                sb.Append("<color=#").Append(Content.Items[c.item].color.ToString("X6")).Append('>').Append(c.amount).Append("</color>");
+                sb.Append("<color=#").Append(Content.Items[c.item].color.ToString("X6")).Append('>').Append(Ui.Num(c.amount)).Append("</color>");
             }
             return sb.ToString();
         }
@@ -98,20 +137,28 @@ namespace AbyssDefense
             return sb.ToString();
         }
 
-        void DexUnits(List<System.Action<Transform, float>> rows)
+        /// 유닛은 만드는 공장별로 묶는다
+        void DexUnits(List<DexGroup> groups)
         {
             foreach (var bd in Content.Blocks)
             {
                 if (bd.kind != BlockKind.Factory) continue;
-                foreach (var u in bd.units) rows.Add(UnitRow(u, bd.name));
+                var g = new DexGroup(bd.name, Art.C(bd.color));
+                foreach (var u in bd.units) g.Add(UnitOpen(u), UnitRow(u, null));
+                groups.Add(g);
             }
-            rows.Add(UnitRow(Content.Escort, "모함·기함이 띄운다"));
-            rows.Add(UnitRow(Content.Commander, "핵에서 나온다"));
+            var etc = new DexGroup("공장 밖의 유닛", Ui.Gold);
+            etc.Add(UnitOpen(Content.Escort), UnitRow(Content.Escort, "모함·기함이 띄운다"));
+            etc.Add(UnitOpen(Content.Commander), UnitRow(Content.Commander, "핵에서 나온다"));
+            groups.Add(etc);
         }
 
+        bool UnitOpen(UnitDef u) => u.tech < 0 || Research.Level(save.research, u.tech) > 0;
+
+        /// from: 어디서 나오는지 (공장별 묶음 안에서는 묶음 제목이 말해 주므로 null)
         System.Action<Transform, float> UnitRow(UnitDef u, string from)
         {
-            bool open = u.tech < 0 || Research.Level(save.research, u.tech) > 0;
+            bool open = UnitOpen(u);
             string move = u.flying ? "비행" : u.naval ? "해상" : u.hover ? "부양" : u.legs ? "다리(벽을 넘는다)" : "지상";
             var sb = new System.Text.StringBuilder();
             sb.Append($"체력 {u.health:0}  방어력 {u.armor:0.#}  속도 {u.speed * 60:0.#}칸/초");
@@ -121,8 +168,9 @@ namespace AbyssDefense
             else if (u.bullet != null) sb.Append($"사거리 {u.range:0.#}  {u.reloadTicks / 60f:0.##}초마다  {BulletText(u.bullet)}  ({Targets(u.targetAir, u.targetGround)})");
             else if (u.fieldDamage > 0) sb.Append($"사거리 {u.range:0.#}  {u.reloadTicks / 60f:0.##}초마다 적 {u.fieldTargets}기에 {u.fieldDamage:0}");
             else sb.Append("무기 없음");
-            string sub = u.cost.Length > 0 ? $"  <size=24><color=#9EA6B8>{u.tier}단계 · {move} · {from} · 한도 {u.supply} · {u.buildTicks / 60}초 · </color>{Cost(u.cost)}</size>" : $"  <size=24><color=#9EA6B8>{move} · {from}</color></size>";
-            string locked = open ? null : $"{u.tier}단계 · {from}\n연구 필요: {Research.Defs[u.tech].name}";
+            string at = from != null ? " · " + from : "";
+            string sub = u.cost.Length > 0 ? $"  <size=24><color=#9EA6B8>{u.tier}단계 · G{u.tier} · {move}{at} · 한도 {u.supply} · {u.buildTicks / 60}초 · </color>{Cost(u.cost)}</size>" : $"  <size=24><color=#9EA6B8>{move}{at}</color></size>";
+            string locked = open ? null : $"{u.tier}단계{at}\n연구 필요: {Research.Defs[u.tech].name}";
             return (p, y) =>
             {
                 DexRow(p, y, Art.Get("unit_" + u.key), u.name + (open ? sub : ""), Art.C(u.color), sb.ToString(), u.desc, locked);
@@ -140,20 +188,30 @@ namespace AbyssDefense
             return 0;
         }
 
-        void DexEnemies(List<System.Action<Transform, float>> rows)
+        /// 적은 지상·비행·보스로 묶고, 묶음 안에서는 처음 나오는 지역 순으로
+        void DexEnemies(List<DexGroup> groups)
         {
             int seen = BestStage + 1;
-            foreach (var e in Content.Enemies)
+            var ground = new DexGroup("지상", new Color(0.85f, 0.45f, 0.4f));
+            var air = new DexGroup("비행", new Color(0.55f, 0.75f, 1f));
+            var boss = new DexGroup("보스", Ui.Gold);
+            groups.Add(ground); groups.Add(air); groups.Add(boss);
+            var order = new List<EnemyDef>(Content.Enemies);
+            var firsts = new Dictionary<EnemyDef, int>();
+            foreach (var e in order) firsts[e] = FirstRegion(e);
+            order.Sort((x, z) => firsts[x] != firsts[z] ? firsts[x].CompareTo(firsts[z]) : System.Array.IndexOf(Content.Enemies, x).CompareTo(System.Array.IndexOf(Content.Enemies, z)));
+            foreach (var e in order)
             {
-                int first = FirstRegion(e);
+                int first = firsts[e];
+                var rows = e.boss ? boss : e.flying ? air : ground;
                 var sb = new System.Text.StringBuilder();
                 sb.Append($"체력 {e.health:0}  방어력 {e.armor:0.#}  속도 {e.speed * 60:0.#}칸/초\n공격 {e.damage:0} ({e.attackTicks / 60f:0.##}초마다)  사거리 {e.range:0.#}");
                 if (e.barrier > 0) sb.Append($"  보호막 {e.barrier:0}");
                 if (e.heal > 0) sb.Append($"  수리 {e.heal:0}/초");
-                string kind = (e.boss ? "보스" : e.flying ? "비행" : "지상") + $" · 지역 {first} 부터";
+                string kind = (e.boss ? "보스" : e.flying ? "비행" : "지상") + $" · 지역 {first} 부터 · 등급 지역 기준 {(e.gradeOffset > 0 ? "+" + e.gradeOffset : e.gradeOffset < 0 ? e.gradeOffset.ToString() : "±0")}";
                 string locked = first > seen ? $"아직 만나지 못한 적\n지역 {first} 부터 나온다" : null;
                 var def = e;
-                rows.Add((p, y) =>
+                rows.Add(locked == null, (p, y) =>
                 {
                     DexRow(p, y, Art.Get("enemy_" + def.key), locked != null ? "???" : $"{def.name}  <size=24><color=#9EA6B8>{kind} · 수치는 지역 1 기준</color></size>", Art.C(def.color), sb.ToString(), def.desc, locked);
                     p.GetChild(p.childCount - 1).GetChild(1).GetComponent<Text>().supportRichText = true;
@@ -161,13 +219,21 @@ namespace AbyssDefense
             }
         }
 
-        void DexBlocks(List<System.Action<Transform, float>> rows)
+        /// 건물은 포탑·방벽·지원 건물·공장으로 묶는다
+        void DexBlocks(List<DexGroup> groups)
         {
+            var turrets = new DexGroup("포탑", Art.C(Content.RapidTurret.color));
+            var walls = new DexGroup("방벽", Art.C(Content.Wall.color));
+            var support = new DexGroup("지원 건물", Art.C(Content.MendTower.color));
+            var factories = new DexGroup("공장", Art.C(Content.RobotFactory.color));
+            var etc = new DexGroup("그 밖의 건물", Ui.Dim);
+            groups.Add(turrets); groups.Add(walls); groups.Add(support); groups.Add(factories); groups.Add(etc);
             foreach (var b in Content.Buildable)
             {
                 bool open = b.tech < 0 || Research.Level(save.research, b.tech) > 0;
+                var rows = b.kind == BlockKind.Turret ? turrets : b.kind == BlockKind.Wall ? walls : b.kind == BlockKind.Support ? support : b.kind == BlockKind.Factory ? factories : etc;
                 var sb = new System.Text.StringBuilder();
-                sb.Append($"체력 {b.health:0}").Append(b.armor > 0 ? $"  방어력 {b.armor:0.#}" : "").Append($"  {b.size}×{b.size}칸");
+                sb.Append($"G{b.grade}  체력 {b.health:0}").Append(b.armor > 0 ? $"  방어력 {b.armor:0.#}" : "").Append($"  {b.size}×{b.size}칸");
                 if (b.kind != BlockKind.Turret) sb.Append($"  건설 {b.buildTicks / 60f:0.#}초\n");
                 if (b.kind == BlockKind.Turret)
                 {
@@ -185,7 +251,7 @@ namespace AbyssDefense
                 string locked = open ? null : $"연구 필요: {Research.Defs[b.tech].name}";
                 var def = b;
                 bool tall = b.kind == BlockKind.Turret && b.ammos.Length > 2;
-                rows.Add((p, y) =>
+                rows.Add(open, (p, y) =>
                 {
                     DexRow(p, y, Art.Icon(def), def.name + (open ? $"  <size=24>{Cost(def.cost)}</size>" : ""), Art.C(def.color), sb.ToString(), tall ? "" : def.desc, locked);
                     var row = p.GetChild(p.childCount - 1);

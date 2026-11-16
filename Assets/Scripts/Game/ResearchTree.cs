@@ -63,10 +63,10 @@ namespace AbyssDefense
         int PaidIdx(ResearchDef d, int item) => d.id * Content.Items.Length + item;
 
         /// 다음 단계까지 아직 내야 할 비용
-        public int[] ResearchRemaining(ResearchDef d)
+        public double[] ResearchRemaining(ResearchDef d)
         {
             var c = Research.Cost(d, save.research[d.id]);
-            for (int i = 0; i < c.Length; i++) c[i] = Mathf.Max(0, c[i] - save.researchPaid[PaidIdx(d, i)]);
+            for (int i = 0; i < c.Length; i++) c[i] = System.Math.Max(0, c[i] - save.researchPaid[PaidIdx(d, i)]);
             return c;
         }
 
@@ -74,9 +74,9 @@ namespace AbyssDefense
         public float ResearchProgress(ResearchDef d)
         {
             var c = Research.Cost(d, save.research[d.id]);
-            float sum = 0, paid = 0;
-            for (int i = 0; i < c.Length; i++) { sum += c[i]; paid += Mathf.Min(c[i], save.researchPaid[PaidIdx(d, i)]); }
-            return sum <= 0 ? 0 : paid / sum;
+            double sum = 0, paid = 0;
+            for (int i = 0; i < c.Length; i++) { sum += c[i]; paid += System.Math.Min(c[i], save.researchPaid[PaidIdx(d, i)]); }
+            return sum <= 0 ? 0 : (float)(paid / sum);
         }
 
         /// 앞 연구를 마쳤고 지역 조건도 맞아 지금 연구할 수 있다
@@ -295,7 +295,7 @@ namespace AbyssDefense
         }
 
         static string EffectText(ResearchDef d, int lv) =>
-            d.maxLevel == 1 ? (lv > 0 ? "해금됨" : "잠김") : d.id == Research.Loadout ? $"+{BaseRules.LoadoutBonus(lv):N0}" : d.percent ? $"+{Mathf.RoundToInt(lv * d.perLevel * 100)}%" : $"+{(int)(lv * d.perLevel)}";
+            d.maxLevel == 1 ? (lv > 0 ? "해금됨" : "잠김") : d.id == Research.Loadout ? $"한도 {Ui.Num(BaseRules.LoadoutCapAt(lv))}" : d.percent ? $"+{Mathf.RoundToInt(lv * d.perLevel * 100)}%" : $"+{(int)(lv * d.perLevel)}";
 
         /// 고른 연구의 창: 이름·설명·효과, 남은 비용(가진 양 / 남은 양), 연구 버튼
         void ResearchInfo(Transform root, ResearchDef d)
@@ -343,13 +343,13 @@ namespace AbyssDefense
             for (int i = 0; i < remain.Length; i++)
             {
                 if (remain[i] <= 0) continue;
-                int have = (int)save.stock[i];
+                double have = System.Math.Floor(save.stock[i]);
                 if (have > 0) any = true;
                 if (have < remain[i]) all = false;
                 var chip = Ui.Panel(panel.transform, new Color(0, 0, 0, 0.35f), true, "Cost");
                 chip.Rt().At(new Vector2(0, 1), new Vector2(0, 1), 30 + col * 257, -244, 250, 76);
                 Ui.Icon(chip.transform, Art.Get("item_" + Content.Items[i].key)).Rt().At(new Vector2(0, 0.5f), new Vector2(0, 0.5f), 10, 0, 44, 44);
-                var t = Ui.Label(chip.transform, $"{Mathf.Min(have, remain[i]):N0} / {remain[i]:N0}", 29, have >= remain[i] ? Ui.TextCol : Ui.Bad, TextAnchor.MiddleLeft, true);
+                var t = Ui.Label(chip.transform, $"{Ui.Num(System.Math.Min(have, remain[i]))} / {Ui.Num(remain[i])}", 29, have >= remain[i] ? Ui.TextCol : Ui.Bad, TextAnchor.MiddleLeft, true);
                 t.rectTransform.Fill(62, 0, 4, 0);
                 col++;
             }

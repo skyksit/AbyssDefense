@@ -19,6 +19,23 @@ namespace AbyssDefense
         static Font font, bold;
         static Sprite round;
 
+        static readonly string[] Units = { "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No" };
+
+        /// 큰 수를 짧게: 1,000 미만은 정수, 그 위는 유효숫자 세 자리에 단위 (1,234 → 1.23K, 45,600 → 45.6K, 10^13 → 10T)
+        public static string Num(double v)
+        {
+            if (double.IsNaN(v) || double.IsInfinity(v)) return "∞";
+            if (v < 0) return "-" + Num(-v);
+            if (v < 999.5) return Math.Floor(v + 0.5).ToString("0");
+            int u = -1;
+            while (v >= 999.5 && u < Units.Length - 1) { v /= 1000; u++; }
+            string n = v >= 99.95 ? v.ToString("0") : v >= 9.995 ? v.ToString("0.#") : v.ToString("0.##");
+            return n + Units[u];
+        }
+
+        /// 분당 생산량처럼 작은 소수가 의미 있는 수: 100 미만은 소수 한 자리까지
+        public static string Rate(double v) => Math.Abs(v) < 100 ? v.ToString("0.#") : Num(v);
+
         public static Font Font => font != null ? font : font = Load("NanumGothic-Regular");
         public static Font Bold => bold != null ? bold : bold = Load("NanumGothic-Bold");
         static Font Load(string n) => Resources.Load<Font>("Fonts/" + n) ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");

@@ -343,7 +343,7 @@ namespace AbyssDefense
                 else
                 {
                     var def = Selected;
-                    var left = (int[])sim.Core.items.Clone();
+                    var left = (long[])sim.Core.items.Clone();
                     var committed = sim.Committed();
                     for (int i = 0; i < left.Length; i++) left[i] -= committed[i];
                     float half = def.size * 0.5f;

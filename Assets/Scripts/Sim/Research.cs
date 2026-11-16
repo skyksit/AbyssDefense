@@ -7,6 +7,7 @@ namespace AbyssDefense.Sim
     {
         public float damageMul = 1, rangeMul = 1, healthMul = 1, coreHealthMul = 1, ammoMul = 1, bountyMul = 1, buildSpeedMul = 1;
         public float unitMul = 1;                               // 유닛의 피해와 체력
+        public int turretGrade = 1, buildGrade = 1, unitGrade = 1;   // 연구로 오른 등급: 포탑(포탑 화력), 그 밖의 건물(강화 장갑), 유닛(기체 강화)
         public int unitCap = Research.BaseUnitCap;              // 유닛 한도 (유닛마다 단계만큼 차지한다)
         public bool[] tech = new bool[Research.Defs.Length];   // 마친 연구 (건물·유닛 해금 확인용)
     }
@@ -38,17 +39,17 @@ namespace AbyssDefense.Sim
 
         public static readonly ResearchDef[] Defs =
         {
-            new ResearchDef { key = "damage", name = "포탑 화력", desc = "모든 포탑의 피해가 늘어난다", expands = true, maxLevel = 8, perLevel = 0.15f, iron = 100, sulfur = 60, crystal = 40 },
-            new ResearchDef { key = "health", name = "강화 장갑", desc = "방벽·포탑·공장의 체력이 늘어난다", expands = true, maxLevel = 5, perLevel = 0.2f, reqRegion = 2, iron = 110, sulfur = 20, crystal = 30 },
-            new ResearchDef { key = "loadout", name = "출격 물자", desc = "출격할 때 가져갈 수 있는 자원 한도가 늘어난다. 단계가 오를수록 더 크게 늘어난다", maxLevel = 10, perLevel = 150, percent = false, reqRegion = 2, iron = 120, sulfur = 40, crystal = 30 },
+            new ResearchDef { key = "damage", name = "포탑 화력", desc = "모든 포탑의 피해가 늘어난다", expands = true, maxLevel = 11, perLevel = 0.15f, iron = 100, sulfur = 60, crystal = 40 },
+            new ResearchDef { key = "health", name = "강화 장갑", desc = "방벽·포탑·공장의 체력이 늘어난다", expands = true, maxLevel = 11, perLevel = 0.2f, reqRegion = 2, iron = 110, sulfur = 20, crystal = 30 },
+            new ResearchDef { key = "loadout", name = "출격 물자", desc = "출격할 때 가져갈 수 있는 자원 한도가 늘어난다. 단계가 오를수록 더 크게 늘어난다", maxLevel = 11, perLevel = 150, percent = false, reqRegion = 2, iron = 120, sulfur = 40, crystal = 30 },
             new ResearchDef { key = "mortar", name = "박격포 기술", desc = "박격포를 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 2, iron = 150, sulfur = 100 },
-            new ResearchDef { key = "core", name = "핵 보호막", desc = "심연 핵의 체력이 늘어난다", expands = true, maxLevel = 5, perLevel = 0.3f, reqRegion = 4, iron = 120, sulfur = 50, crystal = 40 },
-            new ResearchDef { key = "range", name = "조준 장치", desc = "모든 포탑의 사거리가 늘어난다", maxLevel = 4, perLevel = 0.07f, reqRegion = 4, iron = 90, sulfur = 70, crystal = 40, crystalFrom = 2 },
-            new ResearchDef { key = "mining", name = "채굴 기술", desc = "기지 채굴장의 생산량이 늘어난다", maxLevel = 5, perLevel = 0.1f, reqRegion = 6, iron = 160, sulfur = 60, crystal = 30 },
-            new ResearchDef { key = "ammo", name = "탄약 절약", desc = "자원 하나로 더 많은 탄을 만든다", maxLevel = 4, perLevel = 0.25f, reqRegion = 6, iron = 70, sulfur = 80, crystal = 30 },
-            new ResearchDef { key = "bounty", name = "전리품 회수", desc = "적을 처치하고 얻는 자원이 늘어난다", maxLevel = 5, perLevel = 0.2f, reqRegion = 8, iron = 130, sulfur = 70, crystal = 30 },
+            new ResearchDef { key = "core", name = "핵 보호막", desc = "심연 핵의 체력이 늘어난다", expands = true, maxLevel = 11, perLevel = 0.3f, reqRegion = 4, iron = 120, sulfur = 50, crystal = 40 },
+            new ResearchDef { key = "range", name = "조준 장치", desc = "모든 포탑의 사거리가 늘어난다", maxLevel = 11, perLevel = 0.03f, reqRegion = 4, iron = 90, sulfur = 70, crystal = 40, crystalFrom = 2 },
+            new ResearchDef { key = "mining", name = "채굴 기술", desc = "기지 채굴장의 생산량이 늘어난다", maxLevel = 11, perLevel = 0.1f, reqRegion = 6, iron = 160, sulfur = 60, crystal = 30 },
+            new ResearchDef { key = "ammo", name = "탄약 절약", desc = "자원 하나로 더 많은 탄을 만든다", maxLevel = 11, perLevel = 0.10f, reqRegion = 6, iron = 70, sulfur = 80, crystal = 30 },
+            new ResearchDef { key = "bounty", name = "전리품 회수", desc = "적을 처치하고 얻는 자원이 늘어난다", maxLevel = 11, perLevel = 0.2f, reqRegion = 8, iron = 130, sulfur = 70, crystal = 30 },
             new ResearchDef { key = "lance", name = "결정포 기술", desc = "결정포를 지을 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 10, iron = 300, sulfur = 200, crystal = 40, crystalFrom = 0 },
-            new ResearchDef { key = "build", name = "건설 드론", desc = "지역에서 건물을 더 빨리 짓는다", maxLevel = 4, perLevel = 0.25f, reqRegion = 4, iron = 100, sulfur = 40, crystal = 30 },
+            new ResearchDef { key = "build", name = "건설 드론", desc = "지역에서 건물을 더 빨리 짓는다", maxLevel = 11, perLevel = 0.10f, reqRegion = 4, iron = 100, sulfur = 40, crystal = 30 },
             new ResearchDef { key = "robotfactory", name = "로봇 공장 기술", desc = "로봇 공장을 짓고 척후 로봇을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 6, iron = 200, sulfur = 100,
                 extra = new[] { new ItemStack(Content.Steel, 40) } },
             new ResearchDef { key = "airfield", name = "비행장 기술", desc = "비행장을 짓고 정찰기를 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 8, iron = 250, sulfur = 150,
@@ -57,9 +58,9 @@ namespace AbyssDefense.Sim
                 extra = new[] { new ItemStack(Content.Steel, 100), new ItemStack(Content.Circuit, 80) } },
             new ResearchDef { key = "tier3", name = "기체 개량 II", desc = "3단계 유닛(중장 로봇·강습기)을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 25, iron = 500, sulfur = 300, crystal = 100, crystalFrom = 0,
                 extra = new[] { new ItemStack(Content.Circuit, 150), new ItemStack(Content.Alloy, 60) } },
-            new ResearchDef { key = "command", name = "지휘 체계", desc = "지역에서 거느릴 수 있는 유닛 한도가 늘어난다", maxLevel = 6, perLevel = 2, percent = false, reqRegion = 6, iron = 150, sulfur = 80,
+            new ResearchDef { key = "command", name = "지휘 체계", desc = "지역에서 거느릴 수 있는 유닛 한도가 늘어난다", maxLevel = 11, perLevel = 1, percent = false, reqRegion = 6, iron = 150, sulfur = 80,
                 extra = new[] { new ItemStack(Content.Circuit, 20) } },
-            new ResearchDef { key = "unitpower", name = "기체 강화", desc = "유닛의 피해와 체력이 늘어난다", expands = true, maxLevel = 5, perLevel = 0.12f, reqRegion = 15, iron = 150, sulfur = 100,
+            new ResearchDef { key = "unitpower", name = "기체 강화", desc = "유닛의 피해와 체력이 늘어난다", expands = true, maxLevel = 11, perLevel = 0.12f, reqRegion = 15, iron = 150, sulfur = 100,
                 extra = new[] { new ItemStack(Content.Steel, 40), new ItemStack(Content.Circuit, 30) } },
             new ResearchDef { key = "support", name = "지원 공방 기술", desc = "지원 공방을 짓고 정비 로봇·수리 드론을 만들 수 있게 된다", maxLevel = 1, perLevel = 1, percent = false, reqRegion = 10, iron = 250, sulfur = 150,
                 extra = new[] { new ItemStack(Content.Steel, 60), new ItemStack(Content.Circuit, 40) } },
@@ -127,19 +128,75 @@ namespace AbyssDefense.Sim
         /// 앞 연구를 마쳐 트리에 드러났는가
         public static bool ParentDone(int[] lv, ResearchDef d) => d.parent < 0 || Level(lv, d.parent) > 0;
 
+        // ───────── 비용 ─────────
+        // 단계형 연구: L단계(1부터)는 철광 1K × 10^(L−1) (1K, 10K, … 1T, 10T). 다른 자원은 그 연구의 비율(iron·sulfur·crystal·extra)을 따른다.
+        //   상한 확장으로 늘어난 12단계부터는 한 단계마다 ×ExpansionStep (모두 10T 이상).
+        // 해금 연구(1단계뿐): Mindustry 의 연구비 규칙을 따른다
+        //   - 건물을 여는 연구: 그 건물 비용의 자원마다 round(60 + 수량^1.11 × 20, 10)
+        //   - 유닛을 여는 연구: 그 연구로 열리는 가장 싼 유닛 비용 × 50
+
+        public const double FirstLevelCost = 1000, LevelStep = 10, ExpansionStep = 1.03;
+        public const int StandardLevels = 11;
+        public const double UnitResearchMul = 50;
+
+        static double[][] unlockCost;
+
         /// level(0부터) 에서 다음 단계로 올리는 비용 (자원 번호 순)
-        public static int[] Cost(ResearchDef d, int level)
+        public static double[] Cost(ResearchDef d, int level)
         {
-            float m = 1 + level * 0.9f;
-            var c = new int[Content.Items.Length];
-            c[Content.Iron] = Round10(d.iron * m);
-            c[Content.Sulfur] = Round10(d.sulfur * m);
-            if (d.crystal > 0 && level >= d.crystalFrom) c[Content.Crystal] = Round10(d.crystal * (level - d.crystalFrom + 1));
-            foreach (var e in d.extra) c[e.item] = Round10(e.amount * m);
+            if (d.maxLevel <= 1) return (double[])UnlockCost(d).Clone();
+            var c = new double[Content.Items.Length];
+            double iron = level < StandardLevels
+                ? FirstLevelCost * Math.Pow(LevelStep, level)
+                : FirstLevelCost * Math.Pow(LevelStep, StandardLevels - 1) * Math.Pow(ExpansionStep, level - StandardLevels + 1);
+            double scale = iron / d.iron;
+            c[Content.Iron] = Sig3(d.iron * scale);
+            c[Content.Sulfur] = Sig3(d.sulfur * scale);
+            if (d.crystal > 0 && level >= d.crystalFrom) c[Content.Crystal] = Sig3(d.crystal * scale);
+            foreach (var e in d.extra) c[e.item] = Sig3(e.amount * scale);
             return c;
         }
 
-        static int Round10(float v) => (int)Math.Round(v / 10f) * 10;
+        /// 해금 연구의 비용 (Mindustry 규칙). 여는 것이 없으면 지금 비율에 해금 지역의 경제 배수를 곱한다
+        static double[] UnlockCost(ResearchDef d)
+        {
+            if (unlockCost == null) unlockCost = new double[Defs.Length][];
+            if (unlockCost[d.id] != null) return unlockCost[d.id];
+            var c = new double[Content.Items.Length];
+            bool any = false;
+            foreach (var b in Content.Blocks)
+            {
+                if (b.tech != d.id) continue;
+                // 블록 연구식은 등급 배수를 곱하기 전의 비용에 쓰고, 그 뒤에 등급 배수를 곱한다 (큰 수에 1.11 제곱이 붙어 폭주하지 않게)
+                foreach (var s in b.baseCost) c[s.item] += Math.Round((60 + Math.Pow(s.amount, 1.11) * 20) / 10) * 10 * Content.GradeCostMul(b.grade);
+                any = true;
+            }
+            UnitDef cheapest = null; double cheapestSum = double.MaxValue;
+            foreach (var u in Content.Units)
+            {
+                if (u.tech != d.id) continue;
+                double sum = 0; foreach (var s in u.cost) sum += s.amount;
+                if (sum < cheapestSum) { cheapestSum = sum; cheapest = u; }
+            }
+            if (cheapest != null) { foreach (var s in cheapest.cost) c[s.item] += s.amount * UnitResearchMul; any = true; }
+            if (!any)
+            {
+                double m = Content.EconomyMul(d.reqRegion);
+                c[Content.Iron] = d.iron * m; c[Content.Sulfur] = d.sulfur * m; c[Content.Crystal] = d.crystal * m;
+                foreach (var e in d.extra) c[e.item] += e.amount * m;
+            }
+            for (int i = 0; i < c.Length; i++) c[i] = Sig3(c[i]);
+            return unlockCost[d.id] = c;
+        }
+
+        /// 유효숫자 세 자리로 반올림 (1,234,567 → 1,230,000). 1,000 미만은 10 단위
+        public static double Sig3(double v)
+        {
+            if (v <= 0) return 0;
+            if (v < 1000) return Math.Max(10, Math.Round(v / 10) * 10);
+            double p = Math.Pow(10, Math.Floor(Math.Log10(v)) - 2);
+            return Math.Round(v / p) * p;
+        }
 
         /// 첫 심연 다음의 심연마다 있는 군주·거점 지역의 수 (군주 10 + 거점 10). 그 지역을 하나 점령할 때마다 연구 상한이 하나 늘어난다
         public const int ExpansionsPerAbyss = 20;
@@ -164,6 +221,10 @@ namespace AbyssDefense.Sim
             m.buildSpeedMul = 1 + Level(lv, Build) * Defs[Build].perLevel;
             m.unitMul = 1 + Level(lv, UnitPower) * Defs[UnitPower].perLevel;
             m.unitCap = BaseUnitCap + (int)(Level(lv, Command) * Defs[Command].perLevel);
+            // 연구 단계가 곧 등급: 포탑 화력 → 포탑, 강화 장갑 → 그 밖의 건물, 기체 강화 → 유닛
+            m.turretGrade = Math.Max(1, Level(lv, Damage));
+            m.buildGrade = Math.Max(1, Level(lv, Health));
+            m.unitGrade = Math.Max(1, Level(lv, UnitPower));
             for (int i = 0; i < Defs.Length; i++) m.tech[i] = Level(lv, i) > 0;
             return m;
         }
@@ -176,7 +237,7 @@ namespace AbyssDefense.Sim
         public string name;
         public int output;
         public ItemStack[] inputs;        // 산출물 하나에 드는 원료
-        public float baseRate;            // 1단계의 분당 산출량
+        public double baseRate;           // 1단계의 분당 산출량
         public int reqRegion;             // 이 단계의 지역을 직접 점령해야 지을 수 있다
         public ItemStack[] buildCost, upgradeCost;
     }
@@ -184,16 +245,17 @@ namespace AbyssDefense.Sim
     /// 기지: 심연과 상관없이 자원을 캐고 가공하고 쌓는 곳. 건물 단계와 점령한 지역 수로 분당 생산량이 정해진다.
     public static class BaseRules
     {
-        public const int MaxMineLevel = 10, MaxStorageLevel = 10, MaxRefineryLevel = 8;
+        public const int MaxMineLevel = 30, MaxStorageLevel = 30, MaxRefineryLevel = 30;
         public const int CrystalMineRegion = 10;     // 이 지역을 점령해야 결정 채굴장을 지을 수 있다
-        public const int UpgradeRegionStep = 5;      // 기지 건물의 강화는 Lv 3 부터 단계 5 마다 한 단계씩 열린다
+        public const int UpgradeRegionStep = 10;     // 기지 건물의 강화는 Lv 3 부터 단계 10 마다 한 단계씩 열린다
+        public const double OutputGrowth = 1.8, CostGrowth = 2.0;   // 단계마다 산출 ×1.8, 강화 비용 ×2 (높은 단계일수록 본전을 뽑는 데 오래 걸린다)
 
-        /// 기지 건물을 level → level+1 로 강화하려면 그만큼 깊이 점령해 두어야 하는 단계 (Lv 2 는 6, Lv 3 은 10, Lv 4 는 15, …).
+        /// 기지 건물을 level → level+1 로 강화하려면 그만큼 깊이 점령해 두어야 하는 단계 (Lv 2 는 6, Lv 3 은 20, Lv 4 는 30, … Lv 10 은 90, Lv 30 은 290).
         /// 특정 지역이 아니라 "가장 깊이 점령한 단계"와 견준다: 거점 하나를 건너뛰어도 그 위 단계가 막히지 않게. 건설(0 → 1)은 건물마다 따로 정한 지역을 따른다
         public static int UpgradeRegion(int level) => level <= 0 ? 0 : level == 1 ? 6 : level * UpgradeRegionStep;
         public const int OfflineCapSeconds = 8 * 3600;
         public static readonly string[] MineNames = { "철광 채굴장", "황석 채굴장", "결정 채굴장" };
-        static readonly float[] baseRate = { 30, 12, 6 };
+        static readonly double[] baseRate = { 30, 12, 6 };
 
         public static readonly RefineryDef[] Refineries =
         {
@@ -210,59 +272,61 @@ namespace AbyssDefense.Sim
                 buildCost = new[] { new ItemStack(Content.Iron, 200), new ItemStack(Content.Sulfur, 250), new ItemStack(Content.Steel, 40) },
                 upgradeCost = new[] { new ItemStack(Content.Iron, 120), new ItemStack(Content.Sulfur, 150), new ItemStack(Content.Steel, 30) } },
             new RefineryDef { name = "합금 융합로", output = Content.Alloy, baseRate = 2, reqRegion = 15,
-                inputs = new[] { new ItemStack(Content.Steel, 2), new ItemStack(Content.Crystal, 1) },
+                inputs = new[] { new ItemStack(Content.Steel, 4), new ItemStack(Content.Crystal, 2) },   // Mindustry 의 서지 합금처럼 원료가 무겁다
                 buildCost = new[] { new ItemStack(Content.Iron, 400), new ItemStack(Content.Crystal, 200), new ItemStack(Content.Steel, 100), new ItemStack(Content.Circuit, 60) },
                 upgradeCost = new[] { new ItemStack(Content.Iron, 200), new ItemStack(Content.Crystal, 60), new ItemStack(Content.Steel, 80), new ItemStack(Content.Circuit, 40) } },
         };
 
         static BaseRules() { for (int i = 0; i < Refineries.Length; i++) Refineries[i].id = i; }
 
-        /// 채굴장 한 곳의 분당 생산량
-        public static float MineRate(int item, int level) => level <= 0 || item >= Content.RawCount ? 0 : baseRate[item] * level * (1 + 0.1f * (level - 1));
+        /// 채굴장 한 곳의 분당 생산량: 단계마다 ×1.8
+        public static double MineRate(int item, int level) => level <= 0 || item >= Content.RawCount ? 0 : baseRate[item] * Math.Pow(OutputGrowth, level - 1);
 
-        /// 채굴장을 level → level+1 로 올리는 비용
-        public static int[] MineCost(int item, int level)
+        /// 채굴장을 level → level+1 로 올리는 비용: 단계마다 ×2
+        public static double[] MineCost(int item, int level)
         {
-            var c = new int[Content.Items.Length];
+            var c = new double[Content.Items.Length];
             if (level == 0) { c[0] = item == Content.Crystal ? 600 : 100; c[1] = item == Content.Crystal ? 400 : 50; return c; }
-            float m = (float)Math.Pow(level, 1.7);
+            double m = Math.Pow(CostGrowth, level - 1);
             if (item == Content.Iron) { c[0] = R(120 * m); c[1] = R(40 * m); }
             else if (item == Content.Sulfur) { c[0] = R(100 * m); c[1] = R(60 * m); }
             else { c[0] = R(200 * m); c[1] = R(150 * m); c[2] = R(30 * m); }
             return c;
         }
 
-        /// 가공 건물의 분당 산출량
-        public static float RefineryRate(RefineryDef d, int level) => level <= 0 ? 0 : d.baseRate * level * (1 + 0.1f * (level - 1));
+        /// 가공 건물의 분당 산출량: 단계마다 ×1.8
+        public static double RefineryRate(RefineryDef d, int level) => level <= 0 ? 0 : d.baseRate * Math.Pow(OutputGrowth, level - 1);
 
-        /// 가공 건물을 level → level+1 로 올리는 비용 (0 → 1 은 건설)
-        public static int[] RefineryCost(RefineryDef d, int level)
+        /// 가공 건물을 level → level+1 로 올리는 비용 (0 → 1 은 건설): 단계마다 ×2
+        public static double[] RefineryCost(RefineryDef d, int level)
         {
-            var c = new int[Content.Items.Length];
+            var c = new double[Content.Items.Length];
             if (level == 0) { foreach (var s in d.buildCost) c[s.item] = s.amount; return c; }
-            float m = (float)Math.Pow(level, 1.7);
+            double m = Math.Pow(CostGrowth, level - 1);
             foreach (var s in d.upgradeCost) c[s.item] = R(s.amount * m);
             return c;
         }
 
-        public static int StorageCap(int level) => R(1500 * (float)Math.Pow(1.6, Math.Max(0, level - 1)), 100);
+        /// 창고 한도: 단계마다 ×2.2 (Lv 30 에서 약 1.7 × 10^13)
+        public static double StorageCap(int level) => R(2000 * Math.Pow(2.2, Math.Max(0, level - 1)));
 
-        public static int[] StorageCost(int level)
+        /// 창고 강화 비용: 지금 한도의 30% (철광)와 15% (황석)
+        public static double[] StorageCost(int level)
         {
-            float m = (float)Math.Pow(1.7, level - 1);
-            var c = new int[Content.Items.Length];
-            c[0] = R(250 * m); c[1] = R(120 * m);
+            var c = new double[Content.Items.Length];
+            c[0] = R(StorageCap(level) * 0.3); c[1] = R(StorageCap(level) * 0.15);
             return c;
         }
 
         /// 출격할 때 자원 한 종류를 가져갈 수 있는 최대량
-        public const int BaseLoadout = 400;
-        /// 출격 물자 연구가 더해 주는 한도. 단계가 오를수록 한 단계가 더 크게 늘린다 (+150, +250, +350, …, 10단계에 +6000)
-        public static int LoadoutBonus(int level) => 100 * level + 50 * level * level;
-        public static int LoadoutCap(int[] research) => BaseLoadout + LoadoutBonus(Research.Level(research, Research.Loadout));
+        public const long BaseLoadout = 400;
+        /// 출격 물자 한도: 400 × 4^L (L = 출격 물자 연구 단계). 400 → 1.6K → 6.4K → … → 11단계 약 16.8억
+        public const double LoadoutGrowth = 4;
+        public static long LoadoutCapAt(int level) => (long)(BaseLoadout * Math.Pow(LoadoutGrowth, Math.Max(0, level)));
+        public static long LoadoutCap(int[] research) => LoadoutCapAt(Research.Level(research, Research.Loadout));
 
         /// 지역 하나를 처음 점령했을 때 영구히 늘어나는 생산량: (자원, 분당 양)
-        public static void RegionBonus(int abyss, int region, out int item, out float perMin)
+        public static void RegionBonus(int abyss, int region, out int item, out double perMin)
         {
             int k = region % 3;
             if (k == 1) { item = Content.Iron; perMin = 3; }
@@ -270,18 +334,19 @@ namespace AbyssDefense.Sim
             else if (Content.Stage(abyss, region) >= CrystalMineRegion) { item = Content.Crystal; perMin = 0.75f; }
             else { item = Content.Iron; perMin = 3; }
             if (RegionRules.IsAssault(Content.Stage(abyss, region))) perMin *= 2;   // 적 거점을 부순 지역은 보상이 두 배
+            perMin *= Content.EconomyMul(Content.Stage(abyss, region));          // 깊은 지역일수록 지수로 커진다
         }
 
         /// 점령한 지역들에서 들어오는 분당 생산량 (done[심연][지역] = 그 지역을 점령했는가). 건너뛴 지역은 세지 않는다
-        public static float ConquestRate(int item, bool[][] done)
+        public static double ConquestRate(int item, bool[][] done)
         {
             if (item >= Content.RawCount || done == null) return 0;
-            float sum = 0;
+            double sum = 0;
             for (int a = 0; a < done.Length; a++)
                 for (int r = 1; done[a] != null && r < done[a].Length; r++)
                 {
                     if (!done[a][r]) continue;
-                    RegionBonus(a, r, out int it, out float v);
+                    RegionBonus(a, r, out int it, out double v);
                     if (it == item) sum += v;
                 }
             return sum;
@@ -299,22 +364,37 @@ namespace AbyssDefense.Sim
             return done;
         }
 
+        /// 가장 깊이 점령한 전체 단계 (없으면 0)
+        public static int BestStage(bool[][] done)
+        {
+            int best = 0;
+            for (int a = 0; done != null && a < done.Length; a++)
+                for (int r = 1; done[a] != null && r < done[a].Length; r++)
+                    if (done[a][r]) best = Math.Max(best, Content.Stage(a, r));
+            return best;
+        }
+
+        /// 가공 수율: 원료 한 묶음에서 나오는 가공 자원의 양. 깊이 점령할수록 커진다 (E(가장 깊은 단계)^RefineryYieldExp). 원료는 그대로 든다
+        public const double RefineryYieldExp = 0.8;
+        public static double RefineryYield(bool[][] done) => Math.Pow(Content.EconomyMul(Math.Max(1, BestStage(done))), RefineryYieldExp);
+
         /// 기지 채굴의 분당 총생산량 (가공 건물이 쓰는 양은 빼지 않은 값)
-        public static float Rate(int item, int mineLevel, int[] research, bool[][] done) =>
+        public static double Rate(int item, int mineLevel, int[] research, bool[][] done) =>
             MineRate(item, mineLevel) * (1 + Research.Level(research, Research.Mining) * Research.Defs[Research.Mining].perLevel)
             + ConquestRate(item, done);
 
         /// 가공 건물이 모두 돌 때 자원별 분당 증감 (채굴 + 가공 산출 − 가공 원료)
-        public static float[] NetRates(int[] mineLv, int[] refLv, bool[] refOn, int[] research, bool[][] done)
+        public static double[] NetRates(int[] mineLv, int[] refLv, bool[] refOn, int[] research, bool[][] done)
         {
-            var net = new float[Content.Items.Length];
+            var net = new double[Content.Items.Length];
+            double yield = RefineryYield(done);
             for (int i = 0; i < Content.RawCount; i++) net[i] = Rate(i, mineLv[i], research, done);
             for (int k = 0; k < Refineries.Length; k++)
             {
                 if (!refOn[k]) continue;
                 var d = Refineries[k];
-                float rate = RefineryRate(d, refLv[k]);
-                net[d.output] += rate;
+                double rate = RefineryRate(d, refLv[k]);
+                net[d.output] += rate * yield;
                 foreach (var s in d.inputs) net[s.item] -= rate * s.amount;
             }
             return net;
@@ -323,7 +403,7 @@ namespace AbyssDefense.Sim
         /// 기지를 seconds 초만큼 돌린다: 채굴장이 캐고, 켜 둔 가공 건물이 원료가 있는 만큼 가공한다. 창고 한도까지만 쌓인다
         public static void Advance(double[] stock, int[] mineLv, int[] refLv, bool[] refOn, int[] research, bool[][] done, int storageLv, double seconds)
         {
-            int cap = StorageCap(storageLv);
+            double cap = StorageCap(storageLv), yield = RefineryYield(done);
             var mine = new double[Content.RawCount];
             for (int i = 0; i < mine.Length; i++) mine[i] = Rate(i, mineLv[i], research, done) / 60.0;
             double left = seconds;
@@ -337,15 +417,15 @@ namespace AbyssDefense.Sim
                 {
                     if (!refOn[k] || refLv[k] <= 0) continue;
                     var d = Refineries[k];
-                    double make = Math.Min(RefineryRate(d, refLv[k]) / 60.0 * step, cap - stock[d.output]);
+                    double make = Math.Min(RefineryRate(d, refLv[k]) / 60.0 * step, (cap - stock[d.output]) / yield);
                     foreach (var s in d.inputs) make = Math.Min(make, stock[s.item] / s.amount);
                     if (make <= 0) continue;
                     foreach (var s in d.inputs) stock[s.item] -= make * s.amount;
-                    stock[d.output] += make;
+                    stock[d.output] += make * yield;
                 }
             }
         }
 
-        static int R(float v, int step = 10) => Math.Max(step, (int)Math.Round(v / step) * step);
+        static double R(double v) => Research.Sig3(v);
     }
 }

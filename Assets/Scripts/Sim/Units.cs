@@ -26,7 +26,8 @@ namespace AbyssDefense.Sim
         public Unit parent;              // (함재기) 나를 띄운 기함
         public int spawnTimer;           // (기함) 다음 함재기를 띄우기까지 쌓인 틱
         public int navalGoal = -1, navalTick;   // (해상) 지금 가고 있는 물 칸
-        public int mineTile = -1, mineWork, mineLoad, mineItem, mineTrips;   // (채굴 드론) 캐는 벽 칸, 캔 틱, 싣고 있는 양과 자원, 나른 횟수
+        public int mineTile = -1, mineWork, mineItem, mineTrips;
+        public long mineLoad;   // (채굴 드론) 캐는 벽 칸, 캔 틱, 싣고 있는 양과 자원, 나른 횟수
     }
 
     /// 적에게 부서진 아군 건물의 자리 (재건 드론이 다시 짓는다)
@@ -115,7 +116,7 @@ namespace AbyssDefense.Sim
         public readonly List<Unit> units = new List<Unit>();
         public UnitStance stance = UnitStance.Defend;
         public int unitsBuilt, unitsLost, structuresDestroyed;
-        public readonly int[] mined = new int[Content.Items.Length];   // 채굴 드론이 핵으로 나른 자원
+        public readonly long[] mined = new long[Content.Items.Length];   // 채굴 드론이 핵으로 나른 자원
         public const int MaxRuins = 40;
         public const int AutoRebuildDelay = 10 * 60;   // 부서진 뒤 이 틱이 지나면 스스로 건설 터를 다시 놓는다
         /// 적에게 부서진 건물의 자리. 자동 재건이 켜져 있으면 잠시 뒤 같은 건물의 건설 터를 다시 놓고, 재건 드론은 기다리지 않고 곧바로 놓는다
@@ -325,6 +326,7 @@ namespace AbyssDefense.Sim
         void UpdateUnit(Unit u)
         {
             if (u.dead) return;
+            hitGrade = UnitGrade(u);   // 이 유닛이 쏘고 터뜨리고 짓밟는 피해는 이 등급으로 따진다
             if (u.reload > 0 && !BlizzardStall) u.reload--;
             if (u.reload > 0 && (tick + u.serial) % 3 == 0 && Boosted(u)) u.reload--;
             if (u.acidTicks > 0) u.acidTicks--;
@@ -658,7 +660,7 @@ namespace AbyssDefense.Sim
             int tx = (int)u.x, ty = (int)u.y;
             if (mine >= d.mineMax || !world.In(tx, ty) || world.Solid(tx, ty) || world.tiles[world.Idx(tx, ty)].build != null) { u.layTimer = d.mineEvery; return; }
             u.layTimer = 0;
-            mines.Add(new Mine { def = d.minelay, x = u.x, y = u.y, damage = d.minelay.damage * world.mods.unitMul, arm = MineArmTicks, owner = u });
+            mines.Add(new Mine { def = d.minelay, x = u.x, y = u.y, damage = d.minelay.damage * world.mods.unitMul, arm = MineArmTicks, owner = u, grade = UnitGrade(u) });
             fx.Add(new Fx { kind = FxKind.Spawn, x = u.x, y = u.y, r = 0.4f, color = d.minelay.color });
         }
 
@@ -877,7 +879,9 @@ namespace AbyssDefense.Sim
         /// 적 건물에 피해를 준다 (부서지는 처리는 틱 끝에서)
         void HurtBuilding(Building b, float dmg, bool ignoreArmor = false)
         {
-            b.health -= ignoreArmor ? dmg : Armored(dmg, b.def.armor);
+            float hit = ignoreArmor ? dmg : Armored(dmg, b.def.armor);
+            hit *= GradeHit(hitGrade, BuildingGrade(b));
+            b.health -= hit;
             b.hitFlash = 6;
         }
 
@@ -1046,14 +1050,15 @@ namespace AbyssDefense.Sim
         {
             if (e.cooldown > 0) return;
             e.cooldown = e.def.attackTicks;
-            HurtUnit(u, e.def.damage * EnemyDamageMul, e.def.color);
+            HurtUnit(u, e.def.damage * EnemyDamageMul, e.def.color, e.grade);
         }
 
         /// 유닛이 피해를 입는다 (적의 공격, 적 포탑)
-        public void HurtUnit(Unit u, float dmg, uint color)
+        /// atkGrade: 때린 쪽의 등급 (등급 차가 피해에 곱해진다)
+        public void HurtUnit(Unit u, float dmg, uint color, int atkGrade)
         {
             if (u.dead) return;
-            float hit = Armored(dmg * ShieldMul(u), u.acidTicks > 0 ? u.def.armor * PoolArmor : u.def.armor);
+            float hit = Armored(dmg * ShieldMul(u), u.acidTicks > 0 ? u.def.armor * PoolArmor : u.def.armor) * GradeHit(atkGrade, UnitGrade(u));
             if (u.maxBarrier > 0)
             {
                 // 자기 보호막이 먼저 받는다. 맞으면 다시 차오르는 것이 미뤄진다

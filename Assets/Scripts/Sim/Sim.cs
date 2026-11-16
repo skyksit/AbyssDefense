@@ -28,10 +28,14 @@ namespace AbyssDefense.Sim
         public int preyTick;         // 먹잇감을 다시 고를 틱
         public float preyX, preyY;   // 유닛을 쫓기 시작한 자리
         public int noUnitUntil;      // 이 틱까지는 유닛을 쫓지 않는다 (너무 멀리 끌려갔다)
+        public Enemy leader;         // 보스와 함께 나온 호위: 보스가 살아 있는 동안 보스의 걸음에 맞춰 같이 간다
+        public float pace;           // 이번 틱에 낼 수 있었던 걸음 (호위가 보스에 맞출 때 쓴다)
         public float Armor => acidTicks > 0 ? armor * acidMul : armor;
         public bool dead;
         public int hitFlash;
         public int serial;
+        public int grade = 1;        // 등급: 지역의 기준 등급 + 종류별 차이
+        public int burnGrade;        // 불을 붙인 쪽의 등급 (화상 피해에 등급 차가 곱해진다)
     }
 
     public sealed class Bullet
@@ -46,6 +50,7 @@ namespace AbyssDefense.Sim
         public Enemy target;         // 유도탄이 쫓는 적
         public Unit owner;           // 쏜 유닛 (준 피해로 체력을 되찾는 유닛만)
         public List<Enemy> hit;      // 관통탄이 이미 맞힌 적
+        public int grade;            // 쏜 포탑·유닛의 등급
     }
 
     /// 기뢰 부설기가 깔아 둔 지뢰. 지상의 적이 밟으면 터진다
@@ -56,6 +61,7 @@ namespace AbyssDefense.Sim
         public int arm;              // 이 틱이 지나야 터질 수 있다
         public Unit owner;
         public bool dead;
+        public int grade;            // 깐 유닛의 등급
     }
 
     public enum FxKind { Hit, Explode, EnemyDeath, Spawn, BuildDestroyed, EnemyAttack, Shoot, Chain }
@@ -94,16 +100,16 @@ namespace AbyssDefense.Sim
         public SimState state = SimState.Playing;
 
         public event Action<Building> BuildingAdded, BuildingRemoved;
-        public readonly int[] looted = new int[Content.Items.Length];   // 이 판에서 전리품으로 얻은 자원
+        public readonly long[] looted = new long[Content.Items.Length];   // 이 판에서 전리품으로 얻은 자원
 
-        struct Pending { public int tick, tile; public EnemyDef def; public WaveGroup group; }
+        struct Pending { public int tick, tile; public EnemyDef def; public WaveGroup group; public List<WaveGroup> escorts; }
         readonly List<Pending> pending = new List<Pending>();
         readonly Rng rng;
         bool fieldDirty = true;
         int serial;
 
         /// loadout = 기지에서 가져온 자원 [철광, 황석, 심연 결정]
-        public Sim(int abyssId, int region, int[] loadout = null, SimMods mods = null)
+        public Sim(int abyssId, int region, long[] loadout = null, SimMods mods = null)
         {
             rules = RegionRules.For(abyssId, region);
             abyss = Content.Abysses[abyssId];
@@ -131,7 +137,7 @@ namespace AbyssDefense.Sim
         /// 적의 공격력 배수 (깊을수록 세다)
         public float EnemyDamageMul => rules.enemyDamageMul;
         public bool AllWavesSent => !rules.assault && wave >= rules.winWave;
-        public int PendingSpawns => pending.Count;
+        public int PendingSpawns { get { int n = 0; foreach (var p in pending) n += 1 + (p.escorts != null ? p.escorts.Count : 0); return n; } }   // 보스와 함께 나올 호위도 센다
 
         // ───────── 건설 ─────────
 
@@ -148,13 +154,13 @@ namespace AbyssDefense.Sim
         }
 
         /// 덮어 지을 때 헐리는 건물에서 돌려받는 자원 (철거와 같다). 덮어 짓는 자리가 아니면 null
-        public int[] ReplaceRefund(BlockDef def, int x, int y)
+        public long[] ReplaceRefund(BlockDef def, int x, int y)
         {
             var old = ReplaceTarget(def, x, y);
             if (old == null) return null;
-            var r = new int[Content.Items.Length];
-            float ratio = RefundRatio * (old.health / old.maxHealth);
-            foreach (var c in old.def.cost) r[c.item] += (int)(c.amount * ratio);
+            var r = new long[Content.Items.Length];
+            double ratio = RefundRatio * (old.health / (double)old.maxHealth);
+            foreach (var c in old.def.cost) r[c.item] += (long)(c.amount * ratio);
             return r;
         }
 
@@ -184,7 +190,7 @@ namespace AbyssDefense.Sim
         }
 
         /// 짓고 있는 건물들이 앞으로 가져갈 자원을 빼고도 이 건물 비용이 남는가
-        public bool CanAfford(BlockDef def, int[] refund = null)
+        public bool CanAfford(BlockDef def, long[] refund = null)
         {
             var need = Committed();
             foreach (var c in def.cost) need[c.item] += c.amount;
@@ -193,9 +199,9 @@ namespace AbyssDefense.Sim
         }
 
         /// 건설 중인 건물들이 아직 내지 않은 비용의 합
-        public int[] Committed()
+        public long[] Committed()
         {
-            var need = new int[Content.Items.Length];
+            var need = new long[Content.Items.Length];
             foreach (var b in world.buildings)
                 if (!b.Built)
                     for (int k = 0; k < b.def.cost.Length; k++) need[b.def.cost[k].item] += b.def.cost[k].amount - b.paid[k];
@@ -223,7 +229,7 @@ namespace AbyssDefense.Sim
             b.maxHealth = def.health * world.mods.healthMul;
             b.health = Math.Min(b.maxHealth, Math.Max(b.maxHealth * Building.SiteHealth, kept));
             b.progress = 0;
-            b.paid = new int[def.cost.Length];
+            b.paid = new long[def.cost.Length];
             world.Add(b);
             if (b is FactoryBuilding f) DefaultRally(f);
             fieldDirty = true;
@@ -269,7 +275,17 @@ namespace AbyssDefense.Sim
             // 웨이브 타이머
             if (!AllWavesSent && --waveCountdown <= 0) RunWave();
             for (int i = pending.Count - 1; i >= 0; i--)
-                if (pending[i].tick <= tick) { Spawn(pending[i].def, pending[i].tile, pending[i].group); pending.RemoveAt(i); }
+                if (pending[i].tick <= tick)
+                {
+                    var p = pending[i];
+                    pending.RemoveAt(i);
+                    var boss = Spawn(p.def, p.tile, p.group);
+                    if (p.escorts != null)
+                    {
+                        if (boss != null) SpawnEscorts(boss, p.escorts);
+                        else foreach (var g in p.escorts) Spawn(g.enemy, p.tile, g);   // 보스가 나오지 못했다 (적 핵이 부서졌다): 호위만 따로
+                    }
+                }
 
             if (fieldDirty) { field.Compute(); fieldDirty = false; }
             UpdateWeather();
@@ -314,7 +330,7 @@ namespace AbyssDefense.Sim
                 for (int k = 0; k < b.def.cost.Length && ok; k++)
                 {
                     var c = b.def.cost[k];
-                    int due = (p >= 1f ? c.amount : (int)(c.amount * p)) - b.paid[k];
+                    long due = (p >= 1f ? c.amount : (long)(c.amount * (double)p)) - b.paid[k];
                     if (Core.items[c.item] < due) ok = false;
                 }
                 b.constructing = ok;
@@ -322,7 +338,7 @@ namespace AbyssDefense.Sim
                 for (int k = 0; k < b.def.cost.Length; k++)
                 {
                     var c = b.def.cost[k];
-                    int due = (p >= 1f ? c.amount : (int)(c.amount * p)) - b.paid[k];
+                    long due = (p >= 1f ? c.amount : (long)(c.amount * (double)p)) - b.paid[k];
                     Core.items[c.item] -= due; b.paid[k] += due;
                 }
                 b.health = Math.Min(b.maxHealth, b.health + b.maxHealth * (1 - Building.SiteHealth) * (p - b.progress));
@@ -348,17 +364,63 @@ namespace AbyssDefense.Sim
             wave++;
             waveCountdown = rules.waveTicks;
             if (world.spawns.Count == 0) return;
-            int order = 0;
+            // 보스가 나오는 웨이브: 보스가 먼저 나오고, 그 웨이브의 지상 적은 보스 둘레에 함께 나와 보스의 걸음에 맞춰 같이 간다
+            var bosses = new List<WaveGroup>();
+            foreach (var g in groups) if (g.enemy.boss) for (int i = g.GetSpawned(wave); i > 0; i--) bosses.Add(g);
+            var escorts = new List<WaveGroup>[bosses.Count];
+            for (int b = 0; b < bosses.Count; b++)
+            {
+                escorts[b] = new List<WaveGroup>();
+                pending.Add(new Pending { tick = tick + 1 + b * BossGap, def = bosses[b].enemy, group = bosses[b], tile = world.spawns[rng.Range(0, world.spawns.Count - 1)], escorts = escorts[b] });
+            }
+            int order = 0, k = 0;
             foreach (var g in groups)
             {
+                if (g.enemy.boss) continue;
                 int n = g.GetSpawned(wave);
                 for (int i = 0; i < n; i++)
                 {
-                    int gap = g.enemy.boss ? 120 : 22;
-                    pending.Add(new Pending { tick = tick + 1 + order * gap, def = g.enemy, group = g, tile = world.spawns[rng.Range(0, world.spawns.Count - 1)] });
+                    if (bosses.Count > 0 && !g.enemy.flying) { escorts[k++ % bosses.Count].Add(g); continue; }   // 보스들에게 돌아가며 붙는다
+                    pending.Add(new Pending { tick = tick + 1 + order * 22, def = g.enemy, group = g, tile = world.spawns[rng.Range(0, world.spawns.Count - 1)] });
                     order++;
                 }
                 if (n > 0) order += 2;
+            }
+        }
+
+        const int BossGap = 120;          // 보스가 여럿이면 이만큼 틱을 두고 하나씩
+        const float EscortReach = 2.5f;   // 호위가 보스보다 이만큼 넘게 앞서 나가면 기다린다 (핵까지 남은 길로 잰다)
+
+        /// 보스 둘레의 걸을 수 있는 칸에 호위를 놓는다
+        void SpawnEscorts(Enemy boss, List<WaveGroup> list)
+        {
+            int placed = 0;
+            for (int ring = 0; ring <= 4 && placed < list.Count; ring++)
+                for (int dy = -ring; dy <= ring && placed < list.Count; dy++)
+                    for (int dx = -ring; dx <= ring && placed < list.Count; dx++)
+                    {
+                        if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != ring) continue;
+                        int tx = (int)Math.Floor(boss.x) + dx, ty = (int)Math.Floor(boss.y) + dy;
+                        if (!world.In(tx, ty)) continue;
+                        var t = world.tiles[world.Idx(tx, ty)];
+                        if (t.wall || t.build != null || field.cost[world.Idx(tx, ty)] == float.MaxValue) continue;
+                        for (int s = 0; s < 2 && placed < list.Count; s++)
+                        {
+                            var g = list[placed++];
+                            var e = MakeEnemy(g.enemy, g);
+                            e.x = tx + 0.5f + e.ox; e.y = ty + 0.5f + e.oy;
+                            e.leader = boss;
+                            enemies.Add(e);
+                            fx.Add(new Fx { kind = FxKind.Spawn, x = e.x, y = e.y, r = g.enemy.radius * 2, color = g.enemy.color });
+                        }
+                    }
+            // 자리가 모자라면 남은 호위는 보스 자리에 겹쳐 나온다
+            for (; placed < list.Count; placed++)
+            {
+                var g = list[placed];
+                var e = MakeEnemy(g.enemy, g);
+                e.x = boss.x + e.ox; e.y = boss.y + e.oy; e.leader = boss;
+                enemies.Add(e);
             }
         }
 
@@ -368,6 +430,7 @@ namespace AbyssDefense.Sim
         Enemy MakeEnemy(EnemyDef def, WaveGroup group = null)
         {
             var e = new Enemy { def = def, serial = ++serial };
+            e.grade = Math.Max(1, rules.grade + def.gradeOffset);
             e.elite = group != null && group.elite;
             e.maxHealth = e.health = def.health * rules.enemyHealthMul * (1 + 0.12f * (Math.Max(1, wave) - 1)) * (e.elite ? EliteHealth : 1f);
             e.armor = def.armor * rules.enemyArmorMul;
@@ -377,15 +440,16 @@ namespace AbyssDefense.Sim
             return e;
         }
 
-        void Spawn(EnemyDef def, int s, WaveGroup group = null)
+        Enemy Spawn(EnemyDef def, int s, WaveGroup group = null)
         {
-            if (rules.assault && !(world.tiles[s].build is EnemyCoreBuilding)) return;   // 그 사이에 적 핵이 부서졌다
+            if (rules.assault && !(world.tiles[s].build is EnemyCoreBuilding)) return null;   // 그 사이에 적 핵이 부서졌다
             float sx = s % world.W + 0.5f, sy = s / world.W + 0.5f;
             var e = MakeEnemy(def, group);
             if (def.flying) { e.x = sx + rng.Range(-4f, 4f); e.y = world.H - 0.5f; }
             else { e.x = sx + rng.Range(-1.2f, 1.2f); e.y = sy + rng.Range(-1.2f, 1.2f); }
             enemies.Add(e);
             fx.Add(new Fx { kind = FxKind.Spawn, x = e.x, y = e.y, r = def.radius * 2, color = def.color });
+            return e;
         }
 
         /// 싸움 도중에 생기는 적 (분열, 수송체가 내려놓는 적): (x, y) 둘레의 걸을 수 있는 칸에 놓는다
@@ -430,6 +494,7 @@ namespace AbyssDefense.Sim
                 // 불타는 적은 0.25초마다 피해를 입는다
                 if (--e.burnTicks % 15 == 0)
                 {
+                    hitGrade = e.burnGrade;
                     Damage(e, e.burnDps * 0.25f, true);
                     fx.Add(new Fx { kind = FxKind.Hit, x = e.x, y = e.y, r = e.def.radius * 0.8f, color = 0xFF922B });
                     if (e.dead) return;
@@ -450,6 +515,19 @@ namespace AbyssDefense.Sim
             float speed = e.def.speed * rules.enemySpeedMul * (e.elite ? EliteSpeed : 1f);
             if (e.def.flying && Blizzard) speed *= BlizzardFly;
             if (e.slowTicks > 0) { e.slowTicks--; speed *= e.slowMul; }
+            e.pace = speed;
+            if (e.leader != null)
+            {
+                // 호위: 보스의 걸음보다 빨리 가지 않고, 보스보다 앞서 나가면 멈춰서 기다린다. 보스가 죽으면 제 걸음으로 간다
+                var l = e.leader;
+                if (l.dead) e.leader = null;
+                else
+                {
+                    speed = Math.Min(speed, l.pace);
+                    int ei = world.Idx((int)e.x, (int)e.y), li = world.Idx((int)l.x, (int)l.y);
+                    if (world.In((int)e.x, (int)e.y) && world.In((int)l.x, (int)l.y) && field.cost[ei] < field.cost[li] - EscortReach) speed = 0;
+                }
+            }
 
             // 손이 닿는 곳에 아군 유닛이 있으면 멈춰서 그 유닛부터 친다
             var near = NearestUnit(e.x, e.y, e.def.range + 0.3f, e.def.HitsAir);
@@ -503,7 +581,13 @@ namespace AbyssDefense.Sim
             if (e.def.siege)
             {
                 if (e.def.prefers != EnemyPrefer.Core) target = NearestOfKind(e.x, e.y, e.def.range, e.def.prefers);
-                if (target == null) target = NearestBuilding(e.x, e.y, e.def.range);
+                if (target == null) target = SiegeTarget(e.x, e.y, e.def.range);
+            }
+            else
+            {
+                // 손이 닿는 곳에 포탑이 있으면 길을 막은 방벽보다 포탑부터 친다
+                var turret = SiegeTarget(e.x, e.y, e.def.range);
+                if (turret != null && turret.def.kind == BlockKind.Turret) target = turret;
             }
             int next = field.Next(tx, ty);
             if (target == null && next >= 0)
@@ -540,7 +624,8 @@ namespace AbyssDefense.Sim
                 var b = bs[i];
                 if (b.def.enemy || b.dead || b.def.kind == BlockKind.Wall) continue;
                 float d = b.DistTo(e.x, e.y);
-                if (d > r) continue;
+                // 공성 적(파쇄병·심연 대장 등)은 포탑을 사거리만큼 더 멀리서도 알아보고 찾아간다
+                if (d > (e.def.siege && b.def.kind == BlockKind.Turret ? r + e.def.range : r)) continue;
                 if (b.def.kind == BlockKind.Turret) d -= TurretLure;
                 if (d < bd) { bd = d; best = b; }
             }
@@ -586,7 +671,7 @@ namespace AbyssDefense.Sim
         {
             if (e.cooldown > 0) return;
             e.cooldown = e.def.attackTicks;
-            float dmg = Shielded(b, Armored(e.def.damage * EnemyDamageMul, b.def.armor));
+            float dmg = Shielded(b, Armored(e.def.damage * EnemyDamageMul, b.def.armor) * GradeHit(e.grade, BuildingGrade(b)));
             b.health -= dmg;
             b.hitFlash = 6;
             fx.Add(new Fx { kind = FxKind.EnemyAttack, x = b.Cx, y = b.Cy, r = 0.4f, color = e.def.color });
@@ -638,6 +723,23 @@ namespace AbyssDefense.Sim
             return dmg;
         }
 
+        /// 사거리 안에서 칠 건물: 포탑 → 그 밖의 건물 → 방벽 순으로, 같은 종류 안에서는 가장 가까운 것
+        Building SiegeTarget(float x, float y, float range)
+        {
+            Building best = null; int bp = int.MaxValue; float bd = float.MaxValue;
+            var bs = world.buildings;
+            for (int i = 0; i < bs.Count; i++)
+            {
+                var b = bs[i];
+                if (b.def.enemy || b.dead) continue;
+                float d = b.DistTo(x, y);
+                if (d > range) continue;
+                int p = b.def.kind == BlockKind.Turret ? 0 : b.def.kind == BlockKind.Wall ? 2 : 1;
+                if (p < bp || (p == bp && d < bd)) { bp = p; bd = d; best = b; }
+            }
+            return best;
+        }
+
         Building NearestBuilding(float x, float y, float range)
         {
             Building best = null; float bd = range;
@@ -661,10 +763,10 @@ namespace AbyssDefense.Sim
             if (b.def.enemy)
             {
                 // 적 건물: 전리품이 들어오고, 적 핵이었다면 그 출현 지점이 사라진다
-                float bm = rules.bountyMul * world.mods.bountyMul;
+                double bm = rules.bountyMul * world.mods.bountyMul * rules.lootMul;
                 foreach (var s in b.def.bounty)
                 {
-                    int n = Math.Max(1, (int)Math.Round(s.amount * bm));
+                    long n = Math.Max(1, (long)Math.Round(s.amount * bm));
                     Core.Add(s.item, n);
                     looted[s.item] += n;
                 }
@@ -734,6 +836,7 @@ namespace AbyssDefense.Sim
         public void Fire(TurretBuilding t, float tx, float ty)
         {
             var bl = t.Ammo.bullet;
+            hitGrade = BuildingGrade(t);
             var b = FireFrom(t.Cx, t.Cy, tx, ty, bl, bl.damage * world.mods.damageMul, 0.5f);
             if (bl.homing > 0) b.target = t.target;
         }
@@ -744,7 +847,7 @@ namespace AbyssDefense.Sim
             float dx = tx - sx, dy = ty - sy;
             float len = (float)Math.Sqrt(dx * dx + dy * dy);
             if (len < 0.001f) { dx = 1; dy = 0; len = 1; }
-            var b = new Bullet { def = d, x = sx, y = sy, vx = dx / len * d.speed, vy = dy / len * d.speed, damage = damage };
+            var b = new Bullet { def = d, x = sx, y = sy, vx = dx / len * d.speed, vy = dy / len * d.speed, damage = damage, grade = hitGrade };
             b.life = d.artillery ? Math.Max(1, (int)(len / d.speed)) : d.lifeTicks;
             if (d.pierce > 0) b.hit = new List<Enemy>();
             bullets.Add(b);
@@ -770,6 +873,7 @@ namespace AbyssDefense.Sim
             b.x += b.vx; b.y += b.vy;
             b.life--;
             var d = b.def;
+            hitGrade = b.grade;
             if (d.artillery)
             {
                 if (b.life > 0) return;
@@ -854,6 +958,7 @@ namespace AbyssDefense.Sim
                 }
                 if (!hit) continue;
                 m.dead = true;
+                hitGrade = m.grade;
                 Splash(m.x, m.y, m.def.splash, m.damage, false);
                 StatusAround(m.x, m.y, m.def.splash, m.def);
                 if (m.def.burn > 0) BurnAround(m.x, m.y, m.def.splash, m.def, false);
@@ -958,6 +1063,7 @@ namespace AbyssDefense.Sim
             if (e.dead) return;
             if (e.wetTicks > 0) { e.wetTicks = 0; return; }
             if (e.burnTicks > 0 && e.burnDps > d.burn) return;
+            e.burnGrade = hitGrade;
             e.burnDps = d.burn; e.burnTicks = e.acidTicks > 0 ? (int)(d.burnTicks * AcidBurn) : d.burnTicks;
         }
 
@@ -1017,10 +1123,31 @@ namespace AbyssDefense.Sim
             }
         }
 
+        // ───────── 등급 ─────────
+
+        /// 지금 피해를 주는 쪽의 등급 (포탑이 쏠 때, 탄·지뢰가 터질 때, 유닛이 움직일 때 정한다. 0 = 등급 차를 따지지 않는다: 용암 같은 지형)
+        int hitGrade;
+
+        /// 등급 차를 피해에 곱하는가 (규칙 검사에서 다른 규칙만 따로 잴 때 끈다)
+        public static bool GradesDefault = true;
+        public bool grades = GradesDefault;
+        public float GradeHit(int atk, int target) => grades && atk > 0 ? Content.GradeMul(atk - target) : 1f;
+
+        /// 아군 건물의 등급: 기본 등급과 연구(포탑은 포탑 화력, 그 밖의 건물은 강화 장갑)의 단계 중 큰 쪽. 핵과 적 건물은 지역의 기준 등급
+        public int BuildingGrade(Building b)
+        {
+            if (b.def.enemy || b is CoreBuilding) return rules.grade;
+            return Math.Max(b.def.grade, b.def.kind == BlockKind.Turret ? world.mods.turretGrade : world.mods.buildGrade);
+        }
+
+        /// 아군 유닛의 등급: 단계와 기체 강화 연구의 단계 중 큰 쪽. 지휘기는 지역의 기준 등급을 따른다
+        public int UnitGrade(Unit u) => u.def.commander ? Math.Max(rules.grade, world.mods.unitGrade) : Math.Max(u.def.tier, world.mods.unitGrade);
+
         void Damage(Enemy e, float dmg, bool ignoreArmor = false)
         {
             if (e.dead) return;
             float hit = ignoreArmor ? dmg : Armored(dmg, e.Armor);
+            hit *= GradeHit(hitGrade, e.grade);
             e.barrierWait = e.def.barrierDelay;
             if (e.barrier > 0)
             {
@@ -1035,10 +1162,10 @@ namespace AbyssDefense.Sim
             kills++;
             if (e.def.splitInto != null) SpawnNear(e.def.splitInto, e.x, e.y, e.def.splitCount);
             // 전리품은 핵으로 바로 들어온다
-            float bm = rules.bountyMul * world.mods.bountyMul * (e.elite ? EliteBounty : 1f);
+            double bm = rules.bountyMul * world.mods.bountyMul * rules.lootMul * (e.elite ? EliteBounty : 1f);
             foreach (var s in e.def.bounty)
             {
-                int n = Math.Max(1, (int)Math.Round(s.amount * bm));
+                long n = Math.Max(1, (long)Math.Round(s.amount * bm));
                 Core.Add(s.item, n);
                 looted[s.item] += n;
             }

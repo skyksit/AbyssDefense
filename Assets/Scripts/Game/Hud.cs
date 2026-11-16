@@ -452,24 +452,25 @@ namespace AbyssDefense
                 ammoBg[i].gameObject.SetActive(has);
                 if (!has) continue;
                 var a = t.def.ammos[i];
-                int stock = sim.Core.items[a.item];
+                long stock = sim.Core.items[a.item];
                 int per = Mathf.RoundToInt(a.perItem * sim.world.mods.ammoMul);
                 ammoBg[i].color = t.ammoIdx == i ? new Color(0.25f, 0.45f, 0.42f) : Ui.Card;
-                ammoText[i].text = $"{a.name}\n<color=#{Content.Items[a.item].color:X6}>{Content.Items[a.item].name} {stock}</color> · {per}발\n<color=#9EA6B8>{a.desc}</color>";
+                ammoText[i].text = $"{a.name}\n<color=#{Content.Items[a.item].color:X6}>{Content.Items[a.item].name} {Ui.Num(stock)}</color> · {per}발\n<color=#9EA6B8>{a.desc}</color>";
                 ammoText[i].fontSize = 20;
                 ammoText[i].color = stock > 0 || (t.ammoIdx == i && t.ammo > 0) ? Ui.TextCol : Ui.Dim;
             }
             for (int i = 0; i < modeBg.Length; i++) modeBg[i].color = (int)t.mode == i ? new Color(0.25f, 0.45f, 0.42f) : Ui.Card;
-            int oc = sim.Core.items[Sim.Sim.OverchargeItem];
+            long oc = sim.Core.items[Sim.Sim.OverchargeItem];
             overBg.color = t.overcharge ? (oc > 0 || t.overchargeLeft > 0 ? new Color(0.62f, 0.44f, 0.16f) : new Color(0.5f, 0.24f, 0.26f)) : Ui.Card;
-            overText.text = (t.overcharge ? "과부하 켬" : "과부하 끔") + $"\n<color=#{Content.Items[Sim.Sim.OverchargeItem].color:X6}>회로 {oc}</color>";
+            overText.text = (t.overcharge ? "과부하 켬" : "과부하 끔") + $"\n<color=#{Content.Items[Sim.Sim.OverchargeItem].color:X6}>회로 {Ui.Num(oc)}</color>";
         }
 
         /// 건물을 탭했을 때 설명 줄에 잠깐 보여 준다
         public void ShowInfo(Building b)
         {
             if (b == null) return;
-            string s = $"{b.def.name}  체력 {Mathf.CeilToInt(b.health)}/{(int)b.maxHealth}";
+            int g = sim.BuildingGrade(b), gap = sim.rules.grade - g;
+            string s = $"{b.def.name}  G{g}{(gap >= 2 ? " (이 지역보다 등급이 낮습니다)" : "")}  체력 {Mathf.CeilToInt(b.health)}/{(int)b.maxHealth}";
             if (!b.Built) s = $"{b.def.name}  건설 중 {Mathf.FloorToInt(b.progress * 100)}%" + (b.constructing ? "" : "  (순서를 기다리거나 자원이 부족합니다)");
             else if (b is TurretBuilding t)
                 s += t.Starved ? $"  탄약 없음 ({Content.Items[t.Ammo.item].name} 부족)" : $"  {t.Ammo.name}: {Content.Items[t.Ammo.item].name} 하나에 {t.AmmoPerItem}발";
@@ -489,7 +490,7 @@ namespace AbyssDefense
             foreach (var c in cost)
             {
                 if (sb.Length > 0) sb.Append("  ");
-                sb.Append("<color=#").Append(Content.Items[c.item].color.ToString("X6")).Append('>').Append(c.amount).Append("</color>");
+                sb.Append("<color=#").Append(Content.Items[c.item].color.ToString("X6")).Append('>').Append(Ui.Num(c.amount)).Append("</color>");
             }
             return sb.ToString();
         }
@@ -546,7 +547,7 @@ namespace AbyssDefense
             var core = sim.Core;
             for (int i = 0; i < itemTexts.Length; i++)
             {
-                itemTexts[i].text = core.items[i].ToString();
+                itemTexts[i].text = Ui.Num(core.items[i]);
                 itemTexts[i].color = core.items[i] > 0 ? Ui.TextCol : new Color(1, 1, 1, 0.28f);
             }
 
@@ -586,7 +587,8 @@ namespace AbyssDefense
                 bool afford = sim.CanAfford(s.def);
                 s.bg.color = play.Selected == s.def ? new Color(0.25f, 0.45f, 0.42f) : Ui.Card;
                 s.icon.color = unlocked ? Color.white : new Color(1, 1, 1, 0.25f);
-                s.cost.text = unlocked ? CostText(s.def.cost) : "연구 필요";
+                int g = System.Math.Max(s.def.grade, s.def.kind == BlockKind.Turret ? sim.world.mods.turretGrade : sim.world.mods.buildGrade);
+                s.cost.text = unlocked ? $"<color=#{(sim.rules.grade - g >= 2 ? "F05A5A" : "9EA6B8")}>G{g}</color> " + CostText(s.def.cost) : "연구 필요";
                 s.name.color = !unlocked ? Ui.Dim : afford ? Ui.TextCol : Ui.Bad;   // 자원이 모자라면 이름이 붉다
             }
 
@@ -612,7 +614,7 @@ namespace AbyssDefense
 
         // ───────── 결과 창 ─────────
 
-        void ShowResult(bool won, int[] returned, string bonus, List<string> unlocked)
+        void ShowResult(bool won, long[] returned, string bonus, List<string> unlocked)
         {
             play.Cancel();
             factoryPanel.SetActive(false);
@@ -641,9 +643,9 @@ namespace AbyssDefense
             for (int i = 0; i < returned.Length; i++)
             {
                 if (Taken[i] == 0 && returned[i] == 0 && sim.looted[i] == 0) continue;
-                sb.Append($"{Content.Items[i].name}   가져감 {Taken[i]:N0}");
-                if (sim.looted[i] > 0) sb.Append($"  ·  전리품 {sim.looted[i]:N0}");
-                if (won) sb.Append($"  →  <color=#{Content.Items[i].color:X6}>{returned[i]:N0}</color>");
+                sb.Append($"{Content.Items[i].name}   가져감 {Ui.Num(Taken[i])}");
+                if (sim.looted[i] > 0) sb.Append($"  ·  전리품 {Ui.Num(sim.looted[i])}");
+                if (won) sb.Append($"  →  <color=#{Content.Items[i].color:X6}>{Ui.Num(returned[i])}</color>");
                 sb.Append('\n');
             }
             var res = Ui.Label(card.transform, sb.ToString(), 29, Ui.TextCol, TextAnchor.UpperCenter);
