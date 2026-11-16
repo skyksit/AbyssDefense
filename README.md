@@ -165,7 +165,8 @@
 - `Assets/Scripts/Sim` — 규칙과 시뮬레이션. UnityEngine 을 쓰지 않는 순수 C# (`noEngineReferences`). 60틱 고정, 같은 시드면 같은 결과
   - `Content.cs` 자원·건물·유닛·적·심연 정의 / `Research.cs` 연구와 기지 규칙(`BaseRules`: 채굴·가공·비용·점령 보상) / `World.cs` 타일·건물(포탑·공장) / `Units.cs` 유닛 이동·전투·길찾기 / `Gen.cs` 맵 생성 / `Waves.cs` 지역 규칙·웨이브 / `FlowField.cs` 길찾기 / `Sim.cs` 한 틱 / `Commands.cs` 플레이어 명령 기록·되돌리기·웨이브 미리보기 / `Hazards.cs` 심연 규칙(위험 바닥·눈보라) / `AutoBot.cs` 점검용 자동 플레이
 - `Assets/Scripts/Game` — 화면. 씬에는 카메라만 있고 `Bootstrap` 이 전부 코드로 만든다
-  - `GameManager.cs` 화면 전환·세이브·기지 경제·진행 / `Screens.cs` 기지·심연 선택·지역 지도 / `ResearchTree.cs` 연구 트리 화면 / `Hud.cs` 전투 HUD(미리보기·미니맵)·결과 / `Dex.cs` 도감 / `Hints.cs` 상황별 힌트 / `PlayController.cs` 카메라·건설 조작 / `GameView.cs` 월드 그리기 / `Art.cs` 임시 그림 / `Ui.cs` uGUI 도우미
+  - `GameManager.cs` 화면 전환·세이브·기지 경제·진행 / `Screens.cs` 기지·심연 선택·지역 지도 / `ResearchTree.cs` 연구 트리 화면 / `Hud.cs` 전투 HUD(미리보기·미니맵)·결과 / `Dex.cs` 도감 / `Hints.cs` 상황별 힌트 / `PlayController.cs` 카메라·건설 조작 / `GameView.cs` 월드 그리기(지형·그림자·탄·이펙트) / `Glow.cs` 빛 번짐 / `Art.cs` 임시 그림·재질 / `Ui.cs` uGUI 도우미
+- `Assets/Resources/Shaders` — 액체 바닥(`Liquid`), 더해지는 빛(`Additive`), 빛 번짐(`GlowBlur`, `GlowComposite`). 코드에서 `Resources.Load` 로 읽는다
 - `Assets/Editor/ProjectSetup.cs` — 초기 설정, 빌드 (메뉴 `AbyssDefense/…`)
 - `Tools/SimCheck` — 규칙만 콘솔에서 검사 (Unity 없이)
 

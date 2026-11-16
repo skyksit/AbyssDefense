@@ -173,6 +173,10 @@ namespace AbyssDefense
             shots = new QuadBatch(transform, "Bullets", OrderBullet);
             fxSoft = new QuadBatch(transform, "FxSoft", OrderFx - 1);
             fxAdd = new QuadBatch(transform, "FxGlow", OrderFx, Art.AddMat);
+            // 탄과 빛나는 이펙트는 빛 번짐에도 들어간다
+            shots.go.layer = Glow.Layer;
+            fxAdd.go.layer = Glow.Layer;
+            Glow.Set(Camera.main, true);
             bars = new QuadBatch(transform, "Bars", OrderBars);
             foreach (var b in sim.world.buildings) Add(b);
             sim.BuildingAdded += Add;
@@ -186,6 +190,8 @@ namespace AbyssDefense
                 spawnMarks.Add(sr.transform);
             }
         }
+
+        void OnDestroy() => Glow.Set(Camera.main, false);
 
         SpriteRenderer NewSprite(string name, Sprite sprite, int order, Transform parent = null)
         {
@@ -221,6 +227,7 @@ namespace AbyssDefense
             bool lava = sim.rules.hazard == Hazard.Lava;
             var verts = new List<Vector3>(); var cols = new List<Color32>(); var tris = new List<int>();
             var lverts = new List<Vector3>(); var lcols = new List<Color32>(); var luvs = new List<Vector2>(); var ltris = new List<int>();
+            var glowTiles = new List<Vector2>();
 
             // 네 꼭짓점의 색이 다른 사각형 (c0 왼쪽 아래, c1 오른쪽 아래, c2 오른쪽 위, c3 왼쪽 위)
             void G(float x, float y, float sx, float sy, Color c0, Color c1, Color c2, Color c3)
@@ -324,6 +331,7 @@ namespace AbyssDefense
                     {
                         // 위험 바닥: 용암 틈은 붉은 바탕, 산성 웅덩이는 탁한 연두 바탕. 흐르는 무늬는 셰이더가 얹는다
                         L(x, y, 1, 1, lava ? new Color(0.55f, 0.13f, 0.05f, 0.9f) : new Color(0.25f, 0.42f, 0.08f, 0.9f), lava ? 1 : 2);
+                        glowTiles.Add(new Vector2(x, y));
                         var crust = lava ? new Color(0.16f, 0.05f, 0.03f, 0.75f) : new Color(0.1f, 0.18f, 0.04f, 0.7f);
                         if (!Wet(x - 1, y)) L(x, y, 0.09f, 1, crust, 3);
                         if (!Wet(x + 1, y)) L(x + 0.91f, y, 0.09f, 1, crust, 3);
@@ -355,6 +363,27 @@ namespace AbyssDefense
             var lmr = lgo.AddComponent<MeshRenderer>();
             lmr.sharedMaterial = Art.LiquidMat;
             lmr.sortingOrder = OrderLiquid;
+
+            // 용암·산성의 은은한 빛: 화면에는 그리지 않고 빛 번짐에만 넣는다
+            if (glowTiles.Count == 0) return;
+            var gverts = new List<Vector3>(); var gcols = new List<Color32>(); var gtris = new List<int>();
+            Color32 gc = lava ? new Color(1f, 0.42f, 0.1f, 0.5f) : new Color(0.55f, 0.95f, 0.25f, 0.28f);
+            foreach (var p in glowTiles)
+            {
+                int n = gverts.Count;
+                gverts.Add(new Vector3(p.x, p.y)); gverts.Add(new Vector3(p.x + 1, p.y));
+                gverts.Add(new Vector3(p.x + 1, p.y + 1)); gverts.Add(new Vector3(p.x, p.y + 1));
+                for (int i = 0; i < 4; i++) gcols.Add(gc);
+                gtris.Add(n); gtris.Add(n + 1); gtris.Add(n + 2); gtris.Add(n); gtris.Add(n + 2); gtris.Add(n + 3);
+            }
+            var gmesh = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            gmesh.SetVertices(gverts); gmesh.SetColors(gcols); gmesh.SetTriangles(gtris, 0);
+            var ggo = new GameObject("LiquidGlow") { layer = Glow.OnlyLayer };
+            ggo.transform.SetParent(transform, false);
+            ggo.AddComponent<MeshFilter>().sharedMesh = gmesh;
+            var gmr = ggo.AddComponent<MeshRenderer>();
+            gmr.sharedMaterial = Art.AddMat;
+            gmr.sortingOrder = OrderLiquid;
         }
 
         // ───────── 건물 ─────────
@@ -436,6 +465,11 @@ namespace AbyssDefense
                 }
                 if (b is EnemyTurretBuilding et) v.top.transform.rotation = Quaternion.Euler(0, 0, et.aim * Mathf.Rad2Deg);
                 if (v.top != null) v.topShadow.transform.rotation = v.top.transform.rotation;
+                // 광원: 핵은 천천히 맥동하는 빛, 역장 발생기는 남은 역장만큼의 빛
+                if (b.Built && (b.def.kind == BlockKind.Core || b.def.kind == BlockKind.EnemyCore))
+                    fxAdd.Disc(b.Cx, b.Cy, b.def.size * 0.5f, A(Art.C(b.def.color), 0.3f + 0.08f * Mathf.Sin(time * 2.2f)), A(Art.C(b.def.color), 0), 16);
+                else if (b.Built && b is SupportBuilding gs && b.def.shield > 0 && gs.shieldHp > 0)
+                    fxAdd.Disc(b.Cx, b.Cy, b.def.size * 0.7f, A(Art.C(b.def.color), 0.35f * Mathf.Clamp01(gs.shieldHp / gs.MaxShield)), A(Art.C(b.def.color), 0), 12);
                 if (b is FactoryBuilding fb && b.Built && fb.making != null)
                 {
                     // 유닛 생산 진행 막대
