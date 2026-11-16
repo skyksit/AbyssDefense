@@ -436,10 +436,13 @@ namespace AbyssDefense
             if (sim.rules.hazard != Hazard.None) Toast($"{sim.abyss.hazardName}: {sim.abyss.hazardDesc}", 6f);
         }
 
+        GameView view;
+
         void EnterPlay()
         {
             playRoot = new GameObject("Play");
-            playRoot.AddComponent<GameView>().Init(sim);
+            view = playRoot.AddComponent<GameView>();
+            view.Init(sim);
             play = playRoot.AddComponent<PlayController>();
             play.Init(this, sim, cam);
             cam.backgroundColor = Art.C(sim.abyss.wallColor);
@@ -540,9 +543,11 @@ namespace AbyssDefense
                 acc -= (int)acc;
                 for (int i = 0; i < n && sim.state == SimState.Playing; i++)
                 {
+                    if (i == n - 1 && view != null) view.Capture();   // 마지막 틱 직전의 자리를 기억해 두고, 화면은 거기서 지금 자리까지를 잇는다
                     bot?.Step();
                     sim.Tick();
                 }
+                if (view != null) view.Alpha = acc;
             }
             UpdateHud();
             if (sim.state != SimState.Playing && !ResultShown) Finish();

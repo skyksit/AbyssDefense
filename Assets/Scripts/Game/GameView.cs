@@ -193,6 +193,39 @@ namespace AbyssDefense
 
         void OnDestroy() => Glow.Set(Camera.main, false);
 
+        // ───────── 위치 보간 ─────────
+        // 시뮬레이션은 초당 60틱으로 끊어서 가므로, 화면은 직전 틱의 자리와 지금 자리 사이를 이어서 그린다.
+        // GameManager 가 그 프레임의 마지막 틱 바로 앞에서 Capture 를 부르고, 다음 틱까지 흐른 비율을 Alpha 에 넣는다.
+
+        readonly Dictionary<object, Vector3> prev = new Dictionary<object, Vector3>();   // x, y, 겨눈 각도
+
+        /// 직전 틱에서 지금 틱까지 흐른 비율 (0~1)
+        public float Alpha = 1;
+
+        public void Capture()
+        {
+            if (sim == null) return;
+            prev.Clear();
+            foreach (var e in sim.enemies) prev[e] = new Vector3(e.x, e.y);
+            foreach (var u in sim.units) prev[u] = new Vector3(u.x, u.y, u.aim);
+            if (sim.commander != null) prev[sim.commander] = new Vector3(sim.commander.x, sim.commander.y, sim.commander.aim);
+            foreach (var b in sim.bullets) prev[b] = new Vector3(b.x, b.y);
+        }
+
+        /// 방금 생겼거나 한 틱에 멀리 옮겨진 것(수송기에서 내림 등)은 잇지 않고 지금 자리에 그린다
+        void Lerped(object o, float x, float y, out float ox, out float oy)
+        {
+            ox = x; oy = y;
+            if (!prev.TryGetValue(o, out var p)) return;
+            float dx = x - p.x, dy = y - p.y;
+            if (dx * dx + dy * dy > 4f) return;
+            float k = Mathf.Clamp01(Alpha);
+            ox = p.x + dx * k; oy = p.y + dy * k;
+        }
+
+        float LerpedAim(object o, float aim) =>
+            prev.TryGetValue(o, out var p) ? Mathf.LerpAngle(p.z * Mathf.Rad2Deg, aim * Mathf.Rad2Deg, Mathf.Clamp01(Alpha)) * Mathf.Deg2Rad : aim;
+
         SpriteRenderer NewSprite(string name, Sprite sprite, int order, Transform parent = null)
         {
             var go = new GameObject(name);
@@ -498,36 +531,37 @@ namespace AbyssDefense
                 var sr = enemyPool[i];
                 if (i >= es.Count) { if (sr.enabled) { sr.enabled = false; enemyShadows[i].enabled = false; } continue; }
                 var e = es[i];
+                Lerped(e, e.x, e.y, out float ex, out float ey);
                 sr.enabled = true;
                 sr.sprite = Art.Get("enemy_" + e.def.key);
                 sr.sortingOrder = e.def.flying ? OrderAir : OrderEnemy;
                 // 불타면 주황, 산성이면 보라, 젖으면 파랑, 둔화 중이면 연두
                 sr.color = e.hitFlash > 0 ? new Color(1f, 1f, 1f, 0.6f) : e.burnTicks > 0 ? new Color(1f, 0.62f, 0.3f) : e.acidTicks > 0 ? new Color(0.85f, 0.6f, 1f)
                     : e.wetTicks > 0 ? new Color(0.55f, 0.8f, 1f) : e.slowTicks > 0 ? new Color(0.72f, 1f, 0.55f) : Color.white;
-                sr.transform.position = new Vector3(e.x, e.y);
+                sr.transform.position = new Vector3(ex, ey);
                 sr.transform.localScale = Vector3.one * (e.elite ? 1.35f : 1f);
                 float er = e.def.radius * (e.elite ? 1.35f : 1f);
                 if (e.elite)
                 {
                     // 정예: 머리 위의 금색 마름모
-                    bars.Quad(e.x, e.y + er + 0.3f, 0.2f, 0.2f, new Color(1f, 0.82f, 0.3f), 45);
+                    bars.Quad(ex, ey + er + 0.3f, 0.2f, 0.2f, new Color(1f, 0.82f, 0.3f), 45);
                 }
                 if (e.barrier > 0 && e.barrierMax > 0)
                 {
                     // 보호막: 체력 막대 위의 하늘색 막대
                     float bw = Mathf.Max(0.6f, e.def.radius * 2), bf = Mathf.Clamp01(e.barrier / e.barrierMax);
-                    bars.Quad(e.x, e.y + er + 0.26f, bw + 0.06f, 0.1f, new Color(0, 0, 0, 0.75f));
-                    bars.Quad(e.x - bw * 0.5f * (1 - bf), e.y + er + 0.26f, bw * bf, 0.06f, new Color(0.45f, 0.85f, 1f));
+                    bars.Quad(ex, ey + er + 0.26f, bw + 0.06f, 0.1f, new Color(0, 0, 0, 0.75f));
+                    bars.Quad(ex - bw * 0.5f * (1 - bf), ey + er + 0.26f, bw * bf, 0.06f, new Color(0.45f, 0.85f, 1f));
                 }
-                if (e.cargo > 0) for (int k = 0; k < e.cargo; k++) bars.Quad(e.x - 0.3f + k * 0.2f, e.y - er - 0.1f, 0.14f, 0.14f, Art.C(e.def.carries.color), 45);
+                if (e.cargo > 0) for (int k = 0; k < e.cargo; k++) bars.Quad(ex - 0.3f + k * 0.2f, ey - er - 0.1f, 0.14f, 0.14f, Art.C(e.def.carries.color), 45);
                 if (e.vx != 0 || e.vy != 0)
                     sr.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(e.vy, e.vx) * Mathf.Rad2Deg);
                 SyncShadow(enemyShadows[i], sr, e.def.flying);
                 // 상태 이상: 불타면 불티가 오르고, 산성·젖음은 방울이 떨어진다
-                if (e.burnTicks > 0) { if (Random.value < dt * 9) AddFx(Vk.Ember, e.x + Random.Range(-er, er), e.y + Random.Range(-er, er), 1, new Color(1f, 0.6f, 0.2f), 0.45f); }
-                else if (e.acidTicks > 0) { if (Random.value < dt * 5) AddFx(Vk.Drip, e.x + Random.Range(-er, er), e.y + Random.Range(-er, er), 1, new Color(0.75f, 0.45f, 1f), 0.4f); }
-                else if (e.wetTicks > 0) { if (Random.value < dt * 5) AddFx(Vk.Drip, e.x + Random.Range(-er, er), e.y + Random.Range(-er, er), 1, new Color(0.5f, 0.8f, 1f), 0.4f); }
-                if (e.health < e.maxHealth) HealthBar(e.x, e.y + er + 0.14f, Mathf.Max(0.6f, e.def.radius * 2), e.health / e.maxHealth);
+                if (e.burnTicks > 0) { if (Random.value < dt * 9) AddFx(Vk.Ember, ex + Random.Range(-er, er), ey + Random.Range(-er, er), 1, new Color(1f, 0.6f, 0.2f), 0.45f); }
+                else if (e.acidTicks > 0) { if (Random.value < dt * 5) AddFx(Vk.Drip, ex + Random.Range(-er, er), ey + Random.Range(-er, er), 1, new Color(0.75f, 0.45f, 1f), 0.4f); }
+                else if (e.wetTicks > 0) { if (Random.value < dt * 5) AddFx(Vk.Drip, ex + Random.Range(-er, er), ey + Random.Range(-er, er), 1, new Color(0.5f, 0.8f, 1f), 0.4f); }
+                if (e.health < e.maxHealth) HealthBar(ex, ey + er + 0.14f, Mathf.Max(0.6f, e.def.radius * 2), e.health / e.maxHealth);
             }
 
             // 아군 유닛
@@ -542,14 +576,15 @@ namespace AbyssDefense
                 var u = i < us.Count ? us[i] : cmd;
                 if (u.carrier != null) { if (sr.enabled) { sr.enabled = false; unitShadows[i].enabled = false; } continue; }   // 수송기에 실려 있다
                 sr.enabled = true;
+                Lerped(u, u.x, u.y, out float wx, out float wy);
                 sr.sprite = Art.Get("unit_" + u.def.key);
                 sr.sortingOrder = u.def.flying ? OrderAir + 1 : OrderEnemy + 1;
                 sr.color = u.hitFlash > 0 ? new Color(1f, 0.6f, 0.6f) : u.barrier > 0 ? new Color(0.75f, 0.93f, 1f) : Color.white;   // 보호막이 남아 있으면 하늘색
-                sr.transform.position = new Vector3(u.x, u.y);
-                sr.transform.rotation = Quaternion.Euler(0, 0, u.aim * Mathf.Rad2Deg);
+                sr.transform.position = new Vector3(wx, wy);
+                sr.transform.rotation = Quaternion.Euler(0, 0, LerpedAim(u, u.aim) * Mathf.Rad2Deg);
                 SyncShadow(unitShadows[i], sr, u.def.flying);
-                if (u.health < u.maxHealth) HealthBar(u.x, u.y + u.def.radius + 0.14f, Mathf.Max(0.6f, u.def.radius * 2), u.health / u.maxHealth);
-                if (u.cargo != null) for (int k = 0; k < u.cargo.Count; k++) bars.Quad(u.x - 0.3f + k * 0.2f, u.y - u.def.radius - 0.1f, 0.14f, 0.14f, Art.C(u.cargo[k].def.color), 45);
+                if (u.health < u.maxHealth) HealthBar(wx, wy + u.def.radius + 0.14f, Mathf.Max(0.6f, u.def.radius * 2), u.health / u.maxHealth);
+                if (u.cargo != null) for (int k = 0; k < u.cargo.Count; k++) bars.Quad(wx - 0.3f + k * 0.2f, wy - u.def.radius - 0.1f, 0.14f, 0.14f, Art.C(u.cargo[k].def.color), 45);
             }
 
             // 지뢰: 어두운 마름모 안에 지뢰 색의 점 (아직 터질 수 없는 동안은 흐리다)
@@ -566,6 +601,7 @@ namespace AbyssDefense
             for (int i = 0; i < sim.bullets.Count; i++)
             {
                 var bl = sim.bullets[i];
+                Lerped(bl, bl.x, bl.y, out float bx, out float by);
                 var d = bl.def;
                 var col = Art.C(d.color);
                 float sp = Mathf.Sqrt(bl.vx * bl.vx + bl.vy * bl.vy);
@@ -574,31 +610,31 @@ namespace AbyssDefense
                 {
                     // 화염: 일렁이는 불덩이
                     float fl = 0.8f + 0.45f * Rnd(i, flick);
-                    fxAdd.Disc(bl.x, bl.y, d.size * 2.4f * fl, A(col, 0.7f), A(col, 0), 10);
-                    fxAdd.Disc(bl.x, bl.y, d.size * 1.1f, new Color(1f, 0.95f, 0.7f, 0.8f), A(col, 0), 8);
+                    fxAdd.Disc(bx, by, d.size * 2.4f * fl, A(col, 0.7f), A(col, 0), 10);
+                    fxAdd.Disc(bx, by, d.size * 1.1f, new Color(1f, 0.95f, 0.7f, 0.8f), A(col, 0), 8);
                     continue;
                 }
                 if (d.artillery)
                 {
                     // 곡사탄: 둥근 탄
-                    shots.Disc(bl.x, bl.y, d.size * 0.62f, Color.Lerp(col, Color.white, 0.55f), col, 10);
-                    fxAdd.Disc(bl.x, bl.y, d.size * 1.5f, A(col, 0.35f), A(col, 0), 10);
+                    shots.Disc(bx, by, d.size * 0.62f, Color.Lerp(col, Color.white, 0.55f), col, 10);
+                    fxAdd.Disc(bx, by, d.size * 1.5f, A(col, 0.35f), A(col, 0), 10);
                     continue;
                 }
                 // 잔상: 날아온 쪽으로 가늘어지며 사라지는 꼬리
                 float tail = Mathf.Min(1.5f, sp * (d.homing > 0 ? 7f : 4f)), hw = d.size * 0.3f;
-                fxAdd.Tri(bl.x - uy * hw, bl.y + ux * hw, bl.x + uy * hw, bl.y - ux * hw, bl.x - ux * tail, bl.y - uy * tail, A(col, 0.6f), A(col, 0.6f), A(col, 0));
+                fxAdd.Tri(bx - uy * hw, by + ux * hw, bx + uy * hw, by - ux * hw, bx - ux * tail, by - uy * tail, A(col, 0.6f), A(col, 0.6f), A(col, 0));
                 float ang = Mathf.Atan2(bl.vy, bl.vx) * Mathf.Rad2Deg;
                 if (d.wetTicks > 0 || d.slow > 0 || d.acid > 0)
                 {
                     // 점액·산성: 둥근 방울
-                    shots.Disc(bl.x, bl.y, d.size * 0.85f, col, Mul(col, 0.7f), 10);
-                    shots.Disc(bl.x - d.size * 0.2f, bl.y + d.size * 0.25f, d.size * 0.28f, Color.Lerp(col, Color.white, 0.6f), col, 6);
+                    shots.Disc(bx, by, d.size * 0.85f, col, Mul(col, 0.7f), 10);
+                    shots.Disc(bx - d.size * 0.2f, by + d.size * 0.25f, d.size * 0.28f, Color.Lerp(col, Color.white, 0.6f), col, 6);
                 }
                 else
                 {
-                    shots.Quad(bl.x, bl.y, d.size * 2.2f, d.size * 0.6f, col, ang);
-                    shots.Quad(bl.x + ux * d.size * 0.3f, bl.y + uy * d.size * 0.3f, d.size * 1.2f, d.size * 0.28f, Color.Lerp(col, Color.white, d.chain > 0 ? 0.95f : 0.6f), ang);
+                    shots.Quad(bx, by, d.size * 2.2f, d.size * 0.6f, col, ang);
+                    shots.Quad(bx + ux * d.size * 0.3f, by + uy * d.size * 0.3f, d.size * 1.2f, d.size * 0.28f, Color.Lerp(col, Color.white, d.chain > 0 ? 0.95f : 0.6f), ang);
                 }
             }
 
